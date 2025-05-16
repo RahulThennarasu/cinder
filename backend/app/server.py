@@ -1,8 +1,8 @@
 import asyncio
 import logging
+import uvicorn
 from typing import Dict, Any
 
-import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -34,6 +34,7 @@ async def root():
 
 @app.get("/api/model", response_model=ModelInfoResponse)
 async def get_model_info():
+    global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
@@ -46,6 +47,7 @@ async def get_model_info():
 
 @app.get("/api/errors")
 async def get_errors():
+    global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
@@ -57,15 +59,7 @@ def start_server(model_debugger, port: int = 8000):
     global debugger
     debugger = model_debugger
     
-    config = uvicorn.Config(app, host="0.0.0.0", port=port)
-    server = uvicorn.Server(config)
+    # Start the server in a blocking way
+    uvicorn.run(app, host="0.0.0.0", port=port)
     
-    # Run the server in a separate thread
-    async def run_server():
-        await server.serve()
-    
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.create_task(run_server())
-    
-    return server
+    return app

@@ -120,14 +120,19 @@ class ModelDebugger:
     
     def launch_dashboard(self, port: int = 8000) -> None:
         """Launch the debugging dashboard server."""
+        import threading
         from backend.app.server import start_server
         
         # Analyze if not already done
         if self.predictions is None:
             self.analyze()
-            
-        # Start the server
-        self.server = start_server(self, port=port)
         
         print(f"CompileML dashboard is running at http://localhost:{port}")
         print("Press Ctrl+C to stop the server")
+        
+        # Start the server in a separate thread
+        server_thread = threading.Thread(
+            target=lambda: start_server(self, port=port),
+            daemon=True  # This makes the thread exit when the main program exits
+        )
+        server_thread.start()
