@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/rahulthennarasu/Documents/GitHub/compileML/build/cmake_install.cmake",
-		"/Users/rahulthennarasu/Documents/GitHub/compileML/build/src/compiler/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
