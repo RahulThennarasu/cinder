@@ -1,0 +1,24 @@
+/* src/components/Dashboard.css */
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.dashboard h1 {
+  margin-bottom: 24px;
+  color: #333;
+  text-align: center;
+}
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 768px) {
+  .dashboard-content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
