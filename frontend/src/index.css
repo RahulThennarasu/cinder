@@ -1,21 +1,49 @@
 /* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+:root {
+  --scrollbar-track: #1E1E1E;
+  --scrollbar-thumb: #3E3E42;
+  --scrollbar-thumb-hover: #525257;
+}
+
+html, body {
+  @apply bg-claude-bg text-claude-text-primary;
+  scroll-behavior: smooth;
+}
+
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f3f4f6;
+  line-height: 1.7;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: 'Menlo', Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Claude-style scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Custom animation for the spinner */
@@ -38,53 +66,55 @@ code {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Custom styles for cards */
-.card {
-  @apply bg-white rounded-lg shadow-md overflow-hidden;
-}
+/* Component styles for nice Claude-like styling */
+@layer components {
+  .claude-card {
+    @apply bg-claude-card rounded-claude shadow-card border border-claude-border m-2 overflow-hidden;
+  }
+  
+  .claude-header {
+    @apply px-4 py-3 border-b border-claude-border flex justify-between items-center;
+  }
+  
+  .claude-title {
+    @apply text-lg font-medium text-claude-text-primary;
+  }
+  
+  .claude-card-body {
+    @apply p-4;
+  }
+  
+  .claude-btn {
+    @apply px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-opacity-50;
+  }
+  
+  .claude-btn-primary {
+    @apply claude-btn bg-accent-primary hover:bg-accent-primary/90 text-white focus:ring-accent-primary/50;
+  }
+  
+  .claude-btn-secondary {
+    @apply claude-btn bg-claude-highlight hover:bg-claude-hover text-claude-text-primary focus:ring-claude-border;
+  }
 
-.card-header {
-  @apply px-6 py-4 bg-gray-50 border-b;
-}
+  .claude-btn-danger {
+    @apply claude-btn bg-accent-red hover:bg-accent-red/90 text-white focus:ring-accent-red/50;
+  }
+  
+  .claude-input {
+    @apply bg-claude-bg border border-claude-border rounded-md px-3 py-2 text-claude-text-primary 
+    focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-colors;
+  }
+  
+  .claude-label {
+    @apply block text-sm font-medium text-claude-text-secondary mb-1;
+  }
 
-.card-body {
-  @apply p-6;
-}
+  .claude-tooltip {
+    @apply absolute z-10 bg-claude-card text-claude-text-primary text-sm p-2 rounded-md shadow-lg 
+    border border-claude-border opacity-0 invisible transition-opacity duration-200;
+  }
 
-/* Custom styles for buttons */
-.btn {
-  @apply px-4 py-2 rounded-md transition duration-150 ease-in-out;
-}
-
-.btn-primary {
-  @apply bg-blue-500 text-white hover:bg-blue-600;
-}
-
-.btn-secondary {
-  @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
-}
-
-.btn-danger {
-  @apply bg-red-500 text-white hover:bg-red-600;
-}
-
-.btn-success {
-  @apply bg-green-500 text-white hover:bg-green-600;
-}
-
-/* Status indicators */
-.status-dot {
-  @apply h-3 w-3 rounded-full;
-}
-
-.status-dot-connected {
-  @apply bg-green-500;
-}
-
-.status-dot-connecting {
-  @apply bg-yellow-500;
-}
-
-.status-dot-disconnected {
-  @apply bg-red-500;
+  .group:hover .claude-tooltip {
+    @apply opacity-100 visible;
+  }
 }

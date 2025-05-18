@@ -1,12 +1,11 @@
-// src/App.js - Updated
 import React from 'react';
 import './App.css';
-import Dashboard from './components/Dashboard';
+import MLDashboard from './components/Dashboard';
 
 function App() {
   return (
     <div className="App">
-      <Dashboard />
+      <MLDashboard />
     </div>
   );
 }
