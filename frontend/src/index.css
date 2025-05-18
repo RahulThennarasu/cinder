@@ -6,13 +6,24 @@
 @import 'tailwindcss/utilities';
 
 :root {
-  --scrollbar-track: #1E1E1E;
-  --scrollbar-thumb: #3E3E42;
-  --scrollbar-thumb-hover: #525257;
+  --vscode-bg: #1E1E1E;
+  --vscode-card: #252526;
+  --vscode-border: #3E3E42;
+  --vscode-highlight: #2D2D30;
+  --vscode-hover: #3E3E42;
+  --vscode-blue: #569CD6;
+  --vscode-light-blue: #9CDCFE;
+  --vscode-green: #4EC9B0;
+  --vscode-yellow: #DCDCAA;
+  --vscode-orange: #CE9178;
+  --vscode-purple: #C586C0;
+  --vscode-scrollbar: #3E3E42;
+  --vscode-scrollbar-hover: #525257;
 }
 
 html, body {
-  @apply bg-claude-bg text-claude-text-primary;
+  background-color: #1E1E1E;
+  color: #CCCCCC;
   scroll-behavior: smooth;
 }
 
@@ -27,23 +38,23 @@ code {
   font-family: 'Menlo', Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* Claude-style scrollbars */
+/* VSCode-style scrollbars */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
+  background: #1E1E1E;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
+  background: var(--vscode-scrollbar);
   border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
+  background: var(--vscode-scrollbar-hover);
 }
 
 /* Custom animation for the spinner */
@@ -64,57 +75,4 @@ code {
 
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Component styles for nice Claude-like styling */
-@layer components {
-  .claude-card {
-    @apply bg-claude-card rounded-claude shadow-card border border-claude-border m-2 overflow-hidden;
-  }
-  
-  .claude-header {
-    @apply px-4 py-3 border-b border-claude-border flex justify-between items-center;
-  }
-  
-  .claude-title {
-    @apply text-lg font-medium text-claude-text-primary;
-  }
-  
-  .claude-card-body {
-    @apply p-4;
-  }
-  
-  .claude-btn {
-    @apply px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-opacity-50;
-  }
-  
-  .claude-btn-primary {
-    @apply claude-btn bg-accent-primary hover:bg-accent-primary/90 text-white focus:ring-accent-primary/50;
-  }
-  
-  .claude-btn-secondary {
-    @apply claude-btn bg-claude-highlight hover:bg-claude-hover text-claude-text-primary focus:ring-claude-border;
-  }
-
-  .claude-btn-danger {
-    @apply claude-btn bg-accent-red hover:bg-accent-red/90 text-white focus:ring-accent-red/50;
-  }
-  
-  .claude-input {
-    @apply bg-claude-bg border border-claude-border rounded-md px-3 py-2 text-claude-text-primary 
-    focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary/50 transition-colors;
-  }
-  
-  .claude-label {
-    @apply block text-sm font-medium text-claude-text-secondary mb-1;
-  }
-
-  .claude-tooltip {
-    @apply absolute z-10 bg-claude-card text-claude-text-primary text-sm p-2 rounded-md shadow-lg 
-    border border-claude-border opacity-0 invisible transition-opacity duration-200;
-  }
-
-  .group:hover .claude-tooltip {
-    @apply opacity-100 visible;
-  }
 }

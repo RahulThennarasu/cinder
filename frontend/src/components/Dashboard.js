@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getModelInfo, getErrorAnalysis, getTrainingHistory, getErrorTypes } from '../services/api';
-import ClaudeLayout from '../components/ClaudeLayout';
-import MLFlowChart from '../components/MLFlowChart';
+
+// VSCode theme colors
+const COLORS = {
+  BLUE: '#569CD6',
+  LIGHT_BLUE: '#9CDCFE',
+  GREEN: '#4EC9B0',
+  YELLOW: '#DCDCAA',
+  ORANGE: '#CE9178',
+  PURPLE: '#C586C0',
+  RED: '#F44747',
+  GRAY: '#6B7280',
+};
+
+// Sample colors for pie chart and other visualizations
+const CHART_COLORS = [COLORS.LIGHT_BLUE, COLORS.GREEN, COLORS.YELLOW, COLORS.ORANGE, COLORS.PURPLE];
 
 // Sample data to demonstrate functionality
 const INITIAL_MODEL_INFO = {
@@ -22,8 +35,6 @@ const INITIAL_ERROR_DATA = {
   ]
 };
 
-const COLORS = ['#9CDCFE', '#4EC9B0', '#DCDCAA', '#B5CEA8', '#C586C0', '#CE9178'];
-
 const MLDashboard = () => {
   const [modelInfo, setModelInfo] = useState(INITIAL_MODEL_INFO);
   const [errorData, setErrorData] = useState(INITIAL_ERROR_DATA);
@@ -33,7 +44,7 @@ const MLDashboard = () => {
   const [error, setError] = useState(null);
   const [connected, setConnected] = useState(false);
   const [serverUrl, setServerUrl] = useState("http://localhost:8000");
-  const [activeSection, setActiveSection] = useState('dashboard'); // 'dashboard', 'flowchart', 'settings'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'settings'
   
   // Simulate API call with demo data
   const fetchMockData = () => {
@@ -126,46 +137,46 @@ const MLDashboard = () => {
     });
   };
 
-  const renderDashboardSection = () => (
+  const renderDashboardTab = () => (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         {/* Model Info Card */}
-        <div className="claude-card">
-          <div className="claude-header">
-            <h2 className="claude-title">Model Information</h2>
+        <div className="bg-[#252526] border border-[#3E3E42] rounded-lg shadow-md overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#3E3E42] flex justify-between items-center">
+            <h2 className="text-lg font-medium text-[#CCCCCC]">Model Information</h2>
             {modelInfo && modelInfo.framework && (
-              <span className="px-2 py-1 text-xs rounded-full" 
-                    style={{ backgroundColor: '#4EC9B0' + '30', color: '#4EC9B0' }}>
+              <span className="px-2 py-1 text-xs rounded-full bg-opacity-20" 
+                    style={{ backgroundColor: 'rgba(78, 201, 176, 0.2)', color: COLORS.GREEN }}>
                 {modelInfo.framework}
               </span>
             )}
           </div>
-          <div className="claude-card-body space-y-4">
+          <div className="p-4 space-y-4">
             <div>
-              <p className="text-claude-text-secondary text-sm">Name</p>
-              <p className="text-claude-text-primary text-lg font-medium">{modelInfo?.name || "Unknown"}</p>
+              <p className="text-[#9CA3AF] text-sm">Name</p>
+              <p className="text-[#CCCCCC] text-lg font-medium">{modelInfo?.name || "Unknown"}</p>
             </div>
             <div>
-              <p className="text-claude-text-secondary text-sm">Dataset Size</p>
-              <p className="text-claude-text-primary text-lg font-medium">
+              <p className="text-[#9CA3AF] text-sm">Dataset Size</p>
+              <p className="text-[#CCCCCC] text-lg font-medium">
                 {modelInfo?.dataset_size ? modelInfo.dataset_size.toLocaleString() : "0"} samples
               </p>
             </div>
             <div>
-              <p className="text-claude-text-secondary text-sm">Accuracy</p>
+              <p className="text-[#9CA3AF] text-sm">Accuracy</p>
               <div className="flex items-center">
-                <div className="w-full bg-claude-highlight rounded-full h-3 mr-2">
+                <div className="w-full bg-[#2D2D30] rounded-full h-3 mr-2">
                   <div 
-                    className={`h-3 rounded-full`}
+                    className="h-3 rounded-full transition-all duration-500"
                     style={{ 
                       width: `${(modelInfo?.accuracy || 0) * 100}%`,
-                      backgroundColor: (modelInfo?.accuracy || 0) >= 0.9 ? '#B5CEA8' : 
-                                       (modelInfo?.accuracy || 0) >= 0.7 ? '#DCDCAA' : 
-                                       '#CE9178'
+                      backgroundColor: (modelInfo?.accuracy || 0) >= 0.9 ? COLORS.GREEN : 
+                                      (modelInfo?.accuracy || 0) >= 0.7 ? COLORS.YELLOW : 
+                                      COLORS.ORANGE
                     }}
                   ></div>
                 </div>
-                <span className="text-lg font-medium text-claude-text-primary">
+                <span className="text-lg font-medium text-[#CCCCCC]">
                   {((modelInfo?.accuracy || 0) * 100).toFixed(2)}%
                 </span>
               </div>
@@ -174,11 +185,11 @@ const MLDashboard = () => {
         </div>
         
         {/* Error Distribution Chart */}
-        <div className="claude-card">
-          <div className="claude-header">
-            <h2 className="claude-title">Error Distribution</h2>
+        <div className="bg-[#252526] border border-[#3E3E42] rounded-lg shadow-md overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#3E3E42]">
+            <h2 className="text-lg font-medium text-[#CCCCCC]">Error Distribution</h2>
           </div>
-          <div className="claude-card-body h-64">
+          <div className="p-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={generateErrorDistribution()}
@@ -204,18 +215,18 @@ const MLDashboard = () => {
                   itemStyle={{ color: '#CCCCCC' }}
                   labelStyle={{ color: '#9CA3AF' }}
                 />
-                <Bar dataKey="count" fill="#9CDCFE" name="Error Count" />
+                <Bar dataKey="count" fill={COLORS.LIGHT_BLUE} name="Error Count" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
         
         {/* Error Types Pie Chart */}
-        <div className="claude-card">
-          <div className="claude-header">
-            <h2 className="claude-title">Error Types</h2>
+        <div className="bg-[#252526] border border-[#3E3E42] rounded-lg shadow-md overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#3E3E42]">
+            <h2 className="text-lg font-medium text-[#CCCCCC]">Error Types</h2>
           </div>
-          <div className="claude-card-body h-64">
+          <div className="p-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -228,7 +239,7 @@ const MLDashboard = () => {
                   labelLine={{ stroke: '#3E3E42' }}
                 >
                   {(errorData?.error_types || []).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -255,23 +266,23 @@ const MLDashboard = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Error Analysis */}
-        <div className="claude-card">
-          <div className="claude-header">
-            <h2 className="claude-title">Error Analysis</h2>
+        <div className="bg-[#252526] border border-[#3E3E42] rounded-lg shadow-md overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#3E3E42]">
+            <h2 className="text-lg font-medium text-[#CCCCCC]">Error Analysis</h2>
           </div>
-          <div className="claude-card-body">
+          <div className="p-4">
             <div className="mb-4">
               <div className="flex justify-between mb-2">
-                <span className="text-claude-text-secondary">Error Rate</span>
-                <span className="text-claude-text-primary font-medium">
+                <span className="text-[#9CA3AF]">Error Rate</span>
+                <span className="text-[#CCCCCC] font-medium">
                   {errorData ? 
                     ((errorData.error_count / (errorData.error_count + errorData.correct_count)) * 100).toFixed(2) : 
                     "0.00"}%
                 </span>
               </div>
-              <div className="w-full bg-claude-highlight rounded-full h-3">
+              <div className="w-full bg-[#2D2D30] rounded-full h-3">
                 <div 
-                  className="bg-syntax-string h-3 rounded-full"
+                  className="bg-[#CE9178] h-3 rounded-full transition-all duration-500"
                   style={{ width: errorData ? 
                     `${(errorData.error_count / (errorData.error_count + errorData.correct_count)) * 100}%` : 
                     "0%" }}
@@ -280,11 +291,11 @@ const MLDashboard = () => {
             </div>
             
             <div className="mt-6">
-              <h3 className="text-claude-text-primary font-medium mb-2">Error Indices Sample</h3>
-              <div className="border border-claude-border rounded p-3 h-40 overflow-y-auto">
+              <h3 className="text-[#CCCCCC] font-medium mb-2">Error Indices Sample</h3>
+              <div className="border border-[#3E3E42] rounded p-3 h-40 overflow-y-auto">
                 <div className="grid grid-cols-5 gap-2">
                   {(errorData?.error_indices || []).slice(0, 50).map((index, i) => (
-                    <div key={i} className="bg-claude-highlight p-1 text-center rounded text-sm text-claude-text-secondary">
+                    <div key={i} className="bg-[#2D2D30] p-1 text-center rounded text-sm text-[#9CA3AF]">
                       {index}
                     </div>
                   ))}
@@ -295,11 +306,11 @@ const MLDashboard = () => {
         </div>
         
         {/* Training History Chart */}
-        <div className="claude-card">
-          <div className="claude-header">
-            <h2 className="claude-title">Training History</h2>
+        <div className="bg-[#252526] border border-[#3E3E42] rounded-lg shadow-md overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#3E3E42]">
+            <h2 className="text-lg font-medium text-[#CCCCCC]">Training History</h2>
           </div>
-          <div className="claude-card-body h-64">
+          <div className="p-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={trainingHistory || []}
@@ -332,7 +343,7 @@ const MLDashboard = () => {
                 <Line 
                   type="monotone" 
                   dataKey="accuracy" 
-                  stroke="#4EC9B0" 
+                  stroke={COLORS.GREEN} 
                   activeDot={{ r: 8 }} 
                   name="Accuracy"
                   strokeWidth={2}
@@ -345,39 +356,26 @@ const MLDashboard = () => {
     </>
   );
 
-  const renderFlowchartSection = () => (
-    <div className="mb-6">
-      <div className="claude-card">
-        <div className="claude-header">
-          <h2 className="claude-title">Machine Learning Pipeline</h2>
-        </div>
-        <div className="claude-card-body p-0">
-          <MLFlowChart />
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderSettingsSection = () => (
+  const renderSettingsTab = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="claude-card">
-        <div className="claude-header">
-          <h2 className="claude-title">Connection Settings</h2>
+      <div className="bg-[#252526] border border-[#3E3E42] rounded-lg shadow-md overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#3E3E42]">
+          <h2 className="text-lg font-medium text-[#CCCCCC]">Connection Settings</h2>
         </div>
-        <div className="claude-card-body">
+        <div className="p-4">
           <div className="mb-4">
-            <label className="claude-label">Server URL</label>
+            <label className="block text-sm font-medium text-[#9CA3AF] mb-1">Server URL</label>
             <input
               type="text"
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
-              className="claude-input w-full"
+              className="w-full bg-[#1E1E1E] border border-[#3E3E42] rounded-md px-3 py-2 text-[#CCCCCC] focus:outline-none focus:ring-2 focus:ring-[#007ACC] focus:border-[#007ACC] transition-colors"
             />
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className={`w-3 h-3 rounded-full mr-2 ${connected ? 'bg-syntax-class' : 'bg-syntax-string'}`}></div>
-              <span className="text-claude-text-secondary text-sm">
+              <div className={`w-3 h-3 rounded-full mr-2 ${connected ? 'bg-[#4EC9B0]' : 'bg-[#CE9178]'}`}></div>
+              <span className="text-[#9CA3AF] text-sm">
                 {connected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
@@ -406,54 +404,68 @@ const MLDashboard = () => {
                     setIsLoading(false);
                   });
               }}
-              className="claude-btn-primary"
+              className="bg-[#007ACC] hover:bg-[#0066B3] text-white px-4 py-2 rounded transition-colors"
               disabled={isLoading}
             >
               {isLoading ? 'Connecting...' : connected ? 'Reconnect' : 'Connect'}
             </button>
           </div>
           {error && (
-            <div className="mt-4 p-3 bg-syntax-string bg-opacity-10 border-l-2 border-syntax-string rounded text-sm text-claude-text-primary">
+            <div className="mt-4 p-3 bg-[#CE9178] bg-opacity-10 border-l-2 border-[#CE9178] rounded text-sm text-[#CCCCCC]">
               {error.message}
             </div>
           )}
         </div>
       </div>
       
-      <div className="claude-card">
-        <div className="claude-header">
-          <h2 className="claude-title">Theme Settings</h2>
+      <div className="bg-[#252526] border border-[#3E3E42] rounded-lg shadow-md overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#3E3E42]">
+          <h2 className="text-lg font-medium text-[#CCCCCC]">Backend Information</h2>
         </div>
-        <div className="claude-card-body">
-          <p className="text-claude-text-secondary mb-4">
-            This dashboard uses a Claude-inspired dark theme with VS Code syntax colors for a familiar development experience.
+        <div className="p-4">
+          <p className="text-[#9CA3AF] mb-4">
+            This dashboard connects to the ML model debugging backend API. The backend provides analysis
+            of machine learning models including accuracy metrics, error analysis, and training history.
           </p>
           
-          <div className="grid grid-cols-5 gap-2 mb-4">
-            {COLORS.map((color, index) => (
-              <div 
-                key={index} 
-                className="h-8 rounded flex items-center justify-center text-xs text-claude-bg font-mono"
-                style={{ backgroundColor: color }}
-              >
-                {color}
-              </div>
-            ))}
-          </div>
+          <h3 className="text-[#CCCCCC] font-medium mb-2">Available Endpoints</h3>
+          <ul className="space-y-2 text-[#9CA3AF] text-sm">
+            <li className="flex items-center">
+              <span className="inline-block w-3 h-3 mr-2 rounded-full bg-[#4EC9B0]"></span>
+              <code className="bg-[#1E1E1E] px-2 py-1 rounded mr-2 text-[#9CDCFE]">/api/model</code>
+              <span>Model information</span>
+            </li>
+            <li className="flex items-center">
+              <span className="inline-block w-3 h-3 mr-2 rounded-full bg-[#CE9178]"></span>
+              <code className="bg-[#1E1E1E] px-2 py-1 rounded mr-2 text-[#9CDCFE]">/api/errors</code>
+              <span>Error analysis</span>
+            </li>
+            <li className="flex items-center">
+              <span className="inline-block w-3 h-3 mr-2 rounded-full bg-[#9CDCFE]"></span>
+              <code className="bg-[#1E1E1E] px-2 py-1 rounded mr-2 text-[#9CDCFE]">/api/training-history</code>
+              <span>Training history</span>
+            </li>
+            <li className="flex items-center">
+              <span className="inline-block w-3 h-3 mr-2 rounded-full bg-[#C586C0]"></span>
+              <code className="bg-[#1E1E1E] px-2 py-1 rounded mr-2 text-[#9CDCFE]">/api/error-types</code>
+              <span>Error type breakdown</span>
+            </li>
+          </ul>
           
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-claude-text-secondary">Auto-refresh data</span>
-              <button className="w-10 h-5 rounded-full bg-claude-highlight relative">
-                <div className="absolute left-1 top-1 w-3 h-3 rounded-full bg-claude-text-primary"></div>
-              </button>
+          <div className="mt-4 p-3 border border-[#3E3E42] rounded bg-[#1E1E1E]">
+            <h4 className="text-[#569CD6] text-sm font-medium mb-1">Server Status</h4>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#9CA3AF]">Status:</span>
+              <span className={`${connected ? 'text-[#4EC9B0]' : 'text-[#CE9178]'}`}>
+                {connected ? 'Online' : 'Offline'}
+              </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-claude-text-secondary">Show animations</span>
-              <button className="w-10 h-5 rounded-full bg-accent-primary relative">
-                <div className="absolute right-1 top-1 w-3 h-3 rounded-full bg-white"></div>
-              </button>
-            </div>
+            {connected && (
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-[#9CA3AF]">URL:</span>
+                <span className="text-[#DCDCAA]">{serverUrl}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -461,36 +473,26 @@ const MLDashboard = () => {
   );
 
   return (
-    <ClaudeLayout>
+    <div className="min-h-screen bg-[#1E1E1E] text-[#CCCCCC] p-6">
       {/* Navigation Tabs */}
-      <div className="flex border-b border-claude-border mb-6">
+      <div className="flex border-b border-[#3E3E42] mb-6">
         <button
           className={`px-4 py-3 text-sm font-medium ${
-            activeSection === 'dashboard'
-              ? 'text-accent-primary border-b-2 border-accent-primary'
-              : 'text-claude-text-secondary hover:text-claude-text-primary'
+            activeTab === 'dashboard'
+              ? 'text-[#569CD6] border-b-2 border-[#569CD6]'
+              : 'text-[#CCCCCC] hover:text-white'
           }`}
-          onClick={() => setActiveSection('dashboard')}
+          onClick={() => setActiveTab('dashboard')}
         >
           Dashboard
         </button>
         <button
           className={`px-4 py-3 text-sm font-medium ${
-            activeSection === 'flowchart'
-              ? 'text-accent-primary border-b-2 border-accent-primary'
-              : 'text-claude-text-secondary hover:text-claude-text-primary'
+            activeTab === 'settings'
+              ? 'text-[#569CD6] border-b-2 border-[#569CD6]'
+              : 'text-[#CCCCCC] hover:text-white'
           }`}
-          onClick={() => setActiveSection('flowchart')}
-        >
-          ML Pipeline
-        </button>
-        <button
-          className={`px-4 py-3 text-sm font-medium ${
-            activeSection === 'settings'
-              ? 'text-accent-primary border-b-2 border-accent-primary'
-              : 'text-claude-text-secondary hover:text-claude-text-primary'
-          }`}
-          onClick={() => setActiveSection('settings')}
+          onClick={() => setActiveTab('settings')}
         >
           Settings
         </button>
@@ -499,14 +501,14 @@ const MLDashboard = () => {
       {/* Refresh and Status Bar */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
-          <div className={`w-3 h-3 rounded-full mr-2 ${connected ? 'bg-syntax-class' : 'bg-syntax-string'}`}></div>
-          <span className="text-claude-text-secondary text-sm">
+          <div className={`w-3 h-3 rounded-full mr-2 ${connected ? 'bg-[#4EC9B0]' : 'bg-[#CE9178]'}`}></div>
+          <span className="text-[#9CA3AF] text-sm">
             {connected ? 'Connected to server' : 'Using demo data (not connected)'}
           </span>
         </div>
         <button 
           onClick={fetchAllData}
-          className="claude-btn-primary flex items-center"
+          className="bg-[#007ACC] hover:bg-[#0066B3] text-white px-4 py-2 rounded flex items-center transition-colors"
           disabled={isLoading}
         >
           {isLoading ? (
@@ -528,11 +530,9 @@ const MLDashboard = () => {
         </button>
       </div>
       
-      {/* Active Section Content */}
-      {activeSection === 'dashboard' && renderDashboardSection()}
-      {activeSection === 'flowchart' && renderFlowchartSection()}
-      {activeSection === 'settings' && renderSettingsSection()}
-    </ClaudeLayout>
+      {/* Active Tab Content */}
+      {activeTab === 'dashboard' ? renderDashboardTab() : renderSettingsTab()}
+    </div>
   );
 };
 
