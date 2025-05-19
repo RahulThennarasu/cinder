@@ -1,14 +1,13 @@
 import asyncio
 import logging
 import uvicorn
-import random
 import numpy as np
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(title="CompileML API")
 
@@ -24,59 +23,124 @@ app.add_middleware(
 # Store reference to the ModelDebugger instance
 debugger = None
 
-# Store training history (this would be part of the ModelDebugger in a real app)
-training_history = []
-
-# API Models
+# API Models with enhanced documentation
 class ModelInfoResponse(BaseModel):
-    name: str
-    framework: str
-    dataset_size: int
-    accuracy: float
+    name: str = Field(..., description="Name of the model")
+    framework: str = Field(..., description="ML framework used (pytorch, tensorflow, or sklearn)")
+    dataset_size: int = Field(..., description="Number of samples in the evaluation dataset")
+    accuracy: float = Field(..., description="Model accuracy on the evaluation dataset")
+    precision: Optional[float] = Field(None, description="Precision score (weighted average for multi-class)")
+    recall: Optional[float] = Field(None, description="Recall score (weighted average for multi-class)")
+    f1: Optional[float] = Field(None, description="F1 score (weighted average for multi-class)")
+    roc_auc: Optional[float] = Field(None, description="ROC AUC score (for binary classification)")
 
 class ErrorType(BaseModel):
-    name: str
-    value: int
+    name: str = Field(..., description="Name of the error type")
+    value: int = Field(..., description="Count of errors of this type")
+    class_id: Optional[int] = Field(None, description="Class ID for multi-class errors")
 
 class TrainingHistoryItem(BaseModel):
-    iteration: int
-    accuracy: float
-    loss: Optional[float] = None
-    timestamp: Optional[str] = None
+    iteration: int = Field(..., description="Training iteration or epoch number")
+    accuracy: float = Field(..., description="Model accuracy at this iteration")
+    loss: Optional[float] = Field(None, description="Loss value at this iteration")
+    learning_rate: Optional[float] = Field(None, description="Learning rate at this iteration")
+    timestamp: Optional[str] = Field(None, description="Timestamp when this iteration completed")
 
 class PredictionDistributionItem(BaseModel):
-    class_name: str
-    count: int
+    class_name: str = Field(..., description="Class name or ID")
+    count: int = Field(..., description="Number of predictions for this class")
 
 class ConfusionMatrixResponse(BaseModel):
-    matrix: List[List[int]]
-    labels: List[str]
+    matrix: List[List[int]] = Field(..., description="Confusion matrix values")
+    labels: List[str] = Field(..., description="Class labels corresponding to matrix rows/columns")
+    num_classes: int = Field(..., description="Number of unique classes")
 
 class ErrorAnalysisResponse(BaseModel):
-    error_count: int
-    correct_count: int
-    error_indices: List[int]
+    error_count: int = Field(..., description="Total number of prediction errors")
+    correct_count: int = Field(..., description="Total number of correct predictions")
+    error_rate: float = Field(..., description="Error rate (errors/total)")
+    error_indices: List[int] = Field(..., description="Indices of samples with errors")
+    error_types: Optional[List[Dict[str, Any]]] = Field(None, description="Categorized error types")
+
+class ConfidenceAnalysisResponse(BaseModel):
+    avg_confidence: float = Field(..., description="Average prediction confidence")
+    avg_correct_confidence: float = Field(..., description="Average confidence for correct predictions")
+    avg_incorrect_confidence: float = Field(..., description="Average confidence for incorrect predictions")
+    calibration_error: float = Field(..., description="Difference between accuracy and average confidence")
+    confidence_distribution: Dict[str, Any] = Field(..., description="Distribution of confidence scores")
+    overconfident_examples: Dict[str, Any] = Field(..., description="Examples of overconfident predictions")
+    underconfident_examples: Dict[str, Any] = Field(..., description="Examples of underconfident predictions")
+
+class FeatureImportanceResponse(BaseModel):
+    feature_names: List[str] = Field(..., description="Names of the features")
+    importance_values: List[float] = Field(..., description="Importance score for each feature")
+    importance_method: str = Field(..., description="Method used to calculate importance")
+
+class CrossValidationResponse(BaseModel):
+    fold_results: List[Dict[str, Any]] = Field(..., description="Results for each cross-validation fold")
+    mean_accuracy: float = Field(..., description="Mean accuracy across all folds")
+    std_accuracy: float = Field(..., description="Standard deviation of accuracy across folds")
+    n_folds: int = Field(..., description="Number of cross-validation folds")
+
+class PredictionDriftResponse(BaseModel):
+    class_distribution: Dict[str, int] = Field(..., description="Distribution of true classes")
+    prediction_distribution: Dict[str, int] = Field(..., description="Distribution of predicted classes")
+    drift_scores: Dict[str, float] = Field(..., description="Drift score for each class")
+    drifting_classes: List[int] = Field(..., description="Classes with significant drift")
+    overall_drift: float = Field(..., description="Overall drift score")
+
+class SamplePrediction(BaseModel):
+    index: int = Field(..., description="Sample index")
+    prediction: int = Field(..., description="Predicted class")
+    true_label: int = Field(..., description="True class label")
+    is_error: bool = Field(..., description="Whether the prediction is an error")
+    confidence: Optional[float] = Field(None, description="Confidence of the prediction")
+    probabilities: Optional[List[float]] = Field(None, description="Probability for each class")
+
+class SamplePredictionsResponse(BaseModel):
+    samples: List[SamplePrediction] = Field(..., description="List of sample predictions")
+    total: int = Field(..., description="Total number of samples")
+    limit: int = Field(..., description="Maximum number of samples per page")
+    offset: int = Field(..., description="Offset for pagination")
+    include_errors_only: bool = Field(..., description="Whether only errors are included")
+
+class ROCCurveResponse(BaseModel):
+    fpr: List[float] = Field(..., description="False positive rates")
+    tpr: List[float] = Field(..., description="True positive rates")
+    thresholds: List[float] = Field(..., description="Classification thresholds")
 
 class ServerStatusResponse(BaseModel):
-    status: str
-    uptime: str
-    connected_model: Optional[str] = None
-    memory_usage: Optional[float] = None
+    status: str = Field(..., description="API server status")
+    uptime: str = Field(..., description="Server uptime")
+    connected_model: Optional[str] = Field(None, description="Name of connected model")
+    memory_usage: Optional[float] = Field(None, description="Memory usage in MB")
+    version: str = Field("1.0.0", description="API version")
+    started_at: str = Field(..., description="Server start time")
+
+# Track server start time
+server_start_time = datetime.now()
 
 # Root endpoint
 @app.get("/")
 async def root():
-    return {"message": "CompileML API is running"}
+    return {"message": "CompileML API is running", "version": "1.0.0"}
 
 # Status endpoint
 @app.get("/api/status", response_model=ServerStatusResponse)
 async def get_status():
-    global debugger
+    global debugger, server_start_time
+    
+    # Calculate uptime
+    uptime = datetime.now() - server_start_time
+    uptime_str = str(timedelta(seconds=int(uptime.total_seconds())))
+    
     return {
         "status": "online",
-        "uptime": "1h 23m", # This would be calculated in a real app
+        "uptime": uptime_str,
         "connected_model": debugger.name if debugger else None,
-        "memory_usage": random.uniform(200, 500) # Mock memory usage in MB
+        "memory_usage": np.random.uniform(200, 500),  # Mock memory usage in MB
+        "version": "1.0.0",
+        "started_at": server_start_time.isoformat()
     }
 
 # Model info endpoint
@@ -86,11 +150,18 @@ async def get_model_info():
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
+    # Get comprehensive model analysis
+    analysis = debugger.analyze()
+    
     return {
         "name": debugger.name,
         "framework": debugger.framework,
         "dataset_size": len(debugger.ground_truth) if debugger.ground_truth is not None else 0,
-        "accuracy": debugger.analyze()["accuracy"],
+        "accuracy": analysis["accuracy"],
+        "precision": analysis.get("precision"),
+        "recall": analysis.get("recall"),
+        "f1": analysis.get("f1"),
+        "roc_auc": analysis.get("roc_auc")
     }
 
 # Error analysis endpoint
@@ -101,125 +172,160 @@ async def get_errors():
         raise HTTPException(status_code=404, detail="No model connected")
     
     analysis = debugger.analyze()
-    error_indices = analysis["error_analysis"]["error_indices"]
+    error_analysis = analysis["error_analysis"]
     
     return {
-        "error_count": analysis["error_analysis"]["error_count"],
-        "correct_count": len(debugger.ground_truth) - analysis["error_analysis"]["error_count"] if debugger.ground_truth is not None else 0,
-        "error_indices": error_indices
+        "error_count": error_analysis["error_count"],
+        "correct_count": len(debugger.ground_truth) - error_analysis["error_count"] if debugger.ground_truth is not None else 0,
+        "error_rate": error_analysis["error_rate"],
+        "error_indices": error_analysis["error_indices"],
+        "error_types": error_analysis.get("error_types")
     }
 
-# New endpoint: Training History
-@app.get("/api/training-history", response_model=List[TrainingHistoryItem])
-async def get_training_history():
-    global debugger, training_history
+# Confidence analysis endpoint
+@app.get("/api/confidence-analysis", response_model=ConfidenceAnalysisResponse)
+async def get_confidence_analysis():
+    global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
-    # If history hasn't been generated yet, create some sample data
-    if not training_history:
-        num_iterations = 10
-        training_history = []
-        base_accuracy = 0.65
-        for i in range(1, num_iterations + 1):
-            timestamp = datetime.now().replace(minute=i*5).isoformat()
-            training_history.append({
-                "iteration": i,
-                "accuracy": min(0.98, base_accuracy + (i * 0.03) + random.uniform(-0.01, 0.01)),
-                "loss": max(0.05, 0.5 - (i * 0.05) + random.uniform(-0.01, 0.01)),
-                "timestamp": timestamp
-            })
+    confidence_analysis = debugger.analyze_confidence()
     
-    return training_history
+    if "error" in confidence_analysis:
+        raise HTTPException(status_code=400, detail=confidence_analysis["error"])
+        
+    return confidence_analysis
 
-# New endpoint: Error Types
+# Feature importance endpoint
+@app.get("/api/feature-importance", response_model=FeatureImportanceResponse)
+async def get_feature_importance():
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    importance_analysis = debugger.analyze_feature_importance()
+    
+    if "error" in importance_analysis:
+        raise HTTPException(status_code=400, detail=importance_analysis["error"])
+        
+    return importance_analysis
+
+# Cross-validation endpoint
+@app.get("/api/cross-validation", response_model=CrossValidationResponse)
+async def get_cross_validation(k_folds: int = Query(5, ge=2, le=10)):
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    cv_results = debugger.perform_cross_validation(k_folds=k_folds)
+    
+    if "error" in cv_results:
+        raise HTTPException(status_code=400, detail=cv_results["error"])
+        
+    return cv_results
+
+# Prediction drift analysis endpoint
+@app.get("/api/prediction-drift", response_model=PredictionDriftResponse)
+async def get_prediction_drift(threshold: float = Query(0.1, ge=0.01, le=0.5)):
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    drift_analysis = debugger.analyze_prediction_drift(threshold=threshold)
+    
+    if "error" in drift_analysis:
+        raise HTTPException(status_code=400, detail=drift_analysis["error"])
+        
+    return drift_analysis
+
+# ROC curve endpoint (for binary classification)
+@app.get("/api/roc-curve", response_model=ROCCurveResponse)
+async def get_roc_curve():
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    analysis = debugger.analyze()
+    
+    if "roc_curve" not in analysis:
+        raise HTTPException(status_code=400, detail="ROC curve data not available. This may be because the model is not a binary classifier or probability scores are not available.")
+        
+    return analysis["roc_curve"]
+
+# Training History endpoint
+@app.get("/api/training-history", response_model=List[TrainingHistoryItem])
+async def get_training_history():
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    return debugger.get_training_history()
+
+# Error Types endpoint
 @app.get("/api/error-types", response_model=List[ErrorType])
 async def get_error_types():
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
-    analysis = debugger.analyze()
-    error_count = analysis["error_analysis"]["error_count"]
-    
-    # In a real app, you'd calculate these from the model predictions
-    # Here we'll just generate mock data for demonstration
-    false_positives = int(error_count * 0.6)
-    false_negatives = error_count - false_positives
-    
-    return [
-        {"name": "False Positives", "value": false_positives},
-        {"name": "False Negatives", "value": false_negatives}
-    ]
+    return debugger.analyze_error_types()
 
-# New endpoint: Confusion Matrix
+# Confusion Matrix endpoint
 @app.get("/api/confusion-matrix", response_model=ConfusionMatrixResponse)
 async def get_confusion_matrix():
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
-    # This is example data for a binary classification problem
-    # In a real app, you'd calculate this from model predictions
-    matrix = [
-        [45, 5],
-        [8, 42]
-    ]
-    
-    labels = ["Negative", "Positive"]
-    
-    return {"matrix": matrix, "labels": labels}
+    analysis = debugger.analyze()
+    return analysis["confusion_matrix"]
 
-# New endpoint: Prediction Distribution
+# Prediction Distribution endpoint
 @app.get("/api/prediction-distribution", response_model=List[PredictionDistributionItem])
 async def get_prediction_distribution():
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
-    # Example data for a binary classification problem
-    # In a real app, you'd calculate this from model predictions
-    return [
-        {"class_name": "Class 0", "count": 50},
-        {"class_name": "Class 1", "count": 50}
-    ]
+    if debugger.predictions is None:
+        debugger.analyze()
+    
+    # Calculate class distribution in predictions
+    unique_classes = np.unique(debugger.predictions)
+    distribution = []
+    
+    for cls in unique_classes:
+        count = np.sum(debugger.predictions == cls)
+        distribution.append({
+            "class_name": f"Class {cls}",
+            "count": int(count)
+        })
+    
+    return distribution
 
-# New endpoint: Sample Predictions
-@app.get("/api/sample-predictions")
-async def get_sample_predictions(limit: int = 10, offset: int = 0):
+# Sample Predictions endpoint
+@app.get("/api/sample-predictions", response_model=SamplePredictionsResponse)
+async def get_sample_predictions(
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    errors_only: bool = Query(False)
+):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
     
-    # Generate mock sample predictions
-    # In a real app, you'd return actual model predictions
-    samples = []
-    for i in range(offset, offset + limit):
-        # Random prediction between 0 and 1
-        prediction = random.random()
-        # True label (0 or 1)
-        true_label = 1 if prediction > 0.5 else 0
-        # Introduce some errors
-        prediction_label = 1 if prediction > 0.5 else 0
-        if random.random() < 0.2:  # 20% error rate
-            prediction_label = 1 - prediction_label
-        
-        samples.append({
-            "index": i,
-            "prediction": prediction,
-            "prediction_label": prediction_label,
-            "true_label": true_label,
-            "is_error": prediction_label != true_label
-        })
-    
-    return {"samples": samples, "total": 100, "limit": limit, "offset": offset}
+    return debugger.get_sample_predictions(
+        limit=limit,
+        offset=offset,
+        include_errors_only=errors_only
+    )
 
 def start_server(model_debugger, port: int = 8000):
     """Start the FastAPI server with the given ModelDebugger instance."""
     global debugger
     debugger = model_debugger
     
-    # Start the server in a blocking way
+    # Start the server
     uvicorn.run(app, host="0.0.0.0", port=port)
     
     return app
