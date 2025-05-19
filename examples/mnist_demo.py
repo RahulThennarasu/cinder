@@ -20,6 +20,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
+import threading
+import time
 
 # Add the parent directory to the path to import CompileML
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -132,6 +134,10 @@ def evaluate_model(model, test_loader, device):
     print(f'Test Accuracy: {100. * accuracy:.2f}%')
     return accuracy
 
+def launch_dashboard_thread(debugger):
+    """Launch dashboard in a separate thread."""
+    debugger.launch_dashboard()
+
 def main():
     """Main function to train and analyze the model."""
     print("Fashion MNIST Classification with CompileML")
@@ -211,11 +217,26 @@ def main():
         print(f"- F1 Score: {results['f1']*100:.2f}%")
     print(f"- Errors: {results['error_analysis']['error_count']} ({results['error_analysis']['error_rate']*100:.2f}%)")
     
-    # Launch the CompileML dashboard
+    # Launch the CompileML dashboard in a separate thread
     print("\nLaunching CompileML dashboard...")
     print("Access the dashboard at http://localhost:8000")
     print("Press Ctrl+C to exit")
-    debugger.launch_dashboard()
+    
+    # Start the dashboard in a separate thread
+    dashboard_thread = threading.Thread(
+        target=launch_dashboard_thread,
+        args=(debugger,),
+        daemon=False  # Use non-daemon thread so it keeps running
+    )
+    dashboard_thread.start()
+    
+    # Keep the main thread alive
+    try:
+        while True:
+            time.sleep(1)  # Sleep to avoid high CPU usage
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
