@@ -88,9 +88,9 @@ const CompileMLDashboard = () => {
   // Render loading state
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-        <div className="text-3xl font-bold text-indigo-600 mb-4">Loading CompileML Dashboard</div>
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="loading-container">
+        <div className="loading-text">Loading CompileML Dashboard</div>
+        <div className="spinner"></div>
       </div>
     );
   }
@@ -98,12 +98,12 @@ const CompileMLDashboard = () => {
   // Render error state
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-50 p-4">
-        <div className="text-3xl font-bold text-red-600 mb-4">Connection Error</div>
-        <div className="text-lg text-gray-700 mb-6">{error}</div>
-        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-2xl">
-          <h2 className="text-xl font-semibold mb-4">Troubleshooting Steps:</h2>
-          <ol className="list-decimal pl-6 space-y-2">
+      <div className="error-message">
+        <div className="error-title">Connection Error</div>
+        <div className="error-details">{error}</div>
+        <div className="card">
+          <h2 className="card-title">Troubleshooting Steps:</h2>
+          <ol style={{ paddingLeft: '1.5rem' }}>
             <li>Make sure the CompileML server is running on port 8000</li>
             <li>Check if CORS is properly enabled on the server</li>
             <li>Try running one of the example scripts like examples/mnist_demo.py</li>
@@ -116,18 +116,18 @@ const CompileMLDashboard = () => {
 
   // Helper function for confusion matrix visualization
   const renderConfusionMatrix = () => {
-    if (!confusionMatrix) return <div className="text-gray-500">Confusion matrix data unavailable</div>;
+    if (!confusionMatrix) return <div style={{ color: '#6b7280' }}>Confusion matrix data unavailable</div>;
 
     return (
-      <div className="bg-white p-4 rounded-lg shadow">
-        <h3 className="text-lg font-semibold mb-4">Confusion Matrix</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
+      <div className="card">
+        <h3 className="card-title">Confusion Matrix</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table confusion-matrix">
             <thead>
               <tr>
-                <th className="p-2 border bg-gray-100"></th>
+                <th></th>
                 {confusionMatrix.labels.map((label, idx) => (
-                  <th key={idx} className="p-2 border bg-gray-100">
+                  <th key={idx}>
                     Predicted: {label}
                   </th>
                 ))}
@@ -136,22 +136,28 @@ const CompileMLDashboard = () => {
             <tbody>
               {confusionMatrix.matrix.map((row, rowIdx) => (
                 <tr key={rowIdx}>
-                  <th className="p-2 border bg-gray-100">
+                  <th>
                     Actual: {confusionMatrix.labels[rowIdx]}
                   </th>
-                  {row.map((cell, cellIdx) => (
-                    <td 
-                      key={cellIdx} 
-                      className={`p-3 border text-center ${rowIdx === cellIdx ? 'bg-green-100' : 'bg-white'}`}
-                      style={{
-                        backgroundColor: rowIdx === cellIdx 
-                          ? `rgba(0, 200, 0, ${cell / Math.max(...row.map(r => Math.max(...r)))})`
-                          : `rgba(255, 100, 100, ${cell / Math.max(...row.map(r => Math.max(...r)))})`
-                      }}
-                    >
-                      {cell}
-                    </td>
-                  ))}
+                  {row.map((cell, cellIdx) => {
+                    const isCorrect = rowIdx === cellIdx;
+                    const opacity = cell / Math.max(...confusionMatrix.matrix.flat());
+                    const style = {
+                      backgroundColor: isCorrect 
+                        ? `rgba(16, 185, 129, ${opacity})`
+                        : `rgba(239, 68, 68, ${opacity})`
+                    };
+                    
+                    return (
+                      <td 
+                        key={cellIdx}
+                        className={isCorrect ? 'correct-cell' : 'incorrect-cell'}
+                        style={style}
+                      >
+                        {cell}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -198,24 +204,18 @@ const CompileMLDashboard = () => {
     ];
 
     return (
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="flex -mb-px">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-6 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-b-2 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
+      <div className="tabs">
+        <nav className="tab-list">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
     );
   };
@@ -225,82 +225,82 @@ const CompileMLDashboard = () => {
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-2">
             {/* Model Info */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Model Information</h3>
+            <div className="card">
+              <h3 className="card-title">Model Information</h3>
               {modelInfo ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Name:</span>
-                    <span className="font-medium">{modelInfo.name}</span>
+                <div>
+                  <div className="info-row">
+                    <span className="info-label">Name:</span>
+                    <span className="info-value">{modelInfo.name}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Framework:</span>
-                    <span className="font-medium">{modelInfo.framework}</span>
+                  <div className="info-row">
+                    <span className="info-label">Framework:</span>
+                    <span className="info-value">{modelInfo.framework}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Dataset Size:</span>
-                    <span className="font-medium">{modelInfo.dataset_size} samples</span>
+                  <div className="info-row">
+                    <span className="info-label">Dataset Size:</span>
+                    <span className="info-value">{modelInfo.dataset_size} samples</span>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-500">No model connected</div>
+                <div style={{ color: '#6b7280' }}>No model connected</div>
               )}
             </div>
 
             {/* Server Status */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Server Status</h3>
+            <div className="card">
+              <h3 className="card-title">Server Status</h3>
               {serverStatus && (
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Status:</span>
-                    <span className="font-medium text-green-500">{serverStatus.status}</span>
+                <div>
+                  <div className="info-row">
+                    <span className="info-label">Status:</span>
+                    <span className="info-value" style={{ color: '#10b981' }}>{serverStatus.status}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Uptime:</span>
-                    <span className="font-medium">{serverStatus.uptime}</span>
+                  <div className="info-row">
+                    <span className="info-label">Uptime:</span>
+                    <span className="info-value">{serverStatus.uptime}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Version:</span>
-                    <span className="font-medium">{serverStatus.version}</span>
+                  <div className="info-row">
+                    <span className="info-label">Version:</span>
+                    <span className="info-value">{serverStatus.version}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Memory Usage:</span>
-                    <span className="font-medium">{serverStatus.memory_usage?.toFixed(2)} MB</span>
+                  <div className="info-row">
+                    <span className="info-label">Memory Usage:</span>
+                    <span className="info-value">{serverStatus.memory_usage?.toFixed(2)} MB</span>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Model Performance */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Model Performance</h3>
+            <div className="card">
+              <h3 className="card-title">Model Performance</h3>
               {modelInfo ? (
-                <div className="space-y-4">
-                  <div className="w-full">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-gray-600">Accuracy</span>
-                      <span className="font-medium">{(modelInfo.accuracy * 100).toFixed(2)}%</span>
+                <div>
+                  <div className="metric-container">
+                    <div className="metric-header">
+                      <span className="metric-label">Accuracy</span>
+                      <span className="metric-value">{(modelInfo.accuracy * 100).toFixed(2)}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="progress-bar">
                       <div 
-                        className="bg-indigo-600 h-2.5 rounded-full" 
+                        className="progress-fill progress-fill-primary" 
                         style={{ width: `${modelInfo.accuracy * 100}%` }}
                       ></div>
                     </div>
                   </div>
 
                   {modelInfo.precision && (
-                    <div className="w-full">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-600">Precision</span>
-                        <span className="font-medium">{(modelInfo.precision * 100).toFixed(2)}%</span>
+                    <div className="metric-container">
+                      <div className="metric-header">
+                        <span className="metric-label">Precision</span>
+                        <span className="metric-value">{(modelInfo.precision * 100).toFixed(2)}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div className="progress-bar">
                         <div 
-                          className="bg-blue-500 h-2.5 rounded-full" 
+                          className="progress-fill progress-fill-blue" 
                           style={{ width: `${modelInfo.precision * 100}%` }}
                         ></div>
                       </div>
@@ -308,14 +308,14 @@ const CompileMLDashboard = () => {
                   )}
 
                   {modelInfo.recall && (
-                    <div className="w-full">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-600">Recall</span>
-                        <span className="font-medium">{(modelInfo.recall * 100).toFixed(2)}%</span>
+                    <div className="metric-container">
+                      <div className="metric-header">
+                        <span className="metric-label">Recall</span>
+                        <span className="metric-value">{(modelInfo.recall * 100).toFixed(2)}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div className="progress-bar">
                         <div 
-                          className="bg-green-500 h-2.5 rounded-full" 
+                          className="progress-fill progress-fill-green" 
                           style={{ width: `${modelInfo.recall * 100}%` }}
                         ></div>
                       </div>
@@ -323,14 +323,14 @@ const CompileMLDashboard = () => {
                   )}
 
                   {modelInfo.f1 && (
-                    <div className="w-full">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-600">F1 Score</span>
-                        <span className="font-medium">{(modelInfo.f1 * 100).toFixed(2)}%</span>
+                    <div className="metric-container">
+                      <div className="metric-header">
+                        <span className="metric-label">F1 Score</span>
+                        <span className="metric-value">{(modelInfo.f1 * 100).toFixed(2)}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div className="progress-bar">
                         <div 
-                          className="bg-purple-500 h-2.5 rounded-full" 
+                          className="progress-fill progress-fill-purple" 
                           style={{ width: `${modelInfo.f1 * 100}%` }}
                         ></div>
                       </div>
@@ -338,25 +338,27 @@ const CompileMLDashboard = () => {
                   )}
                 </div>
               ) : (
-                <div className="text-gray-500">No model connected</div>
+                <div style={{ color: '#6b7280' }}>No model connected</div>
               )}
             </div>
 
             {/* Prediction Distribution */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Prediction Distribution</h3>
+            <div className="card">
+              <h3 className="card-title">Prediction Distribution</h3>
               {predictionDistribution ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={predictionDistribution}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="class_name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={predictionDistribution}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="class_name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
-                <div className="text-gray-500">Prediction distribution unavailable</div>
+                <div style={{ color: '#6b7280' }}>Prediction distribution unavailable</div>
               )}
             </div>
           </div>
@@ -364,39 +366,33 @@ const CompileMLDashboard = () => {
 
       case 'metrics':
         return (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid">
             {/* Performance Metrics Table */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
+            <div className="card">
+              <h3 className="card-title">Performance Metrics</h3>
               {modelInfo ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full bg-white">
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="table">
                     <thead>
                       <tr>
-                        <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Metric
-                        </th>
-                        <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Value
-                        </th>
-                        <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Visualization
-                        </th>
+                        <th>Metric</th>
+                        <th>Value</th>
+                        <th>Visualization</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="py-4 px-4 border-b border-gray-200">
-                          <div className="text-sm font-medium text-gray-900">Accuracy</div>
-                          <div className="text-sm text-gray-500">Overall model accuracy</div>
+                        <td>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>Accuracy</div>
+                          <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Overall model accuracy</div>
                         </td>
-                        <td className="py-4 px-4 border-b border-gray-200">
-                          <div className="text-sm text-gray-900 font-medium">{(modelInfo.accuracy * 100).toFixed(2)}%</div>
+                        <td>
+                          <div style={{ fontSize: '0.875rem', color: '#111827', fontWeight: '500' }}>{(modelInfo.accuracy * 100).toFixed(2)}%</div>
                         </td>
-                        <td className="py-4 px-4 border-b border-gray-200 w-1/3">
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <td style={{ width: '33%' }}>
+                          <div className="progress-bar">
                             <div 
-                              className="bg-indigo-600 h-2.5 rounded-full" 
+                              className="progress-fill progress-fill-primary" 
                               style={{ width: `${modelInfo.accuracy * 100}%` }}
                             ></div>
                           </div>
@@ -404,17 +400,17 @@ const CompileMLDashboard = () => {
                       </tr>
                       {modelInfo.precision !== undefined && (
                         <tr>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm font-medium text-gray-900">Precision</div>
-                            <div className="text-sm text-gray-500">Positive prediction accuracy</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>Precision</div>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Positive prediction accuracy</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900 font-medium">{(modelInfo.precision * 100).toFixed(2)}%</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827', fontWeight: '500' }}>{(modelInfo.precision * 100).toFixed(2)}%</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <td>
+                            <div className="progress-bar">
                               <div 
-                                className="bg-blue-500 h-2.5 rounded-full" 
+                                className="progress-fill progress-fill-blue" 
                                 style={{ width: `${modelInfo.precision * 100}%` }}
                               ></div>
                             </div>
@@ -423,17 +419,17 @@ const CompileMLDashboard = () => {
                       )}
                       {modelInfo.recall !== undefined && (
                         <tr>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm font-medium text-gray-900">Recall</div>
-                            <div className="text-sm text-gray-500">Positive identification rate</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>Recall</div>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Positive identification rate</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900 font-medium">{(modelInfo.recall * 100).toFixed(2)}%</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827', fontWeight: '500' }}>{(modelInfo.recall * 100).toFixed(2)}%</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <td>
+                            <div className="progress-bar">
                               <div 
-                                className="bg-green-500 h-2.5 rounded-full" 
+                                className="progress-fill progress-fill-green" 
                                 style={{ width: `${modelInfo.recall * 100}%` }}
                               ></div>
                             </div>
@@ -442,17 +438,17 @@ const CompileMLDashboard = () => {
                       )}
                       {modelInfo.f1 !== undefined && (
                         <tr>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm font-medium text-gray-900">F1 Score</div>
-                            <div className="text-sm text-gray-500">Balance of precision and recall</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>F1 Score</div>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Balance of precision and recall</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900 font-medium">{(modelInfo.f1 * 100).toFixed(2)}%</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827', fontWeight: '500' }}>{(modelInfo.f1 * 100).toFixed(2)}%</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <td>
+                            <div className="progress-bar">
                               <div 
-                                className="bg-purple-500 h-2.5 rounded-full" 
+                                className="progress-fill progress-fill-purple" 
                                 style={{ width: `${modelInfo.f1 * 100}%` }}
                               ></div>
                             </div>
@@ -461,17 +457,17 @@ const CompileMLDashboard = () => {
                       )}
                       {modelInfo.roc_auc !== undefined && (
                         <tr>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm font-medium text-gray-900">ROC AUC</div>
-                            <div className="text-sm text-gray-500">Area under ROC curve</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>ROC AUC</div>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Area under ROC curve</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900 font-medium">{(modelInfo.roc_auc * 100).toFixed(2)}%</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827', fontWeight: '500' }}>{(modelInfo.roc_auc * 100).toFixed(2)}%</div>
                           </td>
-                          <td className="py-4 px-4 border-b border-gray-200">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <td>
+                            <div className="progress-bar">
                               <div 
-                                className="bg-yellow-500 h-2.5 rounded-full" 
+                                className="progress-fill progress-fill-yellow" 
                                 style={{ width: `${modelInfo.roc_auc * 100}%` }}
                               ></div>
                             </div>
@@ -482,7 +478,7 @@ const CompileMLDashboard = () => {
                   </table>
                 </div>
               ) : (
-                <div className="text-gray-500">No model metrics available</div>
+                <div style={{ color: '#6b7280' }}>No model metrics available</div>
               )}
             </div>
 
@@ -493,86 +489,82 @@ const CompileMLDashboard = () => {
 
       case 'errors':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-2">
             {/* Error Analysis */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Error Analysis</h3>
+            <div className="card">
+              <h3 className="card-title">Error Analysis</h3>
               {errorAnalysis ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="text-sm text-gray-500">Error Count</div>
-                      <div className="text-2xl font-bold">{errorAnalysis.error_count}</div>
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="stat-box">
+                      <div className="stat-label">Error Count</div>
+                      <div className="stat-value">{errorAnalysis.error_count}</div>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="text-sm text-gray-500">Error Rate</div>
-                      <div className="text-2xl font-bold">{(errorAnalysis.error_rate * 100).toFixed(2)}%</div>
+                    <div className="stat-box">
+                      <div className="stat-label">Error Rate</div>
+                      <div className="stat-value">{(errorAnalysis.error_rate * 100).toFixed(2)}%</div>
                     </div>
                   </div>
                   
-                  <div className="mt-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-gray-600">Correct vs. Errors</span>
+                  <div style={{ marginTop: '1rem' }}>
+                    <div className="metric-header">
+                      <span className="metric-label">Correct vs. Errors</span>
                     </div>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'Correct', value: errorAnalysis.correct_count },
-                            { name: 'Errors', value: errorAnalysis.error_count }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        >
-                          <Cell fill="#4ade80" />
-                          <Cell fill="#f87171" />
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <div className="chart-container">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Correct', value: errorAnalysis.correct_count },
+                              { name: 'Errors', value: errorAnalysis.error_count }
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          >
+                            <Cell fill="#4ade80" />
+                            <Cell fill="#f87171" />
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-500">Error analysis unavailable</div>
+                <div style={{ color: '#6b7280' }}>Error analysis unavailable</div>
               )}
             </div>
 
             {/* Error Types */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Error Types</h3>
+            <div className="card">
+              <h3 className="card-title">Error Types</h3>
               {errorAnalysis && errorAnalysis.error_types ? (
-                <div className="overflow-auto max-h-96">
-                  <table className="min-w-full bg-white">
+                <div className="scrollable">
+                  <table className="table">
                     <thead>
                       <tr>
-                        <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Error Type
-                        </th>
-                        <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Count
-                        </th>
-                        <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Percentage
-                        </th>
+                        <th>Error Type</th>
+                        <th>Count</th>
+                        <th>Percentage</th>
                       </tr>
                     </thead>
                     <tbody>
                       {errorAnalysis.error_types.map((type, idx) => (
                         <tr key={idx}>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <div className="text-sm font-medium text-gray-900">
+                          <td>
+                            <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>
                               {`Class ${type.true_class} → ${type.predicted_class}`}
                             </div>
                           </td>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900">{type.count}</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827' }}>{type.count}</div>
                           </td>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900">
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827' }}>
                               {((type.count / errorAnalysis.error_count) * 100).toFixed(2)}%
                             </div>
                           </td>
@@ -582,7 +574,7 @@ const CompileMLDashboard = () => {
                   </table>
                 </div>
               ) : (
-                <div className="text-gray-500">Error type analysis unavailable</div>
+                <div style={{ color: '#6b7280' }}>Error type analysis unavailable</div>
               )}
             </div>
           </div>
@@ -590,32 +582,34 @@ const CompileMLDashboard = () => {
 
       case 'features':
         return (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid">
             {/* Feature Importance */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Feature Importance</h3>
+            <div className="card">
+              <h3 className="card-title">Feature Importance</h3>
               {featureImportance ? (
                 <div>
-                  <div className="text-sm mb-4">
-                    <span className="font-medium">Method: </span>
-                    <span className="text-gray-700">{featureImportance.importance_method}</span>
+                  <div style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
+                    <span style={{ fontWeight: '500' }}>Method: </span>
+                    <span style={{ color: '#4b5563' }}>{featureImportance.importance_method}</span>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart
-                      data={prepareFeatureImportanceData()}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" domain={[0, 'dataMax']} />
-                      <YAxis dataKey="name" type="category" width={100} />
-                      <Tooltip formatter={(value) => [(value * 100).toFixed(2) + '%', 'Importance']} />
-                      <Bar dataKey="importance" fill="#8884d8" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="chart-container-tall">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={prepareFeatureImportanceData()}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" domain={[0, 'dataMax']} />
+                        <YAxis dataKey="name" type="category" width={100} />
+                        <Tooltip formatter={(value) => [(value * 100).toFixed(2) + '%', 'Importance']} />
+                        <Bar dataKey="importance" fill="#8884d8" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               ) : (
-                <div className="text-gray-500">Feature importance unavailable</div>
+                <div style={{ color: '#6b7280' }}>Feature importance unavailable</div>
               )}
             </div>
           </div>
@@ -623,104 +617,106 @@ const CompileMLDashboard = () => {
 
       case 'confidence':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-2">
             {/* Confidence Analysis */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Confidence Metrics</h3>
+            <div className="card">
+              <h3 className="card-title">Confidence Metrics</h3>
               {confidenceAnalysis ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="text-sm text-gray-500">Average Confidence</div>
-                      <div className="text-2xl font-bold">{(confidenceAnalysis.avg_confidence * 100).toFixed(2)}%</div>
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="stat-box">
+                      <div className="stat-label">Average Confidence</div>
+                      <div className="stat-value">{(confidenceAnalysis.avg_confidence * 100).toFixed(2)}%</div>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="text-sm text-gray-500">Calibration Error</div>
-                      <div className="text-2xl font-bold">{(confidenceAnalysis.calibration_error * 100).toFixed(2)}%</div>
+                    <div className="stat-box">
+                      <div className="stat-label">Calibration Error</div>
+                      <div className="stat-value">{(confidenceAnalysis.calibration_error * 100).toFixed(2)}%</div>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="text-sm text-gray-500">Avg. Correct Confidence</div>
-                      <div className="text-2xl font-bold">{(confidenceAnalysis.avg_correct_confidence * 100).toFixed(2)}%</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                    <div className="stat-box">
+                      <div className="stat-label">Avg. Correct Confidence</div>
+                      <div className="stat-value">{(confidenceAnalysis.avg_correct_confidence * 100).toFixed(2)}%</div>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="text-sm text-gray-500">Avg. Incorrect Confidence</div>
-                      <div className="text-2xl font-bold">{(confidenceAnalysis.avg_incorrect_confidence * 100).toFixed(2)}%</div>
+                    <div className="stat-box">
+                      <div className="stat-label">Avg. Incorrect Confidence</div>
+                      <div className="stat-value">{(confidenceAnalysis.avg_incorrect_confidence * 100).toFixed(2)}%</div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-500">Confidence analysis unavailable</div>
+                <div style={{ color: '#6b7280' }}>Confidence analysis unavailable</div>
               )}
             </div>
 
             {/* Confidence Distribution */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Confidence Distribution</h3>
+            <div className="card">
+              <h3 className="card-title">Confidence Distribution</h3>
               {confidenceAnalysis && confidenceAnalysis.confidence_distribution ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={prepareConfidenceData()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="range" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="correct" name="Correct Predictions" fill="#4ade80" />
-                    <Bar dataKey="incorrect" name="Incorrect Predictions" fill="#f87171" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={prepareConfidenceData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="range" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="correct" name="Correct Predictions" fill="#4ade80" />
+                      <Bar dataKey="incorrect" name="Incorrect Predictions" fill="#f87171" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
-                <div className="text-gray-500">Confidence distribution unavailable</div>
+                <div style={{ color: '#6b7280' }}>Confidence distribution unavailable</div>
               )}
             </div>
 
             {/* Overconfident Examples */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Overconfident Predictions</h3>
+            <div className="card">
+              <h3 className="card-title">Overconfident Predictions</h3>
               {confidenceAnalysis && confidenceAnalysis.overconfident_examples ? (
                 <div>
-                  <div className="mb-4">
-                    <span className="text-gray-600">Threshold: </span>
-                    <span className="font-medium">{confidenceAnalysis.overconfident_examples.threshold * 100}%</span>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <span className="info-label">Threshold: </span>
+                    <span className="info-value">{confidenceAnalysis.overconfident_examples.threshold * 100}%</span>
                   </div>
-                  <div className="mb-4">
-                    <span className="text-gray-600">Count: </span>
-                    <span className="font-medium">{confidenceAnalysis.overconfident_examples.count} examples</span>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <span className="info-label">Count: </span>
+                    <span className="info-value">{confidenceAnalysis.overconfident_examples.count} examples</span>
                   </div>
-                  <div className="p-3 bg-red-50 rounded-md border border-red-200">
-                    <p className="text-sm text-red-800">
+                  <div className="alert alert-danger">
+                    <p>
                       These are examples where the model was highly confident but wrong, indicating potential blind spots.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-500">No overconfident examples data</div>
+                <div style={{ color: '#6b7280' }}>No overconfident examples data</div>
               )}
             </div>
 
             {/* Underconfident Examples */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Underconfident Predictions</h3>
+            <div className="card">
+              <h3 className="card-title">Underconfident Predictions</h3>
               {confidenceAnalysis && confidenceAnalysis.underconfident_examples ? (
                 <div>
-                  <div className="mb-4">
-                    <span className="text-gray-600">Threshold: </span>
-                    <span className="font-medium">{confidenceAnalysis.underconfident_examples.threshold * 100}%</span>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <span className="info-label">Threshold: </span>
+                    <span className="info-value">{confidenceAnalysis.underconfident_examples.threshold * 100}%</span>
                   </div>
-                  <div className="mb-4">
-                    <span className="text-gray-600">Count: </span>
-                    <span className="font-medium">{confidenceAnalysis.underconfident_examples.count} examples</span>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <span className="info-label">Count: </span>
+                    <span className="info-value">{confidenceAnalysis.underconfident_examples.count} examples</span>
                   </div>
-                  <div className="p-3 bg-yellow-50 rounded-md border border-yellow-200">
-                    <p className="text-sm text-yellow-800">
+                  <div className="alert alert-warning">
+                    <p>
                       These are examples where the model was correct but had low confidence, indicating room for improved calibration.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-500">No underconfident examples data</div>
+                <div style={{ color: '#6b7280' }}>No underconfident examples data</div>
               )}
             </div>
           </div>
@@ -728,25 +724,25 @@ const CompileMLDashboard = () => {
 
       case 'predictions':
         return (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid">
             {/* Sample Predictions - Mocked for now, would connect to API in real implementation */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Sample Predictions</h3>
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 className="card-title" style={{ margin: 0 }}>Sample Predictions</h3>
+                <button className="button button-primary">
                   Fetch Samples
                 </button>
               </div>
               
-              <div className="flex space-x-4 mb-4">
-                <div className="flex items-center">
-                  <input type="checkbox" id="errors-only" className="mr-2" />
-                  <label htmlFor="errors-only" className="text-sm text-gray-700">Show errors only</label>
+              <div className="form-controls">
+                <div className="form-group">
+                  <input type="checkbox" id="errors-only" className="form-checkbox" />
+                  <label htmlFor="errors-only" className="form-label">Show errors only</label>
                 </div>
                 
-                <div className="flex items-center">
-                  <label htmlFor="limit" className="text-sm text-gray-700 mr-2">Limit:</label>
-                  <select id="limit" className="border rounded px-2 py-1 text-sm">
+                <div className="form-group">
+                  <label htmlFor="limit" className="form-label">Limit:</label>
+                  <select id="limit" className="form-select">
                     <option>10</option>
                     <option>20</option>
                     <option>50</option>
@@ -755,25 +751,15 @@ const CompileMLDashboard = () => {
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white">
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table">
                   <thead>
                     <tr>
-                      <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Sample ID
-                      </th>
-                      <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        True Label
-                      </th>
-                      <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Predicted
-                      </th>
-                      <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Confidence
-                      </th>
-                      <th className="py-3 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
+                      <th>Sample ID</th>
+                      <th>True Label</th>
+                      <th>Predicted</th>
+                      <th>Confidence</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -781,23 +767,23 @@ const CompileMLDashboard = () => {
                     {[...Array(10)].map((_, idx) => {
                       const isError = idx % 3 === 0;
                       return (
-                        <tr key={idx} className={isError ? "bg-red-50" : "hover:bg-gray-50"}>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <div className="text-sm font-medium text-gray-900">#{idx + 1}</div>
+                        <tr key={idx} style={{ backgroundColor: isError ? '#fee2e2' : 'white' }}>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>#{idx + 1}</div>
                           </td>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900">{idx % 2}</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827' }}>{idx % 2}</div>
                           </td>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900">{isError ? (idx % 2 === 0 ? 1 : 0) : idx % 2}</div>
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827' }}>{isError ? (idx % 2 === 0 ? 1 : 0) : idx % 2}</div>
                           </td>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <div className="text-sm text-gray-900">
+                          <td>
+                            <div style={{ fontSize: '0.875rem', color: '#111827' }}>
                               {isError ? `${(0.7 + Math.random() * 0.2).toFixed(2)}` : `${(0.8 + Math.random() * 0.15).toFixed(2)}`}
                             </div>
                           </td>
-                          <td className="py-3 px-4 border-b border-gray-200">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                          <td>
+                            <span className={`badge ${isError ? 'badge-error' : 'badge-success'}`}>
                               {isError ? 'Error' : 'Correct'}
                             </span>
                           </td>
@@ -808,13 +794,13 @@ const CompileMLDashboard = () => {
                 </table>
               </div>
               
-              <div className="flex justify-between items-center mt-4">
-                <div className="text-sm text-gray-700">
-                  Showing <span className="font-medium">1</span> to <span className="font-medium">10</span> of <span className="font-medium">100</span> results
+              <div className="pagination">
+                <div className="pagination-info">
+                  Showing <span style={{ fontWeight: '500' }}>1</span> to <span style={{ fontWeight: '500' }}>10</span> of <span style={{ fontWeight: '500' }}>100</span> results
                 </div>
-                <div className="flex space-x-2">
-                  <button className="px-3 py-1 border rounded text-sm disabled:opacity-50">Previous</button>
-                  <button className="px-3 py-1 border rounded text-sm bg-indigo-50">Next</button>
+                <div className="pagination-controls">
+                  <button className="pagination-button" disabled>Previous</button>
+                  <button className="pagination-button pagination-button-active">Next</button>
                 </div>
               </div>
             </div>
@@ -823,43 +809,47 @@ const CompileMLDashboard = () => {
 
       case 'training':
         return (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid">
             {/* Training History */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Training History</h3>
+            <div className="card">
+              <h3 className="card-title">Training History</h3>
               {trainingHistory && trainingHistory.length > 0 ? (
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={trainingHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="iteration" />
-                    <YAxis yAxisId="left" label={{ value: 'Accuracy', angle: -90, position: 'insideLeft' }} />
-                    <YAxis yAxisId="right" orientation="right" label={{ value: 'Loss', angle: 90, position: 'insideRight' }} />
-                    <Tooltip formatter={(value, name) => [value.toFixed(4), name]} />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#8884d8" name="Accuracy" />
-                    <Line yAxisId="right" type="monotone" dataKey="loss" stroke="#82ca9d" name="Loss" />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="chart-container-tall">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trainingHistory}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="iteration" />
+                      <YAxis yAxisId="left" label={{ value: 'Accuracy', angle: -90, position: 'insideLeft' }} />
+                      <YAxis yAxisId="right" orientation="right" label={{ value: 'Loss', angle: 90, position: 'insideRight' }} />
+                      <Tooltip formatter={(value, name) => [value.toFixed(4), name]} />
+                      <Legend />
+                      <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#8884d8" name="Accuracy" />
+                      <Line yAxisId="right" type="monotone" dataKey="loss" stroke="#82ca9d" name="Loss" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
-                <div className="text-gray-500">No training history available</div>
+                <div style={{ color: '#6b7280' }}>No training history available</div>
               )}
             </div>
             
             {/* Learning Rate */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">Learning Rate</h3>
+            <div className="card">
+              <h3 className="card-title">Learning Rate</h3>
               {trainingHistory && trainingHistory.length > 0 && trainingHistory[0].learning_rate ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={trainingHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="iteration" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [value.toExponential(4), 'Learning Rate']} />
-                    <Line type="monotone" dataKey="learning_rate" stroke="#ff7300" name="Learning Rate" />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trainingHistory}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="iteration" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => [value.toExponential(4), 'Learning Rate']} />
+                      <Line type="monotone" dataKey="learning_rate" stroke="#ff7300" name="Learning Rate" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
-                <div className="text-gray-500">No learning rate data available</div>
+                <div style={{ color: '#6b7280' }}>No learning rate data available</div>
               )}
             </div>
           </div>
@@ -871,45 +861,41 @@ const CompileMLDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="dashboard">
       {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">CompileML Dashboard</h1>
-              <p className="text-gray-500 mt-1">
-                {modelInfo 
-                  ? `Connected to ${modelInfo.name} (${modelInfo.framework})`
-                  : 'No model connected'}
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${serverStatus?.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm font-medium">
-                {serverStatus?.status === 'online' ? 'Server Online' : 'Server Offline'}
-              </span>
-            </div>
+      <header className="header">
+        <div className="header-content">
+          <div>
+            <h1 className="title">CompileML Dashboard</h1>
+            <p className="subtitle">
+              {modelInfo 
+                ? `Connected to ${modelInfo.name} (${modelInfo.framework})`
+                : 'No model connected'}
+            </p>
+          </div>
+          <div className="status-indicator">
+            <div className={`status-dot ${serverStatus?.status === 'online' ? 'status-online' : 'status-offline'}`}></div>
+            <span className="status-text">
+              {serverStatus?.status === 'online' ? 'Server Online' : 'Server Offline'}
+            </span>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="main-content">
         {renderTabs()}
         {renderTabContent()}
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-500">
-              CompileML Dashboard v1.0.0
-            </div>
-            <div className="text-sm text-gray-500">
-              {serverStatus?.started_at && `Server started: ${new Date(serverStatus.started_at).toLocaleString()}`}
-            </div>
+      <footer className="footer">
+        <div className="footer-content">
+          <div className="footer-text">
+            CompileML Dashboard v1.0.0
+          </div>
+          <div className="footer-text">
+            {serverStatus?.started_at && `Server started: ${new Date(serverStatus.started_at).toLocaleString()}`}
           </div>
         </div>
       </footer>
