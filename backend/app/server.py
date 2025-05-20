@@ -129,6 +129,14 @@ class ServerStatusResponse(BaseModel):
     version: str = Field("1.0.0", description="API version")
     started_at: str = Field(..., description="Server start time")
 
+class ImprovementSuggestion(BaseModel):
+    category: str = Field(..., description="Category of improvement")
+    issue: str = Field(..., description="Detected issue")
+    suggestion: str = Field(..., description="Suggested improvement")
+    severity: float = Field(..., description="How severe the issue is (0-1)")
+    impact: float = Field(..., description="Estimated impact of fix (0-1)")
+    code_example: str = Field(..., description="Example code for implementation")
+
 # Track server start time
 server_start_time = datetime.now()
 
@@ -233,6 +241,14 @@ async def get_feature_importance():
         raise HTTPException(status_code=400, detail=importance_analysis["error"])
         
     return importance_analysis
+
+@app.get("/api/improvement-suggestions", response_model=List[ImprovementSuggestion])
+async def get_improvement_suggestions():
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    return debugger.generate_improvement_suggestions()
 
 # Cross-validation endpoint
 @app.get("/api/cross-validation", response_model=CrossValidationResponse)

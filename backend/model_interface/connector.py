@@ -233,6 +233,642 @@ class ModelDebugger:
         logging.info(f"Generated {num_samples} demo predictions with {len(error_indices)} errors")
         return predictions, ground_truth
     
+    def generate_improvement_suggestions(self) -> List[Dict[str, Any]]:
+        """Generate improvement suggestions with code examples based on model analysis."""
+        
+        # Run analysis if not already done
+        if self.predictions is None:
+            self.analyze()
+        
+        suggestions = []
+        framework = self.framework  # 'pytorch', 'tensorflow', or 'sklearn'
+        
+        # Calculate metrics for analysis
+        accuracy = self._calculate_accuracy()
+        
+        # Add your existing suggestion generation logic here...
+        
+        # Always add some helpful suggestions regardless of model performance
+        
+        # 1. Cross-validation suggestion
+        cv_code = {
+            'pytorch': '''# Implement k-fold cross validation
+    from sklearn.model_selection import KFold
+    import numpy as np
+
+    def cross_validate_pytorch(model_class, X, y, n_splits=5):
+        """Run k-fold cross validation for PyTorch model."""
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        fold_scores = []
+        
+        for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+            print(f"Training fold {fold+1}/{n_splits}")
+            
+            # Split data
+            X_train, X_val = X[train_idx], X[val_idx]
+            y_train, y_val = y[train_idx], y[val_idx]
+            
+            # Convert to PyTorch tensors
+            X_train_tensor = torch.FloatTensor(X_train)
+            y_train_tensor = torch.LongTensor(y_train)
+            X_val_tensor = torch.FloatTensor(X_val)
+            y_val_tensor = torch.LongTensor(y_val)
+            
+            # Create fresh model instance
+            model = model_class()
+            
+            # Train model
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+            criterion = nn.CrossEntropyLoss()
+            
+            # Simple training loop
+            for epoch in range(10):  # Reduced epochs for example
+                # Training step
+                model.train()
+                optimizer.zero_grad()
+                outputs = model(X_train_tensor)
+                loss = criterion(outputs, y_train_tensor)
+                loss.backward()
+                optimizer.step()
+            
+            # Evaluate
+            model.eval()
+            with torch.no_grad():
+                outputs = model(X_val_tensor)
+                _, predicted = torch.max(outputs, 1)
+                accuracy = (predicted == y_val_tensor).float().mean().item()
+                fold_scores.append(accuracy)
+                
+        # Report results
+        mean_accuracy = np.mean(fold_scores)
+        std_accuracy = np.std(fold_scores)
+        print(f"Cross-validation results: {mean_accuracy:.4f} ± {std_accuracy:.4f}")
+        return fold_scores''',
+            'tensorflow': '''# Implement k-fold cross validation
+    from sklearn.model_selection import KFold
+    import numpy as np
+
+    def cross_validate_tf(model_fn, X, y, n_splits=5):
+        """Run k-fold cross validation for TensorFlow model."""
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        fold_scores = []
+        
+        for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+            print(f"Training fold {fold+1}/{n_splits}")
+            
+            # Split data
+            X_train, X_val = X[train_idx], X[val_idx]
+            y_train, y_val = y[train_idx], y[val_idx]
+            
+            # Create a fresh model
+            model = model_fn()  # Function that returns a new model
+            
+            # Compile model
+            model.compile(
+                optimizer='adam',
+                loss='sparse_categorical_crossentropy',
+                metrics=['accuracy']
+            )
+            
+            # Train model
+            history = model.fit(
+                X_train, y_train,
+                validation_data=(X_val, y_val),
+                epochs=10,  # Reduced for example
+                verbose=0
+            )
+            
+            # Evaluate
+            _, accuracy = model.evaluate(X_val, y_val, verbose=0)
+            fold_scores.append(accuracy)
+        
+        # Report results
+        mean_accuracy = np.mean(fold_scores)
+        std_accuracy = np.std(fold_scores)
+        print(f"Cross-validation results: {mean_accuracy:.4f} ± {std_accuracy:.4f}")
+        return fold_scores''',
+            'sklearn': '''# Implement k-fold cross validation
+    from sklearn.model_selection import cross_val_score, KFold
+    import numpy as np
+
+    # For most sklearn models:
+    cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy')
+
+    # Print results
+    print(f"Cross-validation results: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+
+    # For more detailed analysis, use cross_validate
+    from sklearn.model_selection import cross_validate
+    cv_results = cross_validate(
+        model, X, y, 
+        cv=cv,
+        scoring={
+            'accuracy': 'accuracy',
+            'precision': 'precision_weighted',
+            'recall': 'recall_weighted',
+            'f1': 'f1_weighted'
+        },
+        return_train_score=True
+    )
+
+    # Print comprehensive results
+    print(f"Test accuracy: {cv_results['test_accuracy'].mean():.4f} ± {cv_results['test_accuracy'].std():.4f}")
+    print(f"Test F1: {cv_results['test_f1'].mean():.4f} ± {cv_results['test_f1'].std():.4f}")
+
+    # Detect overfitting
+    train_acc = cv_results['train_accuracy'].mean()
+    test_acc = cv_results['test_accuracy'].mean()
+    if train_acc - test_acc > 0.1:
+        print("Warning: Model may be overfitting (train acc >> test acc)")'''
+        }
+        
+        suggestions.append({
+            "category": "cross_validation",
+            "issue": "Evaluating on a single test set may not be reliable",
+            "suggestion": "Implement k-fold cross-validation for more robust evaluation",
+            "severity": 0.6,
+            "impact": 0.7,
+            "code_example": cv_code[framework]
+        })
+        
+        # 2. Hyperparameter tuning suggestion
+        tuning_code = {
+            'pytorch': '''# Implement hyperparameter tuning
+    import optuna
+
+    def objective(trial):
+        # Define hyperparameters to search
+        lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)
+        hidden_size = trial.suggest_categorical('hidden_size', [32, 64, 128, 256])
+        dropout = trial.suggest_float('dropout', 0.1, 0.5)
+        
+        # Create model with these hyperparameters
+        model = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, num_classes)
+        )
+        
+        # Train and evaluate model
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        
+        # Simple training loop (expand as needed)
+        train_model(model, optimizer)
+        
+        # Return metric to optimize
+        val_accuracy = evaluate_model(model, val_loader)
+        return val_accuracy
+
+    # Create study and optimize
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=20)
+
+    # Get best parameters
+    best_params = study.best_params
+    print(f"Best parameters: {best_params}")
+    print(f"Best accuracy: {study.best_value}")
+
+    # Create final model with best parameters
+    final_model = create_model(
+        hidden_size=best_params['hidden_size'],
+        dropout=best_params['dropout']
+    )
+    optimizer = torch.optim.Adam(final_model.parameters(), lr=best_params['lr'])''',
+            'tensorflow': '''# Implement hyperparameter tuning
+    import keras_tuner as kt
+
+    def model_builder(hp):
+        """Build model with hyperparameters."""
+        # Define hyperparameters to search
+        lr = hp.Float('lr', min_value=1e-5, max_value=1e-2, sampling='log')
+        hidden_size = hp.Int('hidden_size', min_value=32, max_value=256, step=32)
+        dropout = hp.Float('dropout', min_value=0.1, max_value=0.5, step=0.1)
+        
+        # Create model with these hyperparameters
+        model = tf.keras.Sequential([
+            tf.keras.layers.Dense(hidden_size, activation='relu', input_shape=(input_shape,)),
+            tf.keras.layers.Dropout(dropout),
+            tf.keras.layers.Dense(num_classes, activation='softmax')
+        ])
+        
+        # Compile model
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        
+        return model
+
+    # Create tuner and search
+    tuner = kt.Hyperband(
+        model_builder,
+        objective='val_accuracy',
+        max_epochs=10,
+        factor=3,
+        directory='my_dir',
+        project_name='hyperparameter_tuning'
+    )
+
+    # Search for best hyperparameters
+    tuner.search(
+        X_train, y_train,
+        validation_data=(X_val, y_val),
+        epochs=10
+    )
+
+    # Get best hyperparameters
+    best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
+    print(f"Best learning rate: {best_hps.get('lr')}")
+    print(f"Best hidden size: {best_hps.get('hidden_size')}")
+    print(f"Best dropout: {best_hps.get('dropout')}")
+
+    # Build final model with best hyperparameters
+    final_model = tuner.hypermodel.build(best_hps)''',
+            'sklearn': '''# Implement hyperparameter tuning
+    from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+    import numpy as np
+
+    # Define parameter grid to search
+    param_grid = {
+        # For Random Forest
+        'n_estimators': [50, 100, 200],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+        
+        # For SVM
+        # 'C': [0.1, 1, 10, 100],
+        # 'gamma': ['scale', 'auto', 0.1, 0.01],
+        # 'kernel': ['rbf', 'poly', 'sigmoid']
+        
+        # For Logistic Regression
+        # 'C': [0.001, 0.01, 0.1, 1, 10, 100],
+        # 'penalty': ['l1', 'l2', 'elasticnet', None],
+        # 'solver': ['newton-cg', 'lbfgs', 'liblinear', 'saga']
+    }
+
+    # Choose search strategy
+    # GridSearchCV for small parameter spaces
+    search = GridSearchCV(
+        model,
+        param_grid,
+        cv=5,
+        scoring='accuracy',
+        verbose=1,
+        n_jobs=-1  # Use all available cores
+    )
+
+    # RandomizedSearchCV for larger parameter spaces
+    # search = RandomizedSearchCV(
+    #     model,
+    #     param_distributions=param_grid,
+    #     n_iter=100,  # Number of settings to try
+    #     cv=5,
+    #     scoring='accuracy',
+    #     verbose=1,
+    #     n_jobs=-1,
+    #     random_state=42
+    # )
+
+    # Run search
+    search.fit(X_train, y_train)
+
+    # Print results
+    print(f"Best parameters: {search.best_params_}")
+    print(f"Best CV score: {search.best_score_:.4f}")
+
+    # Use best model
+    best_model = search.best_estimator_
+    y_pred = best_model.predict(X_test)'''
+        }
+        
+        suggestions.append({
+            "category": "hyperparameter_tuning",
+            "issue": "Default hyperparameters may not be optimal",
+            "suggestion": f"Implement systematic hyperparameter tuning to find the best configuration",
+            "severity": 0.5,
+            "impact": 0.8,
+            "code_example": tuning_code[framework]
+        })
+        
+        # 3. Model Ensemble suggestion
+        ensemble_code = {
+            'pytorch': '''# Implement model ensemble
+    import torch.nn.functional as F
+
+    class EnsembleModel:
+        def __init__(self, models):
+            self.models = models
+            
+        def predict(self, X):
+            """Get ensemble prediction by averaging outputs."""
+            # Convert to tensor if needed
+            if not isinstance(X, torch.Tensor):
+                X = torch.FloatTensor(X)
+                
+            # Get predictions from all models
+            preds = []
+            for model in self.models:
+                model.eval()
+                with torch.no_grad():
+                    outputs = model(X)
+                    preds.append(F.softmax(outputs, dim=1))
+            
+            # Average predictions
+            ensemble_preds = torch.stack(preds).mean(dim=0)
+            _, pred_classes = torch.max(ensemble_preds, dim=1)
+            return pred_classes.numpy()
+
+    # Train different model architectures
+    models = []
+
+    # Model 1: Standard architecture
+    model1 = StandardNet()
+    train_model(model1, train_loader, epochs=30)
+    models.append(model1)
+
+    # Model 2: Different architecture
+    model2 = ComplexNet()
+    train_model(model2, train_loader, epochs=30)
+    models.append(model2)
+
+    # Model 3: Same architecture, different initialization
+    model3 = StandardNet()
+    train_model(model3, train_loader, epochs=30)
+    models.append(model3)
+
+    # Create ensemble
+    ensemble = EnsembleModel(models)
+
+    # Evaluate ensemble
+    ensemble_preds = ensemble.predict(X_test)
+    ensemble_accuracy = (ensemble_preds == y_test).mean()
+    print(f"Ensemble accuracy: {ensemble_accuracy:.4f}")''',
+            'tensorflow': '''# Implement model ensemble
+    import numpy as np
+
+    class EnsembleModel:
+        def __init__(self, models):
+            self.models = models
+            
+        def predict(self, X):
+            """Get ensemble prediction by averaging outputs."""
+            # Get predictions from all models
+            preds = []
+            for model in self.models:
+                pred_probs = model.predict(X)
+                preds.append(pred_probs)
+            
+            # Average predictions
+            ensemble_preds = np.mean(preds, axis=0)
+            return np.argmax(ensemble_preds, axis=1)
+
+    # Train different model architectures
+    models = []
+
+    # Model 1: Standard architecture
+    model1 = build_standard_model()
+    model1.fit(X_train, y_train, epochs=30)
+    models.append(model1)
+
+    # Model 2: Different architecture
+    model2 = build_complex_model()
+    model2.fit(X_train, y_train, epochs=30)
+    models.append(model2)
+
+    # Model 3: Same architecture, different initialization
+    model3 = build_standard_model()
+    model3.fit(X_train, y_train, epochs=30)
+    models.append(model3)
+
+    # Create ensemble
+    ensemble = EnsembleModel(models)
+
+    # Evaluate ensemble
+    ensemble_preds = ensemble.predict(X_test)
+    ensemble_accuracy = np.mean(ensemble_preds == y_test)
+    print(f"Ensemble accuracy: {ensemble_accuracy:.4f}")''',
+            'sklearn': '''# Implement model ensemble
+    from sklearn.ensemble import VotingClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.svm import SVC
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.metrics import accuracy_score
+
+    # Create different base models
+    models = [
+        ('lr', LogisticRegression(max_iter=1000)),
+        ('rf', RandomForestClassifier(n_estimators=100)),
+        ('svm', SVC(probability=True))
+    ]
+
+    # Create and train voting ensemble
+    ensemble = VotingClassifier(
+        estimators=models,
+        voting='soft'  # Use predicted probabilities
+    )
+    ensemble.fit(X_train, y_train)
+
+    # Evaluate ensemble
+    y_pred = ensemble.predict(X_test)
+    ensemble_accuracy = accuracy_score(y_test, y_pred)
+    print(f"Ensemble accuracy: {ensemble_accuracy:.4f}")
+
+    # Compare with individual models
+    for name, model in models:
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        print(f"{name} accuracy: {accuracy_score(y_test, y_pred):.4f}")'''
+        }
+        
+        suggestions.append({
+            "category": "model_ensemble",
+            "issue": "Single models may have limitations in certain scenarios",
+            "suggestion": "Implement a model ensemble to improve performance and robustness",
+            "severity": 0.4,
+            "impact": 0.7,
+            "code_example": ensemble_code[framework]
+        })
+        
+        # 4. Data Augmentation (if using image data)
+        if self.framework == 'pytorch' and hasattr(self.model, 'conv1'):
+            # This is likely a CNN, suggest data augmentation
+            suggestions.append({
+                "category": "data_augmentation",
+                "issue": "Limited training data can lead to overfitting in CNNs",
+                "suggestion": "Implement data augmentation to artificially increase training data diversity",
+                "severity": 0.5,
+                "impact": 0.7,
+                "code_example": '''# Implement data augmentation for image data
+    from torchvision import transforms
+
+    # Define augmentation transformations
+    transform_train = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(10),
+        transforms.RandomAffine(0, translate=(0.1, 0.1)),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    # Apply to training dataset
+    train_dataset_augmented = YourDataset(
+        root='./data',
+        train=True,
+        transform=transform_train
+    )
+
+    # Keep validation/test transforms simple
+    transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    test_dataset = YourDataset(
+        root='./data',
+        train=False,
+        transform=transform_test
+    )
+
+    # Create loaders
+    train_loader = DataLoader(train_dataset_augmented, batch_size=32, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=32)'''
+            })
+        
+        # 5. Learning Rate Finder
+        lr_finder_code = {
+            'pytorch': '''# Implement learning rate finder
+    from torch_lr_finder import LRFinder
+
+    # Define model and optimizer
+    model = YourModel()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-7)
+    criterion = nn.CrossEntropyLoss()
+
+    # Create LR finder
+    lr_finder = LRFinder(model, optimizer, criterion, device="cuda" if torch.cuda.is_available() else "cpu")
+    lr_finder.range_test(train_loader, end_lr=1, num_iter=100)
+
+    # Plot results
+    lr_finder.plot()  # Requires matplotlib
+
+    # Get suggestion for LR
+    suggested_lr = lr_finder.suggestion()
+    print(f"Suggested Learning Rate: {suggested_lr}")
+
+    # Reset the model and optimizer
+    model = YourModel()  # Reinitialize model
+    optimizer = torch.optim.Adam(model.parameters(), lr=suggested_lr)''',
+            'tensorflow': '''# Implement learning rate finder
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from tensorflow.keras.callbacks import LambdaCallback
+
+    # Define model
+    model = build_model()
+
+    # Define learning rate range (log scale)
+    start_lr = 1e-7
+    end_lr = 1.0
+    num_steps = 100
+    lr_multiplier = (end_lr / start_lr) ** (1 / num_steps)
+
+    # Initialize data
+    lrs = []
+    losses = []
+    best_loss = np.inf
+    best_lr = None
+
+    # Callback to update learning rate and record loss
+    lr_callback = LambdaCallback(
+        on_batch_end=lambda batch, logs: (
+            lrs.append(K.get_value(model.optimizer.lr)),
+            losses.append(logs['loss']),
+            K.set_value(model.optimizer.lr, K.get_value(model.optimizer.lr) * lr_multiplier)
+        )
+    )
+
+    # Initialize with start learning rate
+    K.set_value(model.optimizer.lr, start_lr)
+
+    # Train model with increasing learning rate
+    model.fit(
+        X_train, y_train,
+        epochs=1,
+        batch_size=32,
+        callbacks=[lr_callback],
+        verbose=0
+    )
+
+    # Find the best learning rate (where loss still decreases)
+    for i in range(1, len(losses)):
+        if losses[i] < best_loss:
+            best_loss = losses[i]
+            best_lr = lrs[i]
+
+    # Plot results
+    plt.figure(figsize=(10, 6))
+    plt.plot(lrs, losses)
+    plt.xscale('log')
+    plt.xlabel('Learning Rate')
+    plt.ylabel('Loss')
+    plt.title('Learning Rate Finder')
+    plt.axvline(x=best_lr, color='r', linestyle='--')
+    plt.savefig('lr_finder.png')
+
+    print(f"Suggested Learning Rate: {best_lr}")
+
+    # Reinitialize model with the suggested learning rate
+    model = build_model()
+    model.optimizer.lr.assign(best_lr)''',
+            'sklearn': '''# Learning rate finder isn't typically used with sklearn models
+    # Instead, here's a grid search for learning rates in MLPClassifier
+
+    from sklearn.neural_network import MLPClassifier
+    from sklearn.model_selection import GridSearchCV
+
+    # Define parameter grid focusing on learning_rate_init
+    param_grid = {
+        'learning_rate_init': [0.0001, 0.001, 0.01, 0.1],
+        'hidden_layer_sizes': [(100,), (100, 50)],
+        'activation': ['relu', 'tanh'],
+        'alpha': [0.0001, 0.001, 0.01]
+    }
+
+    # Create model
+    mlp = MLPClassifier(max_iter=1000, early_stopping=True, random_state=42)
+
+    # Run grid search
+    grid_search = GridSearchCV(
+        mlp, param_grid, cv=3, 
+        scoring='accuracy', verbose=1
+    )
+    grid_search.fit(X_train, y_train)
+
+    # Get best parameters
+    print(f"Best parameters: {grid_search.best_params_}")
+    print(f"Best score: {grid_search.best_score_:.4f}")
+
+    # Use best model
+    best_model = grid_search.best_estimator_'''
+        }
+        
+        suggestions.append({
+            "category": "learning_rate_optimization",
+            "issue": "Finding the optimal learning rate is challenging",
+            "suggestion": "Use a learning rate finder to discover the ideal learning rate",
+            "severity": 0.4,
+            "impact": 0.6,
+            "code_example": lr_finder_code[framework]
+        })
+        
+        print(f"Generated {len(suggestions)} improvement suggestions")
+        return suggestions
+    
     def _calculate_accuracy(self) -> float:
         """Calculate basic accuracy metric."""
         if self.predictions is None or self.ground_truth is None:
@@ -521,7 +1157,10 @@ class ModelDebugger:
             kf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
             fold_results = []
             
-            for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+            # Convert PyTorch tensor to numpy array for KFold
+            X_numpy = X.numpy()
+            
+            for fold, (train_idx, val_idx) in enumerate(kf.split(X_numpy)):
                 # Get fold data
                 X_train, X_val = X[train_idx], X[val_idx]
                 y_train, y_val = y[train_idx], y[val_idx]

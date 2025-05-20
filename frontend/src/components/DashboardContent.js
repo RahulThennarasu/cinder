@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-
+import ModelImprovementFlowchart from './ModelImprovementFlowchart';
 // Constants
 const COLORS = ['#e74c32', '#ff9066', '#ffba66', '#ffd166', '#8884d8', '#82ca9d'];
 
@@ -15,6 +15,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   const [predictionDistribution, setPredictionDistribution] = useState(null);
   const [errorAnalysis, setErrorAnalysis] = useState(null);
   const [confidenceAnalysis, setConfidenceAnalysis] = useState(null);
+  const [improvementSuggestions, setImprovementSuggestions] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
 
   // Fetch data from API
@@ -172,6 +173,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
       { id: 'errors', label: 'Error Analysis' },
       { id: 'features', label: 'Features' },
       { id: 'training', label: 'Training' },
+      { id: 'improvement', label: 'Model Improvement' },
     ];
 
     return (
@@ -194,6 +196,18 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   // Render based on active tab
   const renderTabContent = () => {
     switch (activeTab) {
+        case 'improvement':  // Note: changed from 'improvements' to 'improvement'
+  return (
+    <div className="grid">
+      <div className="card">
+        <ModelImprovementFlowchart 
+          modelInfo={modelInfo}
+          errorAnalysis={errorAnalysis}
+          confidenceAnalysis={confidenceAnalysis}
+        />
+      </div>
+    </div>
+  );
       case 'overview':
         return (
           <div className="grid grid-cols-2">
