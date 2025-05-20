@@ -2,12 +2,19 @@ import asyncio
 import logging
 import uvicorn
 import numpy as np
+import time
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+
+# Set matplotlib to use a non-interactive backend
+import matplotlib
+matplotlib.use('Agg')
 
 app = FastAPI(title="CompileML API")
 
@@ -22,6 +29,11 @@ app.add_middleware(
 
 # Store reference to the ModelDebugger instance
 debugger = None
+
+# Create a directory for storing visualization images
+os.makedirs('temp_visualizations', exist_ok=True)
+
+# Import visualizers
 
 # API Models with enhanced documentation
 class ModelInfoResponse(BaseModel):
@@ -119,6 +131,18 @@ class ServerStatusResponse(BaseModel):
 
 # Track server start time
 server_start_time = datetime.now()
+
+# Function to clean up old visualization files
+def cleanup_old_visualizations(max_age_seconds=3600):  # Default: 1 hour
+    """Remove visualization files older than max_age_seconds"""
+    current_time = time.time()
+    for filename in os.listdir('temp_visualizations'):
+        file_path = os.path.join('temp_visualizations', filename)
+        if os.path.isfile(file_path):
+            # Check file age
+            file_age = current_time - os.path.getmtime(file_path)
+            if file_age > max_age_seconds:
+                os.remove(file_path)
 
 # Root endpoint
 @app.get("/")
@@ -324,6 +348,9 @@ def start_server(model_debugger, port: int = 8000):
     """Start the FastAPI server with the given ModelDebugger instance."""
     global debugger
     debugger = model_debugger
+    
+    # Cleanup old visualizations
+    cleanup_old_visualizations()
     
     # Start the server
     uvicorn.run(app, host="0.0.0.0", port=port)

@@ -504,3 +504,36 @@
   height: 100%;
   background-color: #8884d8;
 }
+
+.visualization-container {
+  margin: 20px 0;
+  text-align: center;
+}
+
+.visualization-image {
+  max-width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.visualization-selector {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f9fafb;
+  border-radius: 5px;
+}
+
+.visualization-display {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-control {
+  padding: 5px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  margin-left: 8px;
+}
