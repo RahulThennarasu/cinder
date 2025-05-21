@@ -361,11 +361,11 @@ body {
 }
 
 .correct-cell {
-  color: white;
+  color: rgb(255, 255, 255);
 }
 
 .incorrect-cell {
-  color: white;
+  color: rgb(17, 16, 16);
 }
 
 /* Charts */
