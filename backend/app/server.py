@@ -7,6 +7,9 @@ import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -33,7 +36,11 @@ debugger = None
 # Create a directory for storing visualization images
 os.makedirs('temp_visualizations', exist_ok=True)
 
-# Import visualizers
+try:
+    from backend.ml_analysis.code_generator import SimpleCodeGenerator
+    HAS_CODE_GENERATOR = True
+except ImportError:
+    HAS_CODE_GENERATOR = False
 
 # API Models with enhanced documentation
 class ModelInfoResponse(BaseModel):
@@ -195,7 +202,66 @@ async def get_model_info():
         "f1": analysis.get("f1"),
         "roc_auc": analysis.get("roc_auc")
     }
+@app.get("/api/model-improvements", response_model=Dict[str, Any])
+async def get_model_improvements(
+    detail_level: str = Query("comprehensive", regex="^(basic|comprehensive|code)$")
+):
+    """
+    Get actionable suggestions to improve model performance.
+    """
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    try:
+        # Generate improvement suggestions with dynamic code examples
+        suggestions = debugger.generate_improvement_suggestions(detail_level=detail_level)
+        return suggestions
+    except Exception as e:
+        logging.error(f"Error generating improvement suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating suggestions: {str(e)}")
 
+@app.get("/api/generate-code-example", response_model=Dict[str, str])
+async def generate_code_example(
+    framework: str = Query(..., regex="^(pytorch|tensorflow|sklearn)$"),
+    category: str = Query(...),
+):
+    """
+    Generate code example for a specific improvement category and framework.
+    """
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    try:
+        # Get analysis to provide context
+        analysis = debugger.analyze()
+        
+        # Create context
+        model_context = {
+            "accuracy": analysis["accuracy"],
+            "error_rate": analysis["error_analysis"]["error_rate"],
+            "framework": debugger.framework
+        }
+        
+        # Initialize generator
+        if not HAS_CODE_GENERATOR:
+            return {"code": "# Code generation requires the Gemini API"}
+            
+        code_generator = SimpleCodeGenerator()
+        
+        # Generate the code
+        code = code_generator.generate_code_example(
+            framework=framework,
+            category=category,
+            model_context=model_context
+        )
+        
+        return {"code": code}
+    except Exception as e:
+        logging.error(f"Error generating code: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating code: {str(e)}")
+        
 # Error analysis endpoint
 @app.get("/api/errors", response_model=ErrorAnalysisResponse)
 async def get_errors():
@@ -301,6 +367,26 @@ async def get_training_history():
     
     return debugger.get_training_history()
 
+@app.get("/api/model-improvement-suggestions", response_model=Dict[str, Any])
+async def get_model_improvement_suggestions(
+    detail_level: str = Query("comprehensive", regex="^(basic|comprehensive|code)$")
+):
+    """
+    Get actionable suggestions to improve model performance.
+    
+    This endpoint provides specific, targeted suggestions to improve the model,
+    based on analyzing its performance, error patterns, and architecture.
+    """
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    try:
+        suggestions = debugger.get_improvement_suggestions(detail_level=detail_level)
+        return suggestions
+    except Exception as e:
+        logging.error(f"Error generating improvement suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating suggestions: {str(e)}")
 # Error Types endpoint
 @app.get("/api/error-types", response_model=List[ErrorType])
 async def get_error_types():

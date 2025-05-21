@@ -5,6 +5,8 @@ import {
 } from 'recharts';
 import ModelImprovementFlowchart from './ModelImprovementFlowchart';
 import EnhancedPredictionDistribution from './EnhancedPredictionDistribution';
+import ModelImprovementSuggestions from './ModelImprovementSuggestions';
+
 // Constants
 const COLORS = ['#e74c32', '#ff9066', '#ffba66', '#ffd166', '#e74c32', '#82ca9d'];
 
@@ -175,6 +177,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
       { id: 'features', label: 'Features' },
       { id: 'training', label: 'Training' },
       { id: 'improvement', label: 'Model Improvement' },
+      { id: 'improve', label: 'Model Suggestions' },
     ];
 
     return (
@@ -209,6 +212,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
       </div>
     </div>
   );
+
+  case 'improvements':
+      return <ModelImprovementSuggestions />;
       case 'overview':
         return (
           <div className="grid grid-cols-2">
@@ -591,7 +597,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
             </div>
           </div>
         );
-
+      case 'improve':  // Add this case
+      return <ModelImprovementSuggestions />;
+      
       case 'training':
         return (
           <div className="grid">
