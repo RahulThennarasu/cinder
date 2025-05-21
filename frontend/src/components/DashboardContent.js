@@ -173,9 +173,6 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
     const tabs = [
       { id: 'overview', label: 'Overview' },
       { id: 'performance', label: 'Performance' },
-      { id: 'errors', label: 'Error Analysis' },
-      { id: 'features', label: 'Features' },
-      { id: 'training', label: 'Training' },
       { id: 'improvement', label: 'Model Improvement' },
       { id: 'improve', label: 'Model Suggestions' },
     ];
@@ -599,7 +596,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
         );
       case 'improve':  // Add this case
       return <ModelImprovementSuggestions />;
-      
+
       case 'training':
         return (
           <div className="grid">

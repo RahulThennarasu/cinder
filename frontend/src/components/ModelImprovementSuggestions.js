@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import './ModelImprovementSuggestions.css';
 
 const ModelImprovementSuggestions = () => {
   const [suggestions, setSuggestions] = useState(null);
@@ -10,12 +11,12 @@ const ModelImprovementSuggestions = () => {
   const [activeSection, setActiveSection] = useState(null);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [generatedCode, setGeneratedCode] = useState({});
+  const [copied, setCopied] = useState(false);
   
   useEffect(() => {
     const fetchSuggestions = async () => {
       try {
         setLoading(true);
-        // This endpoint was defined in your backend code
         const response = await fetch('http://localhost:8000/api/model-improvements?detail_level=comprehensive');
         
         if (!response.ok) {
@@ -39,7 +40,7 @@ const ModelImprovementSuggestions = () => {
         
       } catch (err) {
         console.error('Error fetching improvement suggestions:', err);
-        setError('Could not load improvement suggestions. Check if the server is running.');
+        setError('Could not load improvement suggestions. Check if the server is running and that the API endpoint is accessible.');
       } finally {
         setLoading(false);
       }
@@ -47,6 +48,15 @@ const ModelImprovementSuggestions = () => {
     
     fetchSuggestions();
   }, []);
+
+  useEffect(() => {
+    if (copied) {
+      const timer = setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copied]);
   
   const generateCode = async (suggestionIndex, framework) => {
     if (generatingCode) return; // Prevent multiple simultaneous requests
@@ -113,15 +123,39 @@ const ModelImprovementSuggestions = () => {
     }
     
     // Otherwise return a placeholder
-    return `# Click "Generate Code" to create a ${activeTab} implementation`;
+    return `# Generate code to see a ${activeTab} implementation for this improvement\n# Click the "Generate Code" button above to begin`;
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+  };
+
+  // Get impact level color in a more subtle way
+  const getImpactColor = (impact) => {
+    if (!impact) return '#6B7280'; // Default gray
+    const level = impact.toLowerCase();
+    if (level.includes('high')) return '#e74c32'; // Indigo for high
+    if (level.includes('medium')) return '#e74c32'; // Blue for medium
+    return '#e74c32'; // Emerald for low
+  };
+
+  // Format category for display
+  const formatCategory = (category) => {
+    if (!category) return '';
+    return category
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
   
   // Render loading state
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Loading model improvement suggestions...</p>
+      <div className="model-suggestion-loading">
+        <div className="model-suggestion-spinner"></div>
+        <p className="model-suggestion-loading-text">Loading model improvement suggestions...</p>
+        <p className="model-suggestion-loading-subtext">Analyzing model performance and identifying optimization opportunities</p>
       </div>
     );
   }
@@ -129,51 +163,71 @@ const ModelImprovementSuggestions = () => {
   // Render error state
   if (error) {
     return (
-      <div className="error-container">
-        <h3>Error</h3>
-        <p>{error}</p>
-        <button onClick={() => window.location.reload()}>Retry</button>
+      <div className="model-suggestion-error">
+        <h3 className="model-suggestion-error-title">Unable to Load Suggestions</h3>
+        <p className="model-suggestion-error-message">{error}</p>
+        <div className="model-suggestion-error-help">
+          <h4>Troubleshooting Steps:</h4>
+          <ol>
+            <li>Verify that the server is running on <code>http://localhost:8000</code></li>
+            <li>Check that the API endpoint <code>/api/model-improvements</code> is available</li>
+            <li>Confirm network connectivity between your frontend and backend</li>
+            <li>Check server logs for potential errors or exceptions</li>
+          </ol>
+        </div>
+        <button 
+          className="model-suggestion-error-button"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
       </div>
     );
   }
   
   return (
-    <div className="model-suggestions">
+    <div className={`model-suggestions-container model-suggestions-framework-${activeTab}`}>
       <div className="model-suggestions-header">
-        <div className="metrics">
-          <div className="metric">
-            <span className="metric-value">{suggestions?.model_accuracy ? (suggestions.model_accuracy * 100).toFixed(1) : 0}%</span>
-            <span className="metric-label">Current Accuracy</span>
-          </div>
-          <div className="metric">
-            <span className="metric-value">{suggestions?.error_rate ? (suggestions.error_rate * 100).toFixed(1) : 0}%</span>
-            <span className="metric-label">Error Rate</span>
-          </div>
-          <div className="metric">
-            <span className={`metric-value ${suggestions?.improvement_potential || ''}`}>
-              {suggestions?.improvement_potential ? suggestions.improvement_potential.charAt(0).toUpperCase() + suggestions.improvement_potential.slice(1) : 'Unknown'}
+        <div className="model-suggestions-metrics">
+          <div className="model-suggestions-metric">
+            <span className="model-suggestions-metric-value">
+              {suggestions?.model_accuracy ? (suggestions.model_accuracy * 100).toFixed(1) : 0}%
             </span>
-            <span className="metric-label">Potential</span>
+            <span className="model-suggestions-metric-label">Model Accuracy</span>
+          </div>
+          <div className="model-suggestions-metric">
+            <span className="model-suggestions-metric-value">
+              {suggestions?.error_rate ? (suggestions.error_rate * 100).toFixed(1) : 0}%
+            </span>
+            <span className="model-suggestions-metric-label">Error Rate</span>
+          </div>
+          <div className="model-suggestions-metric">
+            <span className="model-suggestions-metric-value improvement-potential">
+              {suggestions?.improvement_potential 
+                ? suggestions.improvement_potential.charAt(0).toUpperCase() + suggestions.improvement_potential.slice(1) 
+                : 'Unknown'}
+            </span>
+            <span className="model-suggestions-metric-label">Improvement Potential</span>
           </div>
         </div>
         
-        <div className="framework-selector">
-          <div className="framework-label">Code Examples:</div>
-          <div className="framework-options">
+        <div className="model-suggestions-framework-selector">
+          <div className="model-suggestions-framework-label">Code Examples:</div>
+          <div className="model-suggestions-framework-options">
             <button 
-              className={activeTab === 'pytorch' ? 'active' : ''}
+              className={`model-suggestions-framework-button ${activeTab === 'pytorch' ? 'active' : ''}`}
               onClick={() => setActiveTab('pytorch')}
             >
               PyTorch
             </button>
             <button 
-              className={activeTab === 'tensorflow' ? 'active' : ''}
+              className={`model-suggestions-framework-button ${activeTab === 'tensorflow' ? 'active' : ''}`}
               onClick={() => setActiveTab('tensorflow')}
             >
               TensorFlow
             </button>
             <button 
-              className={activeTab === 'sklearn' ? 'active' : ''}
+              className={`model-suggestions-framework-button ${activeTab === 'sklearn' ? 'active' : ''}`}
               onClick={() => setActiveTab('sklearn')}
             >
               scikit-learn
@@ -183,87 +237,205 @@ const ModelImprovementSuggestions = () => {
       </div>
       
       {!suggestions?.suggestions || suggestions.suggestions.length === 0 ? (
-        <div className="no-suggestions">
-          <p>No improvement suggestions available. This may indicate that your model is already well-optimized.</p>
+        <div className="model-suggestions-empty">
+          <h3>No Improvement Suggestions Available</h3>
+          <p>Your model appears to be performing well based on our analysis. There are no significant issues identified that require immediate attention.</p>
+          <p>Consider exploring advanced techniques or fine-tuning hyperparameters if you want to optimize further.</p>
         </div>
       ) : (
-        <div className="suggestions-container">
-          <div className="suggestions-sidebar">
+        <div className="model-suggestions-content">
+          <div className="model-suggestions-sidebar">
+            <h3 className="model-suggestions-sidebar-title">Improvement Areas</h3>
+            <div className="model-suggestions-sidebar-description">
+              Click on a suggestion to see details and implementation examples
+            </div>
             {suggestions.suggestions.map((suggestion, index) => (
               <div 
                 key={index}
-                className={`suggestion-item ${activeSection === index ? 'active' : ''}`}
+                className={`model-suggestions-sidebar-item ${activeSection === index ? 'active' : ''}`}
                 onClick={() => setActiveSection(index)}
               >
-                <div className="suggestion-icon"></div>
-                <div className="suggestion-info">
-                  <span className="suggestion-title">{suggestion.title}</span>
-                  <span className="suggestion-category">{suggestion.category}</span>
+                <div className="model-suggestions-sidebar-item-header">
+                  <div 
+                    className="model-suggestions-sidebar-item-icon"
+                    style={{ 
+                      backgroundColor: getImpactColor(suggestion.expected_impact)
+                    }}
+                  ></div>
+                  <div className="model-suggestions-sidebar-item-title">
+                    {suggestion.title}
+                  </div>
+                </div>
+                <div className="model-suggestions-sidebar-item-category">
+                  {formatCategory(suggestion.category)}
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="suggestion-content">
+          <div className="model-suggestions-detail">
             {activeSection !== null && (
-              <div className="suggestion-details">
-                <h2 className="suggestion-title">{suggestions.suggestions[activeSection].title}</h2>
+              <div className="model-suggestions-detail-content">
+                <h2 className="model-suggestions-detail-title">
+                  {suggestions.suggestions[activeSection].title}
+                </h2>
                 
-                <div className="suggestion-section">
-                  <h3>Issue</h3>
-                  <p>{suggestions.suggestions[activeSection].issue}</p>
+                <div className="model-suggestions-detail-category">
+                  {formatCategory(suggestions.suggestions[activeSection].category)}
+                  
+                  <span className={`model-suggestions-framework-badge ${activeTab}`}>
+                    {activeTab}
+                  </span>
                 </div>
                 
-                <div className="suggestion-section">
-                  <h3>Recommendation</h3>
-                  <p>{suggestions.suggestions[activeSection].suggestion}</p>
-                </div>
-                
-                <div className="suggestion-section">
-                  <h3>Implementation</h3>
-                  <div className="code-container">
-                    <div className="code-header">
-                      <div className="generate-options">
-                        <button 
-                          onClick={() => generateCode(activeSection, activeTab)}
-                          disabled={generatingCode}
-                          className="generate-button"
-                        >
-                          {generatingCode ? 'Generating...' : 'Generate Code'}
-                        </button>
-                        <div className="api-message">
-                          {generatingCode && <span>Using Gemini AI to create code...</span>}
-                        </div>
+                <div className="model-suggestions-detail-section">
+                  <h3 className="model-suggestions-detail-section-title">Issue Identified</h3>
+                  <div className="model-suggestions-detail-section-content">
+                    <p>{suggestions.suggestions[activeSection].issue}</p>
+                    <div className="model-suggestions-detail-section-explanation">
+                      <div className="model-suggestions-detail-section-explanation-icon"></div>
+                      <div className="model-suggestions-detail-section-explanation-text">
+                        This issue can affect your model's performance by introducing bias, reducing generalization, or limiting accuracy on certain samples.
                       </div>
-                    </div>
-                    
-                    <SyntaxHighlighter 
-                      language="python"
-                      style={vscDarkPlus}
-                      showLineNumbers={true}
-                    >
-                      {getCurrentCode()}
-                    </SyntaxHighlighter>
-                    
-                    <div className="code-actions">
-                      <button
-                        onClick={() => {
-                          const code = getCurrentCode();
-                          navigator.clipboard.writeText(code);
-                          alert('Code copied to clipboard!');
-                        }}
-                        disabled={!generatedCode[activeSection] || !generatedCode[activeSection][activeTab]}
-                      >
-                        Copy Code
-                      </button>
                     </div>
                   </div>
                 </div>
                 
-                <div className="suggestion-footer">
-                  <div className="impact-indicator">
-                    <span className="impact-label">Expected Impact:</span>
-                    <span className="impact-value">{suggestions.suggestions[activeSection].expected_impact || 'Medium'}</span>
+                <div className="model-suggestions-detail-section">
+                  <h3 className="model-suggestions-detail-section-title">Recommended Solution</h3>
+                  <div className="model-suggestions-detail-section-content">
+                    <p>{suggestions.suggestions[activeSection].suggestion}</p>
+                    
+                    <div className="model-suggestions-algorithm-metrics">
+                      <div className="model-suggestions-algorithm-metric">
+                        <span className="model-suggestions-algorithm-metric-label">Solution Complexity</span>
+                        <div className="model-suggestions-complexity">
+                          <div className="model-suggestions-complexity-bars">
+                            {[...Array(3)].map((_, i) => (
+                              <div 
+                                key={i} 
+                                className={`model-suggestions-complexity-bar ${i < 2 ? 'active' : ''}`}
+                              ></div>
+                            ))}
+                          </div>
+                          <span className="model-suggestions-complexity-label">Medium</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="model-suggestions-detail-section-impact">
+                      <div className="model-suggestions-detail-section-impact-label">Expected Impact:</div>
+                      <div 
+                        className="model-suggestions-detail-section-impact-value"
+                        style={{ color: getImpactColor(suggestions.suggestions[activeSection].expected_impact) }}
+                      >
+                        {suggestions.suggestions[activeSection].expected_impact || 'Medium'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="model-suggestions-detail-section">
+                  <h3 className="model-suggestions-detail-section-title">Implementation</h3>
+                  <div className="model-suggestions-detail-section-content">
+                    <div className="model-suggestions-code-container">
+                      <div className="model-suggestions-code-header">
+                        <div className="model-suggestions-code-header-left">
+                          <button 
+                            onClick={() => generateCode(activeSection, activeTab)}
+                            disabled={generatingCode}
+                            className="model-suggestions-generate-button"
+                          >
+                            {generatingCode 
+                              ? 'Generating Code...' 
+                              : generatedCode[activeSection] && generatedCode[activeSection][activeTab]
+                                ? 'Regenerate Code'
+                                : 'Generate Code'
+                            }
+                          </button>
+                          <div className="model-suggestions-code-framework">
+                            <span className="model-suggestions-code-framework-label">Framework:</span>
+                            <span className="model-suggestions-code-framework-value">{activeTab}</span>
+                          </div>
+                        </div>
+                        {generatingCode && (
+                          <div className="model-suggestions-api-message">
+                            Using Gemini API to create optimized implementation...
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="model-suggestions-code-content">
+                        <SyntaxHighlighter 
+                          language="python"
+                          style={atomDark}
+                          showLineNumbers={true}
+                          customStyle={{ 
+                            borderRadius: '4px',
+                            margin: 0,
+                            padding: '16px',
+                            fontSize: '14px',
+                            backgroundColor: '#1e1e1e'
+                          }}
+                        >
+                          {getCurrentCode()}
+                        </SyntaxHighlighter>
+                      </div>
+                      
+                      <div className="model-suggestions-code-footer">
+                        <div className="model-suggestions-code-info">
+                          {generatedCode[activeSection] && generatedCode[activeSection][activeTab] && (
+                            <span>AI-generated implementation for {activeTab}</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(getCurrentCode())}
+                          disabled={!generatedCode[activeSection] || !generatedCode[activeSection][activeTab]}
+                          className="model-suggestions-copy-button"
+                        >
+                          {copied ? 'Copied!' : 'Copy Code'}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="model-suggestions-implementation-notes">
+                      <h4 className="model-suggestions-implementation-notes-title">Implementation Notes</h4>
+                      <ul className="model-suggestions-implementation-notes-list">
+                        <li>The code above provides a starting point for addressing the identified issue.</li>
+                        <li>Adapt the parameters and hyperparameters to match your specific model architecture.</li>
+                        <li>Consider experimenting with different variations of the solution to find optimal results.</li>
+                        <li>Always validate the improvement with proper evaluation metrics.</li>
+                      </ul>
+                    </div>
+                    
+                    {generatedCode[activeSection] && generatedCode[activeSection][activeTab] && (
+                      <div className="model-suggestions-code-annotation">
+                        <div className="model-suggestions-code-annotation-title">Key Implementation Details</div>
+                        <div className="model-suggestions-code-annotation-content">
+                          Pay special attention to the <code>hyperparameters</code> and <code>class weights</code> in the implementation.
+                          These values may need adjustment based on your specific dataset characteristics.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="model-suggestions-detail-footer">
+                  <div className="model-suggestions-detail-footer-severity">
+                    <span className="model-suggestions-detail-footer-severity-label">Severity:</span>
+                    <span className="model-suggestions-detail-footer-severity-value">
+                      {suggestions.suggestions[activeSection].severity || 'Medium'}
+                    </span>
+                  </div>
+                  <div className="model-suggestions-detail-footer-next">
+                    {activeSection < suggestions.suggestions.length - 1 && (
+                      <button 
+                        className="model-suggestions-next-button"
+                        onClick={() => setActiveSection(activeSection + 1)}
+                      >
+                        Next Suggestion →
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -271,315 +443,6 @@ const ModelImprovementSuggestions = () => {
           </div>
         </div>
       )}
-      
-      <style jsx>{`
-        .model-suggestions {
-          background-color: #f8f9fa;
-          border-radius: 8px;
-          overflow: hidden;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-        
-        .model-suggestions-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px 24px;
-          background-color: white;
-          border-bottom: 1px solid #e9ecef;
-        }
-        
-        .metrics {
-          display: flex;
-          gap: 24px;
-        }
-        
-        .metric {
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .metric-value {
-          font-size: 24px;
-          font-weight: 600;
-        }
-        
-        .metric-value.high {
-          color: #e74c32;
-        }
-        
-        .metric-value.medium {
-          color: #f59e0b;
-        }
-        
-        .metric-value.low {
-          color: #10b981;
-        }
-        
-        .metric-label {
-          font-size: 14px;
-          color: #6c757d;
-        }
-        
-        .framework-selector {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        
-        .framework-label {
-          font-size: 14px;
-          font-weight: 500;
-        }
-        
-        .framework-options {
-          display: flex;
-          gap: 8px;
-        }
-        
-        .framework-options button {
-          padding: 6px 12px;
-          border: 1px solid #dee2e6;
-          background-color: white;
-          border-radius: 4px;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        
-        .framework-options button.active {
-          background-color: #e74c32;
-          color: white;
-          border-color: #e74c32;
-        }
-        
-        .suggestions-container {
-          display: flex;
-          height: 600px;
-        }
-        
-        .suggestions-sidebar {
-          width: 280px;
-          background-color: white;
-          border-right: 1px solid #e9ecef;
-          overflow-y: auto;
-        }
-        
-        .suggestion-item {
-          display: flex;
-          align-items: center;
-          padding: 16px;
-          border-bottom: 1px solid #f1f3f5;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        
-        .suggestion-item:hover {
-          background-color: #f8f9fa;
-        }
-        
-        .suggestion-item.active {
-          background-color: #e9ecef;
-        }
-        
-        .suggestion-icon {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background-color: #e74c32;
-          margin-right: 12px;
-        }
-        
-        .suggestion-info {
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .suggestion-title {
-          font-size: 16px;
-          font-weight: 500;
-        }
-        
-        .suggestion-category {
-          font-size: 12px;
-          color: #6c757d;
-          text-transform: uppercase;
-        }
-        
-        .suggestion-content {
-          flex: 1;
-          padding: 24px;
-          overflow-y: auto;
-          background-color: #f8f9fa;
-        }
-        
-        .suggestion-details h2 {
-          margin-top: 0;
-          margin-bottom: 16px;
-          font-size: 24px;
-          font-weight: 600;
-        }
-        
-        .suggestion-section {
-          margin-bottom: 24px;
-        }
-        
-        .suggestion-section h3 {
-          font-size: 18px;
-          font-weight: 500;
-          margin-bottom: 8px;
-        }
-        
-        .suggestion-section p {
-          margin: 0;
-          line-height: 1.5;
-        }
-        
-        .code-container {
-          background-color: #1e1e1e;
-          border-radius: 8px;
-          overflow: hidden;
-          margin-top: 12px;
-        }
-        
-        .code-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px 12px;
-          background-color: #252525;
-        }
-        
-        .generate-options {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        
-        .generate-button {
-          padding: 6px 12px;
-          background-color: #4a4a4a;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          font-size: 14px;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        
-        .generate-button:hover:not(:disabled) {
-          background-color: #5a5a5a;
-        }
-        
-        .generate-button:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        
-        .api-message {
-          font-size: 12px;
-          color: #aaa;
-        }
-        
-        .code-actions {
-          display: flex;
-          justify-content: flex-end;
-          padding: 8px 12px;
-          background-color: #2d2d2d;
-        }
-        
-        .code-actions button {
-          padding: 6px 12px;
-          background-color: #434547;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          font-size: 12px;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        
-        .code-actions button:hover:not(:disabled) {
-          background-color: #555;
-        }
-        
-        .code-actions button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        
-        .suggestion-footer {
-          margin-top: 32px;
-          padding-top: 16px;
-          border-top: 1px solid #e9ecef;
-          display: flex;
-          justify-content: flex-end;
-        }
-        
-        .impact-indicator {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .impact-label {
-          font-size: 14px;
-          color: #6c757d;
-        }
-        
-        .impact-value {
-          font-size: 14px;
-          font-weight: 500;
-        }
-        
-        .loading-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 400px;
-        }
-        
-        .spinner {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          border: 3px solid #e9ecef;
-          border-top-color: #e74c32;
-          animation: spin 1s linear infinite;
-          margin-bottom: 16px;
-        }
-        
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        
-        .error-container {
-          padding: 24px;
-          text-align: center;
-        }
-        
-        .error-container h3 {
-          margin-top: 0;
-          color: #e74c32;
-        }
-        
-        .error-container button {
-          padding: 8px 16px;
-          background-color: #e74c32;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          margin-top: 16px;
-          cursor: pointer;
-        }
-        
-        .no-suggestions {
-          padding: 48px 24px;
-          text-align: center;
-          color: #6c757d;
-        }
-      `}</style>
     </div>
   );
 };
