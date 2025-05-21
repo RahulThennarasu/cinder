@@ -4,8 +4,9 @@ import {
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import ModelImprovementFlowchart from './ModelImprovementFlowchart';
+import EnhancedPredictionDistribution from './EnhancedPredictionDistribution';
 // Constants
-const COLORS = ['#e74c32', '#ff9066', '#ffba66', '#ffd166', '#8884d8', '#82ca9d'];
+const COLORS = ['#e74c32', '#ff9066', '#ffba66', '#ffd166', '#e74c32', '#82ca9d'];
 
 const DashboardContent = ({ serverStatus, modelInfo }) => {
   // State management
@@ -327,24 +328,15 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
               )}
             </div>
 
-            {/* Prediction Distribution */}
+            {/* Enhanced Prediction Distribution */}
             <div className="card">
-              <h3 className="card-title">Prediction Distribution</h3>
-              {predictionDistribution ? (
-                <div className="chart-container">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={predictionDistribution}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="class_name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#e74c32" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="empty-state">Prediction distribution unavailable</div>
-              )}
+              <EnhancedPredictionDistribution 
+                predictionDistribution={predictionDistribution}
+                errorAnalysis={errorAnalysis}
+                confidenceAnalysis={confidenceAnalysis}
+                featureImportance={featureImportance}
+                modelInfo={modelInfo}
+              />
             </div>
           </div>
         );
