@@ -6,6 +6,7 @@ import {
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+
 const EnhancedPredictionDistribution = ({ predictionDistribution, 
   errorAnalysis, 
   modelInfo,
@@ -13,6 +14,8 @@ const EnhancedPredictionDistribution = ({ predictionDistribution,
   featureImportance  }) => {
   const [selectedClass, setSelectedClass] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
+  const [selectedFeature, setSelectedFeature] = useState(null);
+
   
   // Add proper null checks
   if (!predictionDistribution || !Array.isArray(predictionDistribution) || predictionDistribution.length === 0) {
@@ -37,7 +40,6 @@ const EnhancedPredictionDistribution = ({ predictionDistribution,
     setSelectedClass(selectedClass === data.class_name ? null : data.class_name);
     setExpandedSection(null);
   };
-  
   // Calculate expected distribution (ideally uniform)
   const calculateExpectedDistribution = () => {
     if (!predictionDistribution || predictionDistribution.length === 0) return 0;
@@ -54,7 +56,6 @@ const EnhancedPredictionDistribution = ({ predictionDistribution,
         return 0.3; // 30% deviation threshold for few classes
     }
   };
-  
   const expectedCount = calculateExpectedDistribution();
   const imbalanceThreshold = calculateImbalanceThreshold();
   // Get class-specific error info
@@ -419,46 +420,7 @@ const getClassErrors = (className) => {
             </div>
           )}
           
-          <div className="details-section">
-            <div 
-              className="section-header"
-              onClick={() => setExpandedSection(expandedSection === 'features' ? null : 'features')}
-            >
-              <span className="section-icon"></span>
-              <h5 className="section-title">Feature Importance</h5>
-              <span className="section-toggle">{expandedSection === 'features' ? '−' : '+'}</span>
-            </div>
-            
-            {expandedSection === 'features' && (
-              <div className="section-content">
-                <p className="section-description">
-                  Examine which features are most important for this class's predictions.
-                </p>
-                
-                <div className="features-placeholder">
-                    {featureImportance && featureImportance.feature_names ? (
-                        // Map through actual feature importance data
-                        featureImportance.feature_names.map((name, idx) => {
-                        const importance = featureImportance.importance_values[idx];
-                        const widthPercentage = (importance * 100).toFixed(0) + '%';
-                        
-                        return (
-                            <div 
-                            key={idx}
-                            className="feature-bar" 
-                            style={{ width: widthPercentage }}
-                            >
-                            {name} <span>{importance.toFixed(2)}</span>
-                            </div>
-                        );
-                        }).slice(0, 5) // Show top 5 features
-                    ) : (
-                        <div className="empty-state">Feature importance data unavailable</div>
-                    )}
-                </div>
-              </div>
-            )}
-          </div>
+          
         </div>
       </div>
     );

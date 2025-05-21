@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysis }) => {
   const [expandedNodes, setExpandedNodes] = useState({});
+  const [generatingCode, setGeneratingCode] = useState({});
+  const [generatedCode, setGeneratedCode] = useState({});
+  const [copied, setCopied] = useState(null);
 
   // Add this framework detection function
   const getFramework = () => {
@@ -14,6 +17,7 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
 
   // Store the framework for use in code generation
   const framework = getFramework();
+  
   // Toggle node expansion
   const toggleNode = (nodeId) => {
     setExpandedNodes(prev => ({
@@ -52,460 +56,156 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
     return 'optimize';
   };
 
+  // Clear copied state after a delay
+  useEffect(() => {
+    if (copied) {
+      const timer = setTimeout(() => {
+        setCopied(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copied]);
+
   const activeIssue = determineModelIssue();
-  // Code generators for different nodes
-  const getModelEvaluationCode = () => {
-    if (framework === 'pytorch') {
-      return `# PyTorch Model Evaluation
-model.eval()
-with torch.no_grad():
-    correct = 0
-    total = 0
-    for images, labels in test_loader:
-        outputs = model(images)
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-    
-    accuracy = correct / total
-    print(f'Test Accuracy: {accuracy:.4f}')
-    
-    # For detailed metrics
-    all_preds = []
-    all_labels = []
-    for images, labels in test_loader:
-        outputs = model(images)
-        _, predicted = torch.max(outputs.data, 1)
-        all_preds.extend(predicted.cpu().numpy())
-        all_labels.extend(labels.cpu().numpy())
-    
-    from sklearn.metrics import classification_report, confusion_matrix
-    print("Classification Report:")
-    print(classification_report(all_labels, all_preds))
-    print("Confusion Matrix:")
-    print(confusion_matrix(all_labels, all_preds))`;
-    } else if (framework === 'tensorflow') {
-      return `# TensorFlow Model Evaluation
-test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=2)
-print(f"Test accuracy: {test_accuracy:.4f}")
 
-# For more detailed metrics
-y_pred = np.argmax(model.predict(X_test), axis=1)
-from sklearn.metrics import classification_report, confusion_matrix
-print("Classification Report:")
-print(classification_report(y_test, y_pred))
-print("Confusion Matrix:")
-print(confusion_matrix(y_test, y_pred))`;
-    } else {
-      // Default sklearn
-      return `# Scikit-learn Model Evaluation
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-
-# Evaluate model on test data
-y_pred = model.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
-report = classification_report(y_test, y_pred)
-conf_matrix = confusion_matrix(y_test, y_pred)
-
-print(f"Accuracy: {accuracy:.4f}")
-print("Classification Report:")
-print(report)
-print("Confusion Matrix:")
-print(conf_matrix)`;
+  // Function to generate code using Gemini API
+  const generateCode = async (nodeId, targetFramework) => {
+    if (generatingCode[nodeId]) return; // Prevent multiple simultaneous requests
+    
+    try {
+      // Update generating state
+      setGeneratingCode(prev => ({
+        ...prev,
+        [nodeId]: true
+      }));
+      
+      // Map node IDs to categories for the API
+      const categoryMap = {
+        'start': 'model_evaluation',
+        'high_bias': 'high_bias_detection',
+        'increase_complexity': 'increase_model_complexity',
+        'feature_engineering': 'feature_engineering',
+        'high_variance': 'high_variance_detection',
+        'add_regularization': 'regularization',
+        'more_data': 'data_augmentation',
+        'class_imbalance': 'class_imbalance_detection',
+        'sampling_techniques': 'sampling_techniques',
+        'class_weights': 'class_weights',
+        'optimize': 'hyperparameter_tuning'
+      };
+      
+      const category = categoryMap[nodeId] || nodeId;
+      
+      // Call the API to generate code
+      const response = await fetch(
+        `http://localhost:8000/api/generate-code-example?framework=${targetFramework}&category=${category}`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Update the generated code state
+      setGeneratedCode(prev => ({
+        ...prev,
+        [nodeId]: {
+          ...prev[nodeId],
+          [targetFramework]: data.code
+        }
+      }));
+      
+    } catch (err) {
+      console.error(`Error generating code for ${nodeId}:`, err);
+      // Set error code in the generated code state
+      setGeneratedCode(prev => ({
+        ...prev,
+        [nodeId]: {
+          ...prev[nodeId],
+          [targetFramework]: `# Error generating code: ${err.message}\n# Please try again later.`
+        }
+      }));
+    } finally {
+      // Update generating state
+      setGeneratingCode(prev => ({
+        ...prev,
+        [nodeId]: false
+      }));
     }
   };
 
-  const getIncreaseComplexityCode = () => {
-    if (framework === 'pytorch') {
-      return `# Increase model complexity - PyTorch
-import torch
-import torch.nn as nn
-
-class ImprovedModel(nn.Module):
-    def __init__(self, input_size, hidden_size=128, num_classes=10):
-        super(ImprovedModel, self).__init__()
-        self.layer1 = nn.Linear(input_size, hidden_size)
-        self.bn1 = nn.BatchNorm1d(hidden_size)
-        self.layer2 = nn.Linear(hidden_size, hidden_size // 2)
-        self.bn2 = nn.BatchNorm1d(hidden_size // 2)
-        self.layer3 = nn.Linear(hidden_size // 2, num_classes)
-        self.relu = nn.ReLU()
-        
-    def forward(self, x):
-        x = self.layer1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.layer2(x)
-        x = self.bn2(x)
-        x = self.relu(x)
-        x = self.layer3(x)
-        return x
-        
-# For CNN models, add more convolutional layers
-class ImprovedCNN(nn.Module):
-    def __init__(self):
-        super(ImprovedCNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, 3, 1, padding=1)
-        self.pool = nn.MaxPool2d(2)
-        self.fc1 = nn.Linear(128 * 4 * 4, 256)
-        self.fc2 = nn.Linear(256, 10)
-        self.relu = nn.ReLU()
-        
-    def forward(self, x):
-        x = self.relu(self.conv1(x))
-        x = self.pool(x)
-        x = self.relu(self.conv2(x))
-        x = self.pool(x)
-        x = self.relu(self.conv3(x))
-        x = self.pool(x)
-        x = x.view(-1, 128 * 4 * 4)
-        x = self.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x`;
-    } else if (framework === 'tensorflow') {
-      return `# Increase model complexity - TensorFlow
-import tensorflow as tf
-
-# For standard neural networks
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(128, activation='relu', input_shape=(input_shape,)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(64, activation='relu'),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dense(32, activation='relu'),
-    tf.keras.layers.Dense(num_classes, activation='softmax')
-])
-
-# For CNN models
-cnn_model = tf.keras.Sequential([
-    tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(28, 28, 1)),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(256, activation='relu'),
-    tf.keras.layers.Dense(num_classes, activation='softmax')
-])
-
-# Compile model
-model.compile(
-    optimizer='adam',
-    loss='sparse_categorical_crossentropy',
-    metrics=['accuracy']
-)`;
-    } else {
-      return `# Increase model complexity - Scikit-learn
-# For tree-based models
-from sklearn.ensemble import RandomForestClassifier
-model = RandomForestClassifier(
-    n_estimators=200,  # Increase from default 100
-    max_depth=15,      # Allow deeper trees
-    min_samples_split=2,
-    min_samples_leaf=1,
-    random_state=42
-)
-
-# For gradient boosting
-from sklearn.ensemble import GradientBoostingClassifier
-gb_model = GradientBoostingClassifier(
-    n_estimators=200,
-    learning_rate=0.1,
-    max_depth=5,
-    random_state=42
-)
-
-# For neural networks
-from sklearn.neural_network import MLPClassifier
-mlp_model = MLPClassifier(
-    hidden_layer_sizes=(128, 64, 32),  # Add more layers and neurons
-    activation='relu',
-    solver='adam',
-    max_iter=1000,
-    random_state=42
-)
-
-# Train the model
-model.fit(X_train, y_train)`;
-    }
+  // Function to copy code to clipboard
+  const copyToClipboard = (text, nodeId) => {
+    navigator.clipboard.writeText(text);
+    setCopied(nodeId);
   };
 
-  const getRegularizationCode = () => {
-    if (framework === 'pytorch') {
-      return `# Add regularization - PyTorch
-import torch.nn as nn
-import torch.optim as optim
+  // Function to get code for a specific node and framework
+  const getNodeCode = (nodeId) => {
+    if (generatedCode[nodeId] && generatedCode[nodeId][framework]) {
+      return generatedCode[nodeId][framework];
+    }
+    return "# Click the 'Generate with Bit' button to create customized code\n# for improving your model based on this suggestion.";
+  };
 
-# 1. Add dropout to model
-model = nn.Sequential(
-    nn.Linear(input_size, hidden_size),
-    nn.ReLU(),
-    nn.Dropout(0.5),  # Add dropout with 0.5 probability
-    nn.Linear(hidden_size, hidden_size // 2),
-    nn.ReLU(),
-    nn.Dropout(0.3),  # Add dropout with 0.3 probability
-    nn.Linear(hidden_size // 2, num_classes)
-)
-
-# 2. Add L2 regularization (weight decay)
-optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
-
-# 3. Implement early stopping
-best_val_loss = float('inf')
-patience = 5
-patience_counter = 0
-best_model_state = None
-
-for epoch in range(epochs):
-    # Training
-    train_loss = train_one_epoch(model, train_loader, optimizer, criterion)
+  // Render a code box with generate button
+  const renderCodeBox = (nodeId, title) => {
+    const isGenerating = generatingCode[nodeId] || false;
+    const hasGeneratedCode = generatedCode[nodeId] && generatedCode[nodeId][framework];
+    const isCopied = copied === nodeId;
+    const code = getNodeCode(nodeId);
     
-    # Validation
-    val_loss = validate(model, val_loader, criterion)
-    
-    # Early stopping logic
-    if val_loss < best_val_loss:
-        best_val_loss = val_loss
-        patience_counter = 0
-        best_model_state = model.state_dict().copy()
-    else:
-        patience_counter += 1
-        
-    if patience_counter >= patience:
-        print(f"Early stopping at epoch {epoch}")
-        # Restore best model
-        model.load_state_dict(best_model_state)
-        break`;
-    } else if (framework === 'tensorflow') {
-      return `# Add regularization - TensorFlow
-import tensorflow as tf
-
-# 1. Add L1 or L2 regularization
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(
-        hidden_size, 
-        activation='relu',
-        kernel_regularizer=tf.keras.regularizers.l2(0.001),  # L2 regularization
-        input_shape=(input_shape,)
-    ),
-    tf.keras.layers.Dropout(0.5),  # Add dropout
-    tf.keras.layers.Dense(
-        hidden_size // 2,
-        activation='relu',
-        kernel_regularizer=tf.keras.regularizers.l2(0.001)
-    ),
-    tf.keras.layers.Dropout(0.3),
-    tf.keras.layers.Dense(num_classes, activation='softmax')
-])
-
-# 2. Create callbacks for early stopping and model checkpointing
-early_stopping = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss',
-    patience=5,
-    restore_best_weights=True
-)
-
-model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
-    'best_model.h5',
-    monitor='val_loss',
-    save_best_only=True
-)
-
-# 3. Use callbacks in training
-history = model.fit(
-    X_train, y_train,
-    epochs=100,
-    batch_size=32,
-    validation_split=0.2,
-    callbacks=[early_stopping, model_checkpoint],
-    verbose=1
-)`;
-    } else {
-      return `# Add regularization - Scikit-learn
-# For linear models
-from sklearn.linear_model import LogisticRegression
-model = LogisticRegression(
-    C=0.1,  # Lower C = stronger regularization (inverse of regularization strength)
-    penalty='l2',  # L2 regularization (Ridge)
-    solver='liblinear',
-    random_state=42
-)
-
-# For tree models - limit tree growth
-from sklearn.ensemble import RandomForestClassifier
-rf_model = RandomForestClassifier(
-    max_depth=6,            # Limit tree depth
-    min_samples_split=5,    # Require more samples to split
-    min_samples_leaf=2,     # Require more samples in leaves
-    max_features='sqrt',    # Use subset of features
-    random_state=42
-)
-
-# For neural networks
-from sklearn.neural_network import MLPClassifier
-mlp_model = MLPClassifier(
-    hidden_layer_sizes=(64, 32),
-    alpha=0.01,             # L2 penalty (regularization term)
-    early_stopping=True,    # Use early stopping
-    validation_fraction=0.2,
-    n_iter_no_change=10,    # Patience parameter
-    random_state=42
-)
-
-# Train with regularization
-model.fit(X_train, y_train)`;
-    }
+    return (
+      <div className="flowchart-code-container">
+        <div className="flowchart-code-header">
+          <div className="flowchart-code-title">{title || 'Code Example'}</div>
+          <div className="flowchart-code-actions">
+            <button 
+              className="flowchart-generate-button"
+              onClick={() => generateCode(nodeId, framework)}
+              disabled={isGenerating}
+            >
+              {isGenerating 
+                ? 'Generating...' 
+                : hasGeneratedCode 
+                  ? 'Regenerate Code' 
+                  : 'Generate with Bit'}
+            </button>
+            {hasGeneratedCode && (
+              <button
+                className="flowchart-copy-button"
+                onClick={() => copyToClipboard(code, nodeId)}
+                disabled={isGenerating}
+              >
+                {isCopied ? 'Copied!' : 'Copy Code'}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flowchart-code-box">
+          <SyntaxHighlighter 
+            language="python"
+            style={vscDarkPlus}
+            showLineNumbers={true}
+            customStyle={{ margin: 0 }}
+          >
+            {code}
+          </SyntaxHighlighter>
+        </div>
+        {hasGeneratedCode && (
+          <div className="flowchart-code-footer">
+            <div className="flowchart-code-info">
+              <span>Generated by Bit {framework}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
-
-  const getClassImbalanceCode = () => {
-    if (framework === 'pytorch') {
-      return `# Handle class imbalance - PyTorch
-import torch
-import numpy as np
-from torch.utils.data import WeightedRandomSampler
-from imblearn.over_sampling import SMOTE
-
-# Method 1: Use weighted loss function
-# Calculate class weights inversely proportional to frequency
-class_counts = [sum(y_train == c) for c in range(num_classes)]
-class_weights = 1. / torch.tensor(class_counts, dtype=torch.float)
-class_weights = class_weights / class_weights.sum() * num_classes
-
-# Use weighted loss
-criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
-
-# Method 2: Use weighted sampling
-sample_weights = [class_weights[y] for y in y_train]
-sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
-
-train_loader = torch.utils.data.DataLoader(
-    train_dataset,
-    batch_size=32,
-    sampler=sampler  # Use the weighted sampler
-)
-
-# Method 3: Use SMOTE for oversampling (before creating PyTorch dataset)
-# Convert PyTorch dataset to numpy arrays first
-X_np = X_train.numpy()  # Assuming X_train is a tensor
-y_np = y_train.numpy()  # Assuming y_train is a tensor
-
-smote = SMOTE(random_state=42)
-X_resampled, y_resampled = smote.fit_resample(X_np, y_np)
-
-# Convert back to tensors
-X_resampled_tensor = torch.FloatTensor(X_resampled)
-y_resampled_tensor = torch.LongTensor(y_resampled)
-
-# Create new dataset and loader with balanced data
-balanced_dataset = torch.utils.data.TensorDataset(X_resampled_tensor, y_resampled_tensor)
-balanced_loader = torch.utils.data.DataLoader(balanced_dataset, batch_size=32, shuffle=True)`;
-    } else if (framework === 'tensorflow') {
-      return `# Handle class imbalance - TensorFlow
-import numpy as np
-import tensorflow as tf
-from imblearn.over_sampling import SMOTE
-
-# Method 1: Class weights in model training
-# Calculate class weights
-class_counts = np.bincount(y_train)
-total_samples = len(y_train)
-class_weights = {i: total_samples / (len(class_counts) * count) for i, count in enumerate(class_counts)}
-
-# Use weights in training
-model.fit(
-    X_train, y_train,
-    class_weight=class_weights,
-    epochs=10,
-    batch_size=32,
-    validation_split=0.2
-)
-
-# Method 2: SMOTE for oversampling
-smote = SMOTE(random_state=42)
-X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
-
-# Train on balanced dataset
-model.fit(
-    X_resampled, y_resampled,
-    epochs=10,
-    batch_size=32,
-    validation_split=0.2
-)
-
-# Method 3: Use Focal Loss for extreme imbalance
-def focal_loss(gamma=2., alpha=4.):
-    def focal_loss_fixed(y_true, y_pred):
-        epsilon = 1e-9
-        y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
-        cross_entropy = -y_true * tf.math.log(y_pred)
-        weight = alpha * tf.math.pow(1. - y_pred, gamma)
-        loss = weight * cross_entropy
-        return tf.reduce_mean(tf.reduce_sum(loss, axis=1))
-    return focal_loss_fixed
-
-# Use focal loss in model
-model.compile(
-    optimizer='adam',
-    loss=focal_loss(gamma=2, alpha=4),
-    metrics=['accuracy']
-)`;
-    } else {
-      return `# Handle class imbalance - Scikit-learn
-import numpy as np
-from imblearn.over_sampling import SMOTE, RandomOverSampler
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.combine import SMOTETomek
-from sklearn.ensemble import RandomForestClassifier
-
-# Method 1: Use class weights in model
-# Calculate class weights
-class_weights = 'balanced'  # Automatically adjust weights inversely proportional to frequencies
-
-# Use weights in model
-model = RandomForestClassifier(
-    n_estimators=100,
-    class_weight=class_weights,
-    random_state=42
-)
-
-# Method 2: Use SMOTE for oversampling
-smote = SMOTE(random_state=42)
-X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
-
-# Check new class distribution
-unique, counts = np.unique(y_resampled, return_counts=True)
-print(f"Class distribution after SMOTE: {dict(zip(unique, counts))}")
-
-# Train on balanced dataset
-model.fit(X_resampled, y_resampled)
-
-# Method 3: SMOTETomek (combination of over and under sampling)
-smt = SMOTETomek(random_state=42)
-X_smt, y_smt = smt.fit_resample(X_train, y_train)
-print(f"Class distribution after SMOTETomek: {dict(zip(*np.unique(y_smt, return_counts=True)))}")`;
-    }
-  };
-  // Render a code box
-  const renderCodeBox = (code, language = 'python') => (
-    <div className="flowchart-code-box">
-      <SyntaxHighlighter 
-        language={language}
-        style={vscDarkPlus}
-        showLineNumbers={true}
-      >
-        {code}
-      </SyntaxHighlighter>
-    </div>
-  );
 
   // Render a flowchart node
-  const renderNode = (nodeId, title, content, codeExample = null, isActive = false) => {
+  const renderNode = (nodeId, title, content, includeCode = false, isActive = false) => {
     const isExpanded = expandedNodes[nodeId];
     
     return (
@@ -524,7 +224,7 @@ print(f"Class distribution after SMOTETomek: {dict(zip(*np.unique(y_smt, return_
               {content}
             </div>
             
-            {codeExample && renderCodeBox(codeExample)}
+            {includeCode && renderCodeBox(nodeId, `${title} - ${framework} Implementation`)}
           </div>
         )}
       </div>
@@ -561,7 +261,7 @@ print(f"Class distribution after SMOTETomek: {dict(zip(*np.unique(y_smt, return_
                                      activeIssue === 'high_variance' ? 'High Variance' : 'Balanced'}</li>
           </ul>
         </div>,
-        getModelEvaluationCode(),
+        true,
         true
       )}
 
@@ -581,7 +281,7 @@ print(f"Class distribution after SMOTETomek: {dict(zip(*np.unique(y_smt, return_
                 <li>Similar performance on training and validation sets</li>
               </ul>
             </div>,
-            null,
+            false,
             activeIssue === 'high_bias'
           )}
           
@@ -598,7 +298,7 @@ print(f"Class distribution after SMOTETomek: {dict(zip(*np.unique(y_smt, return_
                 <li>Reduce regularization if it's too strong</li>
               </ul>
             </div>,
-            getIncreaseComplexityCode(),
+            true,
             activeIssue === 'high_bias'
           )}
           
@@ -616,24 +316,7 @@ print(f"Class distribution after SMOTETomek: {dict(zip(*np.unique(y_smt, return_
                 <li>Use automated feature engineering tools</li>
               </ul>
             </div>,
-            `# Feature engineering for better representation
-from sklearn.preprocessing import PolynomialFeatures
-
-# Add polynomial features
-poly = PolynomialFeatures(degree=2, include_bias=False)
-X_train_poly = poly.fit_transform(X_train)
-X_test_poly = poly.transform(X_test)
-
-# Train model on enhanced features
-model.fit(X_train_poly, y_train)
-
-# For domain-specific features, create custom transformations
-def create_custom_features(X):
-    # Example: ratio of feature 0 to feature 1
-    X_new = X.copy()
-    X_new['ratio_0_1'] = X['feature_0'] / (X['feature_1'] + 1e-6)
-    # Add more domain-specific features
-    return X_new`,
+            true,
             activeIssue === 'high_bias'
           )}
         </div>
@@ -651,7 +334,7 @@ def create_custom_features(X):
                 <li>Large gap between training and validation performance</li>
               </ul>
             </div>,
-            null,
+            false,
             activeIssue === 'high_variance'
           )}
           
@@ -669,7 +352,7 @@ def create_custom_features(X):
                 <li>Batch normalization</li>
               </ul>
             </div>,
-            getRegularizationCode(),
+            true,
             activeIssue === 'high_variance'
           )}
           
@@ -687,22 +370,7 @@ def create_custom_features(X):
                 <li>Use transfer learning from related tasks</li>
               </ul>
             </div>,
-            `# Data augmentation for image data (PyTorch)
-from torchvision import transforms
-
-transform_train = transforms.Compose([
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
-    transforms.RandomAffine(0, translate=(0.1, 0.1)),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2),
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-])
-
-# For tabular data, use SMOTE for synthetic samples
-from imblearn.over_sampling import SMOTE
-smote = SMOTE(random_state=42)
-X_resampled, y_resampled = smote.fit_resample(X_train, y_train)`,
+            true,
             activeIssue === 'high_variance'
           )}
         </div>
@@ -720,7 +388,7 @@ X_resampled, y_resampled = smote.fit_resample(X_train, y_train)`,
                 <li>Most errors occur in underrepresented classes</li>
               </ul>
             </div>,
-            null,
+            false,
             activeIssue === 'class_imbalance'
           )}
           
@@ -738,24 +406,7 @@ X_resampled, y_resampled = smote.fit_resample(X_train, y_train)`,
                 <li>Hybrid approaches</li>
               </ul>
             </div>,
-            `# Handle class imbalance with sampling techniques
-from imblearn.over_sampling import SMOTE, RandomOverSampler
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.combine import SMOTETomek
-
-# Oversample minority classes
-oversampler = RandomOverSampler(random_state=42)
-X_over, y_over = oversampler.fit_resample(X_train, y_train)
-
-# Use SMOTE to generate synthetic samples
-smote = SMOTE(random_state=42)
-X_smote, y_smote = smote.fit_resample(X_train, y_train)
-
-# Combine over and under sampling (SMOTETomek)
-combined = SMOTETomek(random_state=42)
-X_combined, y_combined = combined.fit_resample(X_train, y_train)
-
-# Choose the best approach based on validation performance`,
+            true,
             activeIssue === 'class_imbalance'
           )}
           
@@ -773,7 +424,7 @@ X_combined, y_combined = combined.fit_resample(X_train, y_train)
                 <li>Use focal loss for extreme imbalance</li>
               </ul>
             </div>,
-            getClassImbalanceCode(),
+            true,
             activeIssue === 'class_imbalance'
           )}
         </div>
@@ -794,43 +445,88 @@ X_combined, y_combined = combined.fit_resample(X_train, y_train)
             <li>Consider advanced architectures</li>
           </ul>
         </div>,
-        `# Hyperparameter tuning
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-
-# Define parameter grid
-param_grid = {
-    'learning_rate': [0.001, 0.01, 0.1],
-    'hidden_size': [64, 128, 256],
-    'dropout': [0.3, 0.5, 0.7],
-    # Add model-specific parameters
-}
-
-# Randomized search (for large parameter spaces)
-search = RandomizedSearchCV(
-    model,
-    param_distributions=param_grid,
-    n_iter=20,
-    cv=5,
-    scoring='accuracy',
-    n_jobs=-1,
-    random_state=42
-)
-search.fit(X_train, y_train)
-best_params = search.best_params_
-
-# Create ensemble of models
-from sklearn.ensemble import VotingClassifier
-ensemble = VotingClassifier(
-    estimators=[
-        ('model1', model1),
-        ('model2', model2),
-        ('model3', model3)
-    ],
-    voting='soft'  # Use predicted probabilities
-)
-ensemble.fit(X_train, y_train)`,
+        true,
         activeIssue === 'optimize'
       )}
+      
+      {/* Add CSS for the code generation buttons and container */}
+      <style jsx>{`
+        .flowchart-code-container {
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          overflow: hidden;
+          margin-top: 16px;
+          background-color: #ffffff;
+        }
+        
+        .flowchart-code-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 12px;
+          background-color: #f9fafb;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .flowchart-code-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+        }
+        
+        .flowchart-code-actions {
+          display: flex;
+          gap: 8px;
+        }
+        
+        .flowchart-generate-button {
+          background-color: #e74c32;
+          color: white;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 4px;
+          font-size: 13px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .flowchart-generate-button:hover:not(:disabled) {
+          background-color: #d03a22;
+        }
+        
+        .flowchart-generate-button:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        
+        .flowchart-copy-button {
+          background-color: #f3f4f6;
+          color: #374151;
+          border: 1px solid #e5e7eb;
+          padding: 6px 12px;
+          border-radius: 4px;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .flowchart-copy-button:hover:not(:disabled) {
+          background-color: #e5e7eb;
+        }
+        
+        .flowchart-copy-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .flowchart-code-footer {
+          padding: 8px 12px;
+          font-size: 12px;
+          color: #6b7280;
+          background-color: #f9fafb;
+          border-top: 1px solid #e5e7eb;
+        }
+      `}</style>
     </div>
   );
 };

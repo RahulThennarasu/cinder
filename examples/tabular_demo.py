@@ -38,9 +38,10 @@ class SklearnDataset:
         self.y = y
         self.batch_size = batch_size
         self.n_samples = len(X)
+        self.current = 0  # Initialize current counter
     
     def __iter__(self):
-        self.current = 0
+        self.current = 0  # Reset the counter when starting iteration
         return self
     
     def __next__(self):
@@ -135,7 +136,15 @@ def main():
             print("Access the dashboard at http://localhost:8000")
             print("Press Ctrl+C to exit")
             debugger.launch_dashboard()
+
+            import time
+            try:
+                while True:
+                    time.sleep(1)  # Sleep to prevent high CPU usage
+            except KeyboardInterrupt:
+                print("\nShutting down...")
             break
+
 
 if __name__ == "__main__":
     main()

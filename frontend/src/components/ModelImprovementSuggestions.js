@@ -363,7 +363,7 @@ const ModelImprovementSuggestions = () => {
                         </div>
                         {generatingCode && (
                           <div className="model-suggestions-api-message">
-                            Using Gemini API to create optimized implementation...
+                            Using Bit to create optimized implementation...
                           </div>
                         )}
                       </div>
