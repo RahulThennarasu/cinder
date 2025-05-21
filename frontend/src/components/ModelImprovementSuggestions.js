@@ -202,12 +202,15 @@ const ModelImprovementSuggestions = () => {
             <span className="model-suggestions-metric-label">Error Rate</span>
           </div>
           <div className="model-suggestions-metric">
-            <span className="model-suggestions-metric-value improvement-potential">
-              {suggestions?.improvement_potential 
-                ? suggestions.improvement_potential.charAt(0).toUpperCase() + suggestions.improvement_potential.slice(1) 
-                : 'Unknown'}
-            </span>
             <span className="model-suggestions-metric-label">Improvement Potential</span>
+            <div className="improvement-potential-badge">
+              <span className="improvement-potential-indicator"></span>
+              <code className="improvement-potential-value">
+                {suggestions?.improvement_potential 
+                  ? suggestions.improvement_potential.charAt(0).toUpperCase() + suggestions.improvement_potential.slice(1) 
+                  : 'Unknown'}
+              </code>
+            </div>
           </div>
         </div>
         
