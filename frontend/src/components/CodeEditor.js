@@ -1,115 +1,151 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-// Debounce utility
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
-
 const CodeEditor = ({ modelInfo }) => {
   const [code, setCode] = useState('');
-  const [originalCode, setOriginalCode] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
-  
-  // AI analysis states
-  const [bitSuggestions, setBitSuggestions] = useState([]);
+
+  // Analysis states
   const [analyzing, setAnalyzing] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
-  const [autoFixing, setAutoFixing] = useState(false);
-  
-  const textareaRef = useRef(null);
-  const suggestionsPanelRef = useRef(null);
 
-  // Load model code when component mounts
+  // Add state for panel width
+  const [panelWidth, setPanelWidth] = useState(500); // Default width
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState(null); // 'left' or 'right'
+
   useEffect(() => {
+    // Load model code when component mounts
     loadModelCode();
-  }, []);
+  }, [modelInfo]);
 
-  // Check for changes
   useEffect(() => {
-    setHasChanges(code !== originalCode);
-  }, [code, originalCode]);
-
-  // Auto-resize textarea and apply syntax highlighting
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      const textarea = textareaRef.current;
-      textarea.style.height = 'auto';
-      textarea.style.height = textarea.scrollHeight + 'px';
+    // Add event listeners for resizing
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', stopResize);
     }
-  }, [code, isEditing]);
 
-  // Bit Code Analysis - the main feature
-  const analyzeCode = useCallback(
-    debounce(async (codeToAnalyze) => {
-      if (!codeToAnalyze.trim() || codeToAnalyze.length < 50) return;
-      
-      try {
-        setAnalyzing(true);
-        
-        // Create analysis context from model info
-        const analysisContext = {
-          code: codeToAnalyze,
-          framework: modelInfo?.framework || 'unknown',
-          modelMetrics: {
-            accuracy: modelInfo?.accuracy || 0,
-            precision: modelInfo?.precision || 0,
-            recall: modelInfo?.recall || 0,
-            f1: modelInfo?.f1 || 0,
-            dataset_size: modelInfo?.dataset_size || 0
-          },
-          analysisType: 'ml_code_review'
-        };
+    return () => {
+      // Clean up event listeners
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
+    };
+  }, [isResizing, resizeDirection]);
 
-        const response = await fetch('http://localhost:8000/api/analyze-code', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(analysisContext)
-        });
+  const startResize = (e, direction) => {
+    setIsResizing(true);
+    setResizeDirection(direction);
+    e.preventDefault();
+  };
 
-        if (response.ok) {
-          const suggestions = await response.json();
-          setBitSuggestions(suggestions.suggestions || []);
-        } else {
-          // Fallback to mock suggestions if API not available
-          generateMockSuggestions(codeToAnalyze);
-        }
-      } catch (err) {
-        console.error('Bit analysis failed:', err);
-        generateMockSuggestions(codeToAnalyze);
-      } finally {
-        setAnalyzing(false);
+  const stopResize = () => {
+    setIsResizing(false);
+    setResizeDirection(null);
+  };
+
+  const handleResize = (e) => {
+    if (isResizing) {
+      // Get container dimensions
+      const containerRect = document.querySelector('.code-editor-container')?.getBoundingClientRect() ||
+                           document.body.getBoundingClientRect();
+
+      let newWidth;
+
+      if (resizeDirection === 'left') {
+        // Resizing from left edge (expanding to the left)
+        newWidth = containerRect.right - e.clientX;
+      } else {
+        // Resizing from right edge (expanding to the right)
+        newWidth = e.clientX - (containerRect.right - panelWidth);
       }
-    }, 2000), // 2 second debounce
-    [modelInfo]
-  );
+
+      // Set min and max width constraints
+      if (newWidth > 300 && newWidth < 800) {
+        setPanelWidth(newWidth);
+      }
+    }
+  };
+
+  // Load the model code (read-only)
+  const loadModelCode = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:8000/api/model-code');
+
+      if (response.ok) {
+        const data = await response.json();
+        setCode(data.code || '# No model code available');
+      } else {
+        // For demo purposes, load sample code if API fails
+        setCode(getSampleModelCode(modelInfo?.framework || 'pytorch'));
+      }
+    } catch (err) {
+      console.error('Error loading model code:', err);
+      setCode(getSampleModelCode(modelInfo?.framework || 'pytorch'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Analyze code with Gemini
+  const analyzeCodeWithGemini = async () => {
+    if (!code.trim() || code.length < 50) return;
+
+    try {
+      setAnalyzing(true);
+      setSuggestions([]);
+
+      // Create analysis context from model info
+      const analysisContext = {
+        code: code,
+        framework: modelInfo?.framework || 'unknown',
+        modelMetrics: {
+          accuracy: modelInfo?.accuracy || 0,
+          precision: modelInfo?.precision || 0,
+          recall: modelInfo?.recall || 0,
+          f1: modelInfo?.f1 || 0,
+          dataset_size: modelInfo?.dataset_size || 0
+        },
+        analysisType: 'ml_code_review'
+      };
+
+      const response = await fetch('http://localhost:8000/api/analyze-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(analysisContext)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSuggestions(result.suggestions || []);
+      } else {
+        // Fallback to mock suggestions if API not available
+        generateMockSuggestions(code);
+      }
+    } catch (err) {
+      console.error('Gemini analysis failed:', err);
+      generateMockSuggestions(code);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   // Generate mock suggestions based on code patterns and model metrics
   const generateMockSuggestions = (codeToAnalyze) => {
     const suggestions = [];
     const framework = modelInfo?.framework?.toLowerCase() || 'unknown';
     const accuracy = modelInfo?.accuracy || 0;
-    
+
     // Pattern-based analysis
     const codeLines = codeToAnalyze.toLowerCase().split('\n');
-    
+
     // Check for common ML issues
     if (accuracy < 0.8) {
       suggestions.push({
@@ -118,7 +154,7 @@ const CodeEditor = ({ modelInfo }) => {
         line: findLineWithPattern(codeLines, ['model =', 'class ']),
         title: 'Low Model Accuracy Detected',
         message: `Your model accuracy is ${(accuracy * 100).toFixed(1)}%. Consider increasing model complexity or improving data quality.`,
-        suggestion: framework === 'pytorch' 
+        suggestion: framework === 'pytorch'
           ? 'Try adding more layers: nn.Linear(hidden_size, hidden_size * 2)'
           : framework === 'tensorflow'
           ? 'Add more dense layers: tf.keras.layers.Dense(128, activation="relu")'
@@ -168,7 +204,7 @@ const CodeEditor = ({ modelInfo }) => {
       });
     }
 
-    setBitSuggestions(suggestions);
+    setSuggestions(suggestions);
   };
 
   const findLineWithPattern = (lines, patterns) => {
@@ -185,85 +221,53 @@ const CodeEditor = ({ modelInfo }) => {
   const generateAutoFix = (fixType, framework) => {
     const fixes = {
       increase_complexity: {
-        pytorch: `# Add more layers for better capacity
-self.layer3 = nn.Linear(hidden_size, hidden_size * 2)
-self.layer4 = nn.Linear(hidden_size * 2, num_classes)`,
-        tensorflow: `# Add more dense layers
+        pytorch: `# Add more layers for better model capacity
+self.hidden_layer2 = nn.Linear(hidden_size, hidden_size * 2)
+self.output_layer = nn.Linear(hidden_size * 2, num_classes)`,
+        tensorflow: `# Add more layers for better model capacity
 model.add(tf.keras.layers.Dense(128, activation='relu'))
 model.add(tf.keras.layers.Dense(64, activation='relu'))`,
-        sklearn: `# Use more complex model
-model = RandomForestClassifier(n_estimators=200, max_depth=15)`
+        sklearn: `# Increase model complexity
+model = RandomForestClassifier(n_estimators=200, max_depth=10)`
       },
       add_dropout: {
-        pytorch: `# Add dropout for regularization
-self.dropout1 = nn.Dropout(0.3)
-self.dropout2 = nn.Dropout(0.5)`,
-        tensorflow: `# Add dropout layers
-model.add(tf.keras.layers.Dropout(0.3))`,
-        sklearn: '# Consider using different regularization parameters'
+        pytorch: `# Add dropout to prevent overfitting
+self.dropout = nn.Dropout(0.3)
+
+# Use in forward pass:
+x = self.dropout(x)`,
+        tensorflow: `# Add dropout to prevent overfitting
+model.add(tf.keras.layers.Dropout(0.3))`
       },
       adaptive_lr: {
         pytorch: `# Use learning rate scheduler
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)`,
-        tensorflow: `# Use adaptive learning rate
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-callbacks = [tf.keras.callbacks.ReduceLROnPlateau(patience=5)]`,
-        sklearn: '# Sklearn optimizers handle learning rates automatically'
+        tensorflow: `# Use learning rate scheduler
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5)
+model.fit(X_train, y_train, callbacks=[reduce_lr])`
       },
       class_weights: {
         pytorch: `# Handle class imbalance with weighted sampling
-from torch.utils.data import WeightedRandomSampler
-sampler = WeightedRandomSampler(weights, len(weights))`,
-        tensorflow: `# Use class weights
-class_weights = {0: 1.0, 1: 2.0}  # Adjust based on your data
-model.fit(X, y, class_weight=class_weights)`,
-        sklearn: `# Use balanced class weights
-model = RandomForestClassifier(class_weight='balanced')`
+class_counts = [sum(y_train == i) for i in range(num_classes)]
+weights = 1.0 / torch.tensor(class_counts, dtype=torch.float)
+sample_weights = weights[y_train]
+sampler = WeightedRandomSampler(sample_weights, len(sample_weights))`,
+        tensorflow: `# Handle class imbalance with class weights
+class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+class_weight_dict = dict(enumerate(class_weights))
+model.fit(X_train, y_train, class_weight=class_weight_dict)`
       }
     };
 
-    return fixes[fixType]?.[framework] || '# Auto-fix not available for this framework';
+    return fixes[fixType]?.[framework] || "# No specific fix available for this framework";
   };
 
-  // Trigger analysis when code changes
-  useEffect(() => {
-    if (isEditing && code.trim()) {
-      analyzeCode(code);
-    }
-  }, [code, isEditing, analyzeCode]);
-
-  const loadModelCode = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await fetch('http://localhost:8000/api/model-code');
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCode(data.code);
-        setOriginalCode(data.code);
-      } else {
-        const templateCode = getTemplateCode();
-        setCode(templateCode);
-        setOriginalCode(templateCode);
-      }
-    } catch (err) {
-      console.error('Error loading model code:', err);
-      const templateCode = getTemplateCode();
-      setCode(templateCode);
-      setOriginalCode(templateCode);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getTemplateCode = () => {
-    const framework = modelInfo?.framework?.toLowerCase() || 'pytorch';
-    
-    if (framework === 'pytorch') {
-      return `import torch
+  // Sample model code for demo purposes
+  const getSampleModelCode = (framework) => {
+    switch (framework.toLowerCase()) {
+      case 'pytorch':
+        return `import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
@@ -275,33 +279,42 @@ class NeuralNetwork(nn.Module):
         self.layer1 = nn.Linear(input_size, hidden_size)
         self.relu = nn.ReLU()
         self.layer2 = nn.Linear(hidden_size, num_classes)
-        
+
     def forward(self, x):
         out = self.layer1(x)
         out = self.relu(out)
         out = self.layer2(out)
         return F.log_softmax(out, dim=1)
 
-def train_model(model, train_loader, num_epochs=10):
-    """Train the model with the provided data."""
+def train_model(model, train_loader, val_loader, epochs=10):
+    """Train the PyTorch model."""
     criterion = nn.NLLLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     
-    for epoch in range(num_epochs):
-        total_loss = 0
-        for inputs, labels in train_loader:
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            
+    for epoch in range(epochs):
+        model.train()
+        for inputs, targets in train_loader:
             optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
             
-            total_loss += loss.item()
-        
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(train_loader):.4f}')`;
-    } else if (framework === 'tensorflow') {
-      return `import tensorflow as tf
+        # Validation
+        model.eval()
+        val_loss = 0
+        correct = 0
+        with torch.no_grad():
+            for inputs, targets in val_loader:
+                outputs = model(inputs)
+                val_loss += criterion(outputs, targets).item()
+                pred = outputs.argmax(dim=1)
+                correct += pred.eq(targets).sum().item()
+                
+        accuracy = correct / len(val_loader.dataset)
+        print(f'Epoch {epoch+1}: Accuracy = {accuracy:.4f}')`;
+      case 'tensorflow':
+        return `import tensorflow as tf
 import numpy as np
 from sklearn.model_selection import train_test_split
 
@@ -312,13 +325,13 @@ def create_model(input_shape, num_classes=2):
         tf.keras.layers.Dense(32, activation='relu'),
         tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
     ])
-    
+
     model.compile(
         optimizer='adam',
         loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
         metrics=['accuracy']
     )
-    
+
     return model
 
 def train_model(model, X_train, y_train, X_val, y_val, epochs=20):
@@ -331,8 +344,8 @@ def train_model(model, X_train, y_train, X_val, y_val, epochs=20):
         verbose=1
     )
     return history`;
-    } else {
-      return `import numpy as np
+      default:
+        return `import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -348,167 +361,535 @@ def create_model(model_type='random_forest'):
         )
     else:
         raise ValueError("Unknown model type")
-    
+
     return model
 
-def train_and_evaluate_model(model, X_train, X_test, y_train, y_test):
-    """Train and evaluate the model."""
+def train_model(model, X_train, y_train):
+    """Train the scikit-learn model."""
     model.fit(X_train, y_train)
+    return model
+
+def evaluate_model(model, X_test, y_test):
+    """Evaluate the model."""
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    print(f'Accuracy: {accuracy:.4f}')
+    report = classification_report(y_test, y_pred)
+    
+    print(f"Accuracy: {accuracy:.4f}")
+    print("Classification Report:")
+    print(report)
+    
     return accuracy`;
     }
   };
 
-  const applyAutoFix = async (suggestion) => {
-    if (!suggestion.autoFix) return;
-    
-    setAutoFixing(true);
-    
+  // Add this function to generate code for a specific suggestion
+  const generateCodeForSuggestion = async (suggestion) => {
     try {
-      // Find the appropriate line to insert the fix
-      const lines = code.split('\n');
-      const insertLine = Math.max(0, (suggestion.line || 1) - 1);
+      setAnalyzing(true); // Add loading state while generating code
       
-      // Insert the auto-fix code
-      const fixLines = suggestion.autoFix.split('\n');
-      lines.splice(insertLine, 0, '', ...fixLines, '');
+      console.log('Starting code generation for suggestion:', suggestion);
       
-      const newCode = lines.join('\n');
-      setCode(newCode);
-      
-      // Remove the suggestion after applying fix
-      setBitSuggestions(prev => prev.filter(s => s !== suggestion));
-      
-    } catch (err) {
-      console.error('Error applying auto-fix:', err);
-    } finally {
-      setAutoFixing(false);
-    }
-  };
-
-  const saveCode = async () => {
-    try {
-      setSaving(true);
-      setError(null);
-      setSuccess(false);
-      
-      const response = await fetch('http://localhost:8000/api/model-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      });
-      
-      if (response.ok) {
-        setOriginalCode(code);
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
-      } else {
-        throw new Error('Failed to save code');
-      }
-    } catch (err) {
-      console.error('Error saving code:', err);
-      setError('Failed to save code. The save endpoint may not be implemented yet.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetCode = () => {
-    setCode(originalCode);
-    setIsEditing(false);
-    setBitSuggestions([]);
-  };
-
-  const downloadCode = () => {
-    const extension = 'py';
-    const filename = `model_code.${extension}`;
-    
-    const blob = new Blob([code], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const formatCode = () => {
-    const formatted = code
-      .split('\n')
-      .map(line => line.trimRight())
-      .join('\n')
-      .replace(/\n\n\n+/g, '\n\n');
-    
-    setCode(formatted);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = e.target.selectionStart;
-      const end = e.target.selectionEnd;
-      
-      if (e.shiftKey) {
-        const lines = code.split('\n');
-        const startLine = code.substring(0, start).split('\n').length - 1;
-        const endLine = code.substring(0, end).split('\n').length - 1;
-        
-        for (let i = startLine; i <= endLine; i++) {
-          if (lines[i].startsWith('    ')) {
-            lines[i] = lines[i].substring(4);
-          } else if (lines[i].startsWith('\t')) {
-            lines[i] = lines[i].substring(1);
-          }
+      // Create request context
+      const requestContext = {
+        framework: modelInfo?.framework || 'pytorch',
+        suggestionType: suggestion.type,
+        suggestionTitle: suggestion.title,
+        currentCode: code,
+        modelMetrics: {
+          accuracy: modelInfo?.accuracy || 0,
+          precision: modelInfo?.precision || 0,
+          recall: modelInfo?.recall || 0
         }
+      };
+
+      console.log('Request context prepared:', requestContext);
+      
+      // Try to call the Gemini API through the backend using GET
+      try {
+        console.log('Calling backend API for code generation');
+        // Convert suggestion title to category format
+        const category = suggestion.title.toLowerCase().replace(/\s+/g, '_');
         
-        const newCode = lines.join('\n');
-        setCode(newCode);
+        // Use GET request with query parameters
+        const response = await fetch(
+          `http://localhost:8000/api/generate-code-example?framework=${requestContext.framework}&category=${category}`
+        );
         
-        setTimeout(() => {
-          const newStart = Math.max(0, start - 4);
-          e.target.setSelectionRange(newStart, newStart);
-        }, 0);
-      } else {
-        const beforeTab = code.substring(0, start);
-        const afterTab = code.substring(end);
-        const newCode = beforeTab + '    ' + afterTab;
-        setCode(newCode);
-        
-        setTimeout(() => {
-          e.target.setSelectionRange(start + 4, start + 4);
-        }, 0);
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Received code from API:', result);
+          
+          // Update the suggestion with the generated code
+          const updatedSuggestions = [...suggestions];
+          const index = updatedSuggestions.findIndex(s =>
+            s.title === suggestion.title && s.line === suggestion.line
+          );
+          
+          if (index !== -1) {
+            console.log('Updating suggestion at index:', index);
+            updatedSuggestions[index].autoFix = result.code;
+            setSuggestions(updatedSuggestions);
+            return; // Exit early if API call was successful
+          }
+        } else {
+          console.error('API call failed:', await response.text());
+          throw new Error('API call failed');
+        }
+      } catch (apiError) {
+        console.error('Error calling Gemini API:', apiError);
+        console.log('Falling back to local code generation');
       }
+      
+      // If we get here, the API call failed, so use fallback code
+      console.log('Using fallback code generation');
+      
+      // Add specific case for "Unnecessary Gradient Computation"
+      let fallbackCode;
+      if (suggestion.title === "Unnecessary Gradient Computation") {
+        fallbackCode = `# Prevent unnecessary gradient computation during inference
+def inference(model, input_data):
+    # Set model to evaluation mode
+    model.eval()
+    
+    # Disable gradient computation for inference
+    with torch.no_grad():
+        predictions = model(input_data)
+        
+    return predictions
+
+# Example usage:
+# test_predictions = inference(model, test_data)`;
+      } else {
+        fallbackCode = generateFallbackCode(suggestion, modelInfo?.framework || 'pytorch');
+      }
+      
+      // Update the suggestion with fallback code
+      const updatedSuggestions = [...suggestions];
+      const index = updatedSuggestions.findIndex(s =>
+        s.title === suggestion.title && s.line === suggestion.line
+      );
+      
+      if (index !== -1) {
+        console.log('Updating suggestion at index:', index);
+        updatedSuggestions[index].autoFix = fallbackCode;
+        setSuggestions(updatedSuggestions);
+      } else {
+        console.error('Could not find matching suggestion to update');
+      }
+    } catch (err) {
+      console.error('Error in code generation:', err);
+    } finally {
+      setAnalyzing(false); // Reset loading state
     }
   };
 
+  // Add a fallback code generator function
+  const generateFallbackCode = (suggestion, framework) => {
+    const { type, title } = suggestion;
+    
+    // Generate different code based on suggestion type and framework
+    if (type === 'data_preprocessing' && title.includes('Data Normalization')) {
+      if (framework === 'pytorch') {
+        return `# Add data normalization for better convergence
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+
+# For preprocessing the data before creating DataLoader
+def normalize_data(X_train, X_val=None):
+    """Normalize input features using StandardScaler."""
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    
+    if X_val is not None:
+        # Use the same scaler for validation data
+        X_val_scaled = scaler.transform(X_val)
+        return X_train_scaled, X_val_scaled, scaler
+    
+    return X_train_scaled, scaler
+
+# Example usage:
+# X_train_scaled, X_val_scaled, scaler = normalize_data(X_train, X_val)
+# train_dataset = TensorDataset(torch.FloatTensor(X_train_scaled), torch.LongTensor(y_train))
+# val_dataset = TensorDataset(torch.FloatTensor(X_val_scaled), torch.LongTensor(y_val))
+
+# Alternative: Add BatchNorm layers to your model
+class NormalizedNeuralNetwork(nn.Module):
+    def __init__(self, input_size=10, hidden_size=20, num_classes=2):
+        super(NormalizedNeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.bn1 = nn.BatchNorm1d(hidden_size)  # Add BatchNorm after first layer
+        self.relu = nn.ReLU()
+        self.layer2 = nn.Linear(hidden_size, num_classes)
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.bn1(out)  # Apply BatchNorm
+        out = self.relu(out)
+        out = self.layer2(out)
+        return F.log_softmax(out, dim=1)`;
+      } else if (framework === 'tensorflow') {
+        return `# Add data normalization for better convergence
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+
+# Method 1: Use StandardScaler before training
+def normalize_data(X_train, X_val=None):
+    """Normalize input features using StandardScaler."""
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    
+    if X_val is not None:
+        # Use the same scaler for validation data
+        X_val_scaled = scaler.transform(X_val)
+        return X_train_scaled, X_val_scaled, scaler
+    
+    return X_train_scaled, scaler
+
+# Example usage:
+# X_train_scaled, X_val_scaled, scaler = normalize_data(X_train, X_val)
+
+# Method 2: Add normalization layer to your model
+def create_normalized_model(input_shape, num_classes=2):
+    model = tf.keras.Sequential([
+        # Add a normalization layer that adapts to the data
+        tf.keras.layers.Normalization(axis=-1),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+    ])
+    
+    # Adapt the normalization layer to the training data
+    # norm_layer.adapt(X_train)
+    
+    model.compile(
+        optimizer='adam',
+        loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model`;
+      } else {
+        return `# Add data normalization for better convergence
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+
+# Method 1: Use StandardScaler directly
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Train model on scaled data
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train_scaled, y_train)
+
+# Method 2: Use Pipeline to combine preprocessing and model
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),  # First scale the data
+    ('classifier', RandomForestClassifier(n_estimators=100, random_state=42))  # Then apply the classifier
+])
+
+# Train the pipeline
+pipeline.fit(X_train, y_train)
+
+# Predict using the pipeline (scaling happens automatically)
+y_pred = pipeline.predict(X_test)`;
+      }
+    } else if (type === 'performance' && title.includes('Accuracy')) {
+      if (framework === 'pytorch') {
+        return `# Increase model complexity to improve accuracy
+class ImprovedNeuralNetwork(nn.Module):
+    def __init__(self, input_size=10, hidden_size=64, num_classes=2):
+        super(ImprovedNeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.bn1 = nn.BatchNorm1d(hidden_size)
+        self.layer2 = nn.Linear(hidden_size, hidden_size // 2)
+        self.bn2 = nn.BatchNorm1d(hidden_size // 2)
+        self.layer3 = nn.Linear(hidden_size // 2, num_classes)
+        self.dropout = nn.Dropout(0.3)
+        self.relu = nn.ReLU()
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+        out = self.layer2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+        out = self.layer3(out)
+        return F.log_softmax(out, dim=1)`;
+      } else if (framework === 'tensorflow') {
+        return `# Increase model complexity to improve accuracy
+def create_improved_model(input_shape, num_classes=2):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(128, activation='relu', input_shape=(input_shape,)),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+    ])
+    
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+        loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model`;
+      } else {
+        return `# Increase model complexity to improve accuracy
+def create_improved_model():
+    model = RandomForestClassifier(
+        n_estimators=200,  # More trees
+        max_depth=15,      # Deeper trees
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features='sqrt',
+        bootstrap=True,
+        random_state=42
+    )
+    return model`;
+      }
+    } else if (type === 'overfitting' && title.includes('Regularization')) {
+      if (framework === 'pytorch') {
+        return `# Add dropout regularization to prevent overfitting
+class RegularizedNeuralNetwork(nn.Module):
+    def __init__(self, input_size=10, hidden_size=20, num_classes=2):
+        super(RegularizedNeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.dropout1 = nn.Dropout(0.3)  # Add dropout after first layer
+        self.relu = nn.ReLU()
+        self.layer2 = nn.Linear(hidden_size, num_classes)
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.relu(out)
+        out = self.dropout1(out)  # Apply dropout
+        out = self.layer2(out)
+        return F.log_softmax(out, dim=1)`;
+      } else if (framework === 'tensorflow') {
+        return `# Add dropout regularization to prevent overfitting
+def create_regularized_model(input_shape, num_classes=2):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(64, activation='relu', input_shape=(input_shape,)),
+        tf.keras.layers.Dropout(0.3),  # Add dropout layer
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dropout(0.3),  # Add dropout layer
+        tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+    ])
+    
+    model.compile(
+        optimizer='adam',
+        loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model`;
+      } else {
+        return `# Add regularization to prevent overfitting
+from sklearn.linear_model import LogisticRegression
+
+def create_regularized_model():
+    # Use L2 regularization (Ridge)
+    model = LogisticRegression(
+        C=0.1,  # Smaller C means stronger regularization
+        penalty='l2',
+        solver='liblinear',
+        random_state=42
+    )
+    return model`;
+      }
+    } else if (type === 'optimization' && title.includes('Learning Rate')) {
+      if (framework === 'pytorch') {
+        return `# Use adaptive learning rate
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+# Add learning rate scheduler
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, 
+    mode='min',
+    factor=0.1,
+    patience=5,
+    verbose=True
+)
+
+# In training loop:
+for epoch in range(epochs):
+    train_loss = train_one_epoch(model, train_loader, optimizer)
+    val_loss = validate(model, val_loader)
+    
+    # Update learning rate based on validation loss
+    scheduler.step(val_loss)
+    
+    # Optional: print current learning rate
+    current_lr = optimizer.param_groups[0]['lr']
+    print(f'Epoch {epoch+1}, Current LR: {current_lr}')`;
+      } else if (framework === 'tensorflow') {
+        return `# Use adaptive learning rate
+initial_learning_rate = 0.001
+
+# Method 1: Learning rate schedule
+lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+    initial_learning_rate,
+    decay_steps=10000,
+    decay_rate=0.9,
+    staircase=True
+)
+
+# Use the schedule in the optimizer
+optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+
+# Method 2: Use callbacks for learning rate reduction
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+    monitor='val_loss', 
+    factor=0.2,
+    patience=5, 
+    min_lr=0.0001,
+    verbose=1
+)
+
+# Use in model.fit
+model.fit(
+    X_train, y_train,
+    epochs=epochs,
+    validation_data=(X_val, y_val),
+    callbacks=[reduce_lr]
+)`;
+      } else {
+        return `# For scikit-learn, use grid search to find optimal hyperparameters
+from sklearn.model_selection import GridSearchCV
+
+param_grid = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [10, 15, 20, None],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+grid_search = GridSearchCV(
+    estimator=RandomForestClassifier(random_state=42),
+    param_grid=param_grid,
+    cv=5,
+    n_jobs=-1,
+    scoring='accuracy',
+    verbose=1
+)
+
+grid_search.fit(X_train, y_train)
+best_model = grid_search.best_estimator_
+print(f"Best parameters: {grid_search.best_params_}")`;
+      }
+    } else if (type === 'data' && title.includes('Class Imbalance')) {
+      if (framework === 'pytorch') {
+        return `# Handle class imbalance with weighted sampling
+from torch.utils.data import WeightedRandomSampler
+
+# Calculate class weights
+y_train = torch.tensor(y_train)
+class_counts = torch.bincount(y_train)
+class_weights = 1.0 / class_counts.float()
+weights = class_weights[y_train]
+
+# Create weighted sampler
+sampler = WeightedRandomSampler(
+    weights=weights,
+    num_samples=len(y_train),
+    replacement=True
+)
+
+# Use sampler in DataLoader
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=32,
+    sampler=sampler  # Use the weighted sampler
+)`;
+      } else if (framework === 'tensorflow') {
+        return `# Handle class imbalance with class weights
+import numpy as np
+from sklearn.utils.class_weight import compute_class_weight
+
+# Calculate class weights
+class_weights = compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(y_train),
+    y=y_train
+)
+class_weight_dict = dict(enumerate(class_weights))
+
+# Use class weights in model.fit
+model.fit(
+    X_train, y_train,
+    epochs=epochs,
+    batch_size=32,
+    validation_data=(X_val, y_val),
+    class_weight=class_weight_dict  # Apply class weights
+)`;
+      } else {
+        return `# Handle class imbalance in scikit-learn
+from sklearn.ensemble import RandomForestClassifier
+from imblearn.over_sampling import SMOTE
+
+# Use SMOTE to oversample minority class
+smote = SMOTE(random_state=42)
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+
+# Train model on balanced dataset
+model = RandomForestClassifier(
+    n_estimators=100,
+    max_depth=10,
+    random_state=42
+)
+model.fit(X_train_resampled, y_train_resampled)
+
+# Alternative: Use class_weight parameter
+model = RandomForestClassifier(
+    n_estimators=100,
+    max_depth=10,
+    class_weight='balanced',  # Use balanced class weights
+    random_state=42
+)
+model.fit(X_train, y_train)`;
+      }
+    }
+    
+    // Default fallback code
+    return `# Generated code for: ${title}
+# Framework: ${framework}
+# This is a fallback implementation
+
+# Please modify this template based on your specific model structure
+def improve_model():
+    """
+    Implement the suggested improvement: ${suggestion.suggestion}
+    """
+    # TODO: Implement the specific improvement
+    pass`;
+  };
+
+  // Helper function to get severity color
   const getSeverityColor = (severity) => {
     switch (severity) {
-      case 'high': return '#e74c32';
-      case 'medium': return '#e74c32';
-      case 'low': return '#e74c32';
-      default: return '#e74c32';
-    }
-  };
-
-  const getSeverityIcon = (severity) => {
-    switch (severity) {
-      case 'high': return '●';
-      case 'medium': return '●';
-      case 'low': return '●';
-      default: return '●';
+      case 'high':
+        return '#e74c32'; // Red
+      case 'medium':
+        return '#f59e0b'; // Amber
+      case 'low':
+        return '#10b981'; // Green
+      default:
+        return '#6b7280'; // Gray
     }
   };
 
   if (loading) {
     return (
-      <div style={{ 
-        padding: '2rem', 
+      <div style={{
+        padding: '2rem',
         textAlign: 'center',
         backgroundColor: '#ffffff',
         color: '#333333',
@@ -518,12 +899,12 @@ def train_and_evaluate_model(model, X_train, X_test, y_train, y_test):
         justifyContent: 'center',
         alignItems: 'center'
       }}>
-        <div style={{ 
-          width: '40px', 
-          height: '40px', 
-          border: '3px solid #f3f3f3', 
-          borderTop: '3px solid #e74c32', 
-          borderRadius: '50%', 
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '3px solid #f3f3f3',
+          borderTop: '3px solid #e74c32',
+          borderRadius: '50%',
           animation: 'spin 1s linear infinite',
           margin: '0 auto 1rem'
         }}></div>
@@ -541,24 +922,26 @@ def train_and_evaluate_model(model, X_train, X_test, y_train, y_test):
   }
 
   return (
-    <div style={{ backgroundColor: '#ffffff', color: '#333333', minHeight: '100vh', display: 'flex' }}>
-      {/* Main Editor */}
+    <div style={{ backgroundColor: '#f8fafc', color: '#333333', minHeight: '100vh', display: 'flex' }}>
+      {/* Main Code Viewer */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           padding: '1rem 1.5rem',
-          backgroundColor: '#f8f8f8',
+          backgroundColor: '#ffffff',
           borderBottom: '1px solid #e1e1e1',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
           flexWrap: 'wrap',
           gap: '1rem'
         }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#333333' }}>
+              Gemini Code Analysis
               {analyzing && (
-                <span style={{ 
+                <span style={{
                   marginLeft: '1rem',
                   padding: '0.2rem 0.5rem',
                   backgroundColor: '#e74c32',
@@ -567,14 +950,14 @@ def train_and_evaluate_model(model, X_train, X_test, y_train, y_test):
                   fontWeight: '500',
                   color: 'white'
                 }}>
-                  Bit analyzing...
+                  Analyzing
                 </span>
               )}
             </h3>
             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: '#666666' }}>
-              Real-time code analysis with Bit
+              AI-powered model code analysis
               {modelInfo?.framework && (
-                <span style={{ 
+                <span style={{
                   marginLeft: '0.5rem',
                   padding: '0.2rem 0.5rem',
                   backgroundColor: '#e74c32',
@@ -588,138 +971,34 @@ def train_and_evaluate_model(model, X_train, X_test, y_train, y_test):
               )}
             </p>
           </div>
-          
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={() => setShowSuggestions(!showSuggestions)}
+              onClick={analyzeCodeWithGemini}
+              disabled={analyzing}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: showSuggestions ? '#e74c32' : '#f3f4f6',
-                color: showSuggestions ? 'white' : '#374151',
-                border: 'none',
-                borderRadius: '0.25rem',
                 fontSize: '0.8rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              Bit ({bitSuggestions.length})
-            </button>
-            
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              style={{
-                padding: '0.5rem 1rem',
                 backgroundColor: '#e74c32',
                 color: 'white',
                 border: 'none',
                 borderRadius: '0.25rem',
-                fontSize: '0.8rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                cursor: analyzing ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: '500'
               }}
             >
-              {isEditing ? 'View' : 'Edit'}
-            </button>
-            
-            <button
-              onClick={downloadCode}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#e74c32',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.25rem',
-                fontSize: '0.8rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              Download
+              {analyzing ? 'Analyzing...' : 'Analyze with Gemini'}
             </button>
           </div>
         </div>
 
-        {/* Status Messages */}
-        {error && (
-          <div style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#fee',
-            borderBottom: '1px solid #fcc',
-            fontSize: '0.8rem',
-            color: '#800'
-          }}>
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#efe',
-            borderBottom: '1px solid #cfc',
-            fontSize: '0.8rem',
-            color: '#080'
-          }}>
-            Code saved successfully
-          </div>
-        )}
-
-        {/* Changes indicator */}
-        {hasChanges && isEditing && (
-          <div style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#fff8e1',
-            borderBottom: '1px solid #ffe0b2',
-            fontSize: '0.8rem',
-            color: '#e65100',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span>You have unsaved changes</span>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={resetCode}
-                style={{
-                  padding: '0.25rem 0.75rem',
-                  fontSize: '0.7rem',
-                  backgroundColor: '#f5f5f5',
-                  color: '#333333',
-                  border: '1px solid #e1e1e1',
-                  borderRadius: '0.25rem',
-                  cursor: 'pointer'
-                }}
-              >
-                Reset
-              </button>
-              <button
-                onClick={saveCode}
-                disabled={saving}
-                style={{
-                  padding: '0.25rem 0.75rem',
-                  fontSize: '0.7rem',
-                  backgroundColor: '#e74c32',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.25rem',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  opacity: saving ? 0.7 : 1
-                }}
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Status Bar */}
         <div style={{
           padding: '0.4rem 1.5rem',
-          backgroundColor: '#e74c32',
+          backgroundColor: '#1e293b',
           color: 'white',
           fontSize: '0.75rem',
           display: 'flex',
@@ -728,484 +1007,378 @@ def train_and_evaluate_model(model, X_train, X_test, y_train, y_test):
         }}>
           <span>model_code.py</span>
           <span>
-            {code.split('\n').length} lines | {isEditing ? 'Editing' : 'Read-only'} | 
-            {bitSuggestions.length > 0 && ` ${bitSuggestions.length} suggestions`}
+            {code.split('\n').length} lines |
+            {suggestions.length > 0 && ` ${suggestions.length} suggestions`}
           </span>
         </div>
 
-        {/* Code Editor */}
-        <div style={{ 
-          height: 'calc(100vh - 200px)', 
-          overflow: 'hidden', 
+        {/* Code Viewer (Read-only) */}
+        <div style={{
+          height: 'calc(100vh - 200px)',
+          overflow: 'hidden',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           flex: 1
         }}>
-          {isEditing ? (
-            <div style={{ display: 'flex', height: '100%', flex: 1 }}>
-              {/* Line Numbers */}
-              <div style={{
-                width: '60px',
-                backgroundColor: '#fafafa',
-                borderRight: '1px solid #e1e1e1',
-                padding: '1rem 0.5rem',
-                fontSize: '0.8rem',
-                color: '#999999',
-                fontFamily: 'Consolas, "Courier New", monospace',
-                lineHeight: '1.5',
+          <div style={{ height: '100%', overflow: 'auto' }}>
+            <SyntaxHighlighter
+              language="python"
+              style={vs}
+              showLineNumbers={true}
+              lineNumberStyle={{
+                minWidth: '3em',
+                paddingRight: '1em',
                 textAlign: 'right',
-                userSelect: 'none',
-                overflowY: 'auto'
-              }}>
-                {code.split('\n').map((_, index) => (
-                  <div key={index + 1} style={{ height: '1.2em' }}>
-                    {index + 1}
-                  </div>
-                ))}
-              </div>
-              
-              {/* Code Editor with Syntax Highlighting Overlay */}
-              <div style={{ position: 'relative', flex: 1, height: '100%', overflow: 'hidden' }}>
-                {/* Syntax Highlighted Background */}
-                <div 
-                  ref={(el) => {
-                    if (el && textareaRef.current) {
-                      const syncScroll = () => {
-                        el.scrollTop = textareaRef.current.scrollTop;
-                        el.scrollLeft = textareaRef.current.scrollLeft;
-                      };
-                      textareaRef.current.addEventListener('scroll', syncScroll);
-                    }
-                  }}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    overflow: 'hidden',
-                    pointerEvents: 'none',
-                    zIndex: 1
-                  }}
-                >
-                  <SyntaxHighlighter
-                    language="python"
-                    style={vs}
-                    showLineNumbers={false}
-                    customStyle={{
-                      margin: 0,
-                      padding: '1rem',
-                      backgroundColor: 'transparent',
-                      fontSize: '0.85rem',
-                      lineHeight: '1.5',
-                      fontFamily: 'Consolas, "Courier New", monospace',
-                      minHeight: '100%'
-                    }}
-                    codeTagProps={{
-                      style: {
-                        fontFamily: 'Consolas, "Courier New", monospace',
-                        backgroundColor: 'transparent'
-                      }
-                    }}
-                  >
-                    {code}
-                  </SyntaxHighlighter>
-                </div>
-                
-                {/* Editable Textarea */}
-                <textarea
-                  ref={textareaRef}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    padding: '1rem',
-                    border: 'none',
-                    outline: 'none',
-                    fontFamily: 'Consolas, "Courier New", monospace',
-                    fontSize: '0.85rem',
-                    lineHeight: '1.5',
-                    backgroundColor: 'transparent',
-                    color: 'transparent',
-                    resize: 'none',
-                    whiteSpace: 'pre',
-                    tabSize: 4,
-                    zIndex: 2,
-                    caretColor: '#333333',
-                    overflow: 'auto'
-                  }}
-                  spellCheck={false}
-                  placeholder=""
-                />
-              </div>
-            </div>
-          ) : (
-            // Read-only syntax highlighted view
-            <div style={{ height: '100%', overflow: 'auto' }}>
-              <SyntaxHighlighter
-                language="python"
-                style={vs}
-                showLineNumbers={true}
-                lineNumberStyle={{
-                  minWidth: '3em',
-                  paddingRight: '1em',
-                  textAlign: 'right',
-                  color: '#999999',
-                  borderRight: '1px solid #e1e1e1',
-                  marginRight: '1em',
-                  userSelect: 'none'
-                }}
-                customStyle={{
-                  margin: 0,
-                  padding: '1rem',
-                  backgroundColor: '#ffffff',
-                  fontSize: '0.85rem',
-                  lineHeight: '1.5',
-                  fontFamily: 'Consolas, "Courier New", monospace',
-                  minHeight: '100%'
-                }}
-                codeTagProps={{
+                color: '#999999',
+                borderRight: '1px solid #e1e1e1',
+                marginRight: '1em',
+                userSelect: 'none'
+              }}
+              customStyle={{
+                margin: 0,
+                padding: '1rem',
+                backgroundColor: '#ffffff',
+                fontSize: '0.85rem',
+                lineHeight: '1.5',
+                fontFamily: 'Consolas, "Courier New", monospace',
+                minHeight: '100%'
+              }}
+              codeTagProps={{
+                style: {
+                  fontFamily: 'Consolas, "Courier New", monospace'
+                }
+              }}
+              wrapLines={true}
+              lineProps={lineNumber => {
+                // Highlight lines that have suggestions
+                const highlightLine = suggestions.some(s => s.line === lineNumber);
+                return {
                   style: {
-                    fontFamily: 'Consolas, "Courier New", monospace'
+                    display: 'block',
+                    backgroundColor: highlightLine ? 'rgba(231, 76, 50, 0.1)' : undefined,
+                    borderLeft: highlightLine ? '3px solid #e74c32' : undefined,
+                    paddingLeft: highlightLine ? '1rem' : undefined,
                   }
-                }}
-              >
-                {code}
-              </SyntaxHighlighter>
-            </div>
-          )}
+                };
+              }}
+            >
+              {code}
+            </SyntaxHighlighter>
+          </div>
         </div>
       </div>
 
-      {/* Bit Suggestions Panel */}
+      {/* Suggestions Panel */}
       {showSuggestions && (
-        <div 
-          ref={suggestionsPanelRef}
-          style={{ 
-            width: '400px', 
-            backgroundColor: '#f8fafc', 
-            borderLeft: '1px solid #e1e1e1',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '100vh',
-            overflow: 'hidden'
-          }}
-        >
-          {/* Suggestions Header */}
-          <div style={{
-            padding: '1rem',
-            borderBottom: '1px solid #e1e1e1',
-            backgroundColor: '#ffffff'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>
-                Bit
-              </h4>
-              <button
-                onClick={() => setShowSuggestions(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '1.2rem',
-                  cursor: 'pointer',
-                  color: '#666666'
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <p style={{ 
-              margin: '0.5rem 0 0 0', 
-              fontSize: '0.8rem', 
-              color: '#666666' 
-            }}>
-              {analyzing ? 'Analyzing your code...' : 
-               bitSuggestions.length > 0 ? `${bitSuggestions.length} suggestions found` : 
-               'Write code to get suggestions'}
-            </p>
-          </div>
+        <div className="code-editor-container" style={{ display: 'flex', position: 'relative' }}>
+          {/* Left resize handle */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '6px',
+              height: '100%',
+              cursor: 'col-resize',
+              zIndex: 10,
+              backgroundColor: isResizing && resizeDirection === 'left' ? '#e74c32' : 'transparent'
+            }}
+            onMouseDown={(e) => startResize(e, 'left')}
+          ></div>
 
-          {/* Model Performance Context */}
-          {modelInfo && (
+          <div
+            style={{
+              width: panelWidth, // Adjustable width
+              backgroundColor: '#1e1e1e', // VS Code dark theme background
+              borderLeft: '1px solid #333333',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100vh',
+              overflow: 'hidden',
+              color: '#cccccc', // VS Code text color
+              position: 'relative'
+            }}
+          >
+            {/* Right resize handle */}
+            <div
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                width: '6px',
+                height: '100%',
+                cursor: 'col-resize',
+                zIndex: 10,
+                backgroundColor: isResizing && resizeDirection === 'right' ? '#e74c32' : 'transparent'
+              }}
+              onMouseDown={(e) => startResize(e, 'right')}
+            ></div>
+            {/* Suggestions Header */}
             <div style={{
               padding: '1rem',
-              backgroundColor: '#ffffff',
-              borderBottom: '1px solid #e1e1e1'
+              borderBottom: '1px solid #333333',
+              backgroundColor: '#252526' // VS Code panel header color
             }}>
-              <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: '600' }}>
-                Current Model Performance
-              </h5>
-              <div style={{ fontSize: '0.8rem', color: '#666666' }}>
-                <div>Accuracy: <strong>{((modelInfo.accuracy || 0) * 100).toFixed(1)}%</strong></div>
-                {modelInfo.precision && <div>Precision: <strong>{(modelInfo.precision * 100).toFixed(1)}%</strong></div>}
-                {modelInfo.recall && <div>Recall: <strong>{(modelInfo.recall * 100).toFixed(1)}%</strong></div>}
-                <div>Framework: <strong>{modelInfo.framework || 'Unknown'}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#e0e0e0' }}>
+                  Gemini Suggestions
+                </h4>
+                {/* Removed close button as requested */}
               </div>
+              <p style={{
+                margin: '0.5rem 0 0 0',
+                fontSize: '0.9rem',
+                color: '#a0a0a0'
+              }}>
+                {analyzing ? 'Analyzing your code...' :
+                 suggestions.length > 0 ? `${suggestions.length} suggestions found` :
+                 'Click "Analyze with Gemini" to get suggestions'}
+              </p>
             </div>
-          )}
 
-          {/* Suggestions List */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '0.5rem' }}>
-            {analyzing && (
+            {/* Model Performance Context */}
+            {modelInfo && (
               <div style={{
-                padding: '2rem',
-                textAlign: 'center',
-                color: '#666666'
+                padding: '1.25rem',
+                backgroundColor: '#252526',
+                borderBottom: '1px solid #333333'
               }}>
-                <div style={{
-                  width: '30px',
-                  height: '30px',
-                  border: '3px solid #f3f3f3',
-                  borderTop: '3px solid #e74c32',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  margin: '0 auto 1rem'
-                }}></div>
-                <p>Bit is analyzing your code...</p>
-              </div>
-            )}
-
-            {!analyzing && bitSuggestions.length === 0 && (
-              <div style={{
-                padding: '2rem',
-                textAlign: 'center',
-                color: '#666666'
-              }}>
-                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>B</div>
-                <p>Start editing your code to receive suggestions from Bit for improving your ML model</p>
-              </div>
-            )}
-
-            {bitSuggestions.map((suggestion, index) => (
-              <div
-                key={index}
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e1e1e1',
-                  borderRadius: '0.5rem',
-                  margin: '0.5rem 0',
-                  overflow: 'hidden',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                  borderLeft: `4px solid ${getSeverityColor(suggestion.severity)}`
-                }}
-              >
-                {/* Suggestion Header */}
-                <div
-                  style={{
-                    padding: '0.75rem',
-                    borderBottom: '1px solid #f1f1f1',
-                    cursor: 'pointer',
-                    backgroundColor: selectedSuggestion === index ? '#f8fafc' : '#ffffff'
-                  }}
-                  onClick={() => setSelectedSuggestion(selectedSuggestion === index ? null : index)}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                        <span style={{ color: getSeverityColor(suggestion.severity) }}>
-                          {getSeverityIcon(suggestion.severity)}
-                        </span>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          color: getSeverityColor(suggestion.severity),
-                          textTransform: 'uppercase'
-                        }}>
-                          {suggestion.type}
-                        </span>
-                        {suggestion.line && (
-                          <span style={{
-                            fontSize: '0.7rem',
-                            color: '#666666',
-                            backgroundColor: '#f1f1f1',
-                            padding: '0.1rem 0.3rem',
-                            borderRadius: '0.2rem'
-                          }}>
-                            Line {suggestion.line}
-                          </span>
-                        )}
-                      </div>
-                      <h6 style={{
-                        margin: 0,
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        color: '#333333'
-                      }}>
-                        {suggestion.title}
-                      </h6>
-                      <p style={{
-                        margin: '0.25rem 0 0 0',
-                        fontSize: '0.8rem',
-                        color: '#666666',
-                        lineHeight: 1.4
-                      }}>
-                        {suggestion.message}
-                      </p>
-                    </div>
-                    <span style={{
-                      fontSize: '1rem',
-                      color: '#666666',
-                      marginLeft: '0.5rem'
-                    }}>
-                      {selectedSuggestion === index ? '−' : '+'}
-                    </span>
-                  </div>
+                <h5 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', fontWeight: '600', color: '#e0e0e0' }}>
+                  Current Model Performance
+                </h5>
+                <div style={{ fontSize: '0.9rem', color: '#a0a0a0' }}>
+                  <div style={{ marginBottom: '0.5rem' }}>Accuracy: <strong style={{ color: '#e0e0e0' }}>{((modelInfo.accuracy || 0) * 100).toFixed(1)}%</strong></div>
+                  {modelInfo.precision && <div style={{ marginBottom: '0.5rem' }}>Precision: <strong style={{ color: '#e0e0e0' }}>{(modelInfo.precision * 100).toFixed(1)}%</strong></div>}
+                  {modelInfo.recall && <div style={{ marginBottom: '0.5rem' }}>Recall: <strong style={{ color: '#e0e0e0' }}>{(modelInfo.recall * 100).toFixed(1)}%</strong></div>}
+                  <div>Framework: <strong style={{ color: '#e0e0e0' }}>{modelInfo.framework || 'Unknown'}</strong></div>
                 </div>
+              </div>
+            )}
 
-                {/* Expanded Content */}
-                {selectedSuggestion === index && (
-                  <div style={{ padding: '0.75rem', backgroundColor: '#f8fafc' }}>
-                    {/* Suggestion Details */}
-                    <div style={{ marginBottom: '0.75rem' }}>
-                      <h6 style={{
-                        margin: '0 0 0.5rem 0',
-                        fontSize: '0.8rem',
-                        fontWeight: '600',
-                        color: '#333333'
-                      }}>
-                        Recommended Solution
-                      </h6>
-                      <p style={{
-                        margin: 0,
-                        fontSize: '0.8rem',
-                        color: '#555555',
-                        lineHeight: 1.4
-                      }}>
-                        {suggestion.suggestion}
-                      </p>
-                    </div>
+            {/* Suggestions List with Slider */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '0.75rem', scrollbarWidth: 'thin', scrollbarColor: '#555 #1e1e1e' }}>
+              {analyzing && (
+                <div style={{
+                  padding: '2rem',
+                  textAlign: 'center',
+                  color: '#a0a0a0'
+                }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    border: '3px solid #333333',
+                    borderTop: '3px solid #e74c32',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 1rem'
+                  }}></div>
+                  <p style={{ fontSize: '1rem' }}>Gemini is analyzing your code...</p>
+                </div>
+              )}
 
-                    {/* Auto-fix Code */}
-                    {suggestion.autoFix && (
-                      <div style={{ marginBottom: '0.75rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                          <h6 style={{
-                            margin: 0,
-                            fontSize: '0.8rem',
-                            fontWeight: '600',
-                            color: '#333333'
-                          }}>
-                            Auto-fix Code
-                          </h6>
-                          <button
-                            onClick={() => applyAutoFix(suggestion)}
-                            disabled={autoFixing}
-                            style={{
-                              padding: '0.25rem 0.5rem',
-                              fontSize: '0.7rem',
-                              backgroundColor: '#e74c32',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '0.25rem',
-                              cursor: autoFixing ? 'not-allowed' : 'pointer',
-                              opacity: autoFixing ? 0.7 : 1
-                            }}
-                          >
-                            {autoFixing ? 'Applying...' : 'Apply Fix'}
-                          </button>
-                        </div>
-                        <div style={{
-                          backgroundColor: '#1e1e1e',
-                          borderRadius: '0.25rem',
-                          overflow: 'hidden'
-                        }}>
-                          <SyntaxHighlighter
-                            language="python"
-                            style={{
-                              'hljs': {
-                                display: 'block',
-                                overflowX: 'auto',
-                                padding: '0.5em',
-                                color: '#abb2bf',
-                                background: '#282c34'
-                              },
-                              'hljs-comment': { color: '#5c6370', fontStyle: 'italic' },
-                              'hljs-keyword': { color: '#c678dd' },
-                              'hljs-string': { color: '#98c379' },
-                              'hljs-number': { color: '#d19a66' },
-                              'hljs-function': { color: '#61dafb' }
-                            }}
-                            customStyle={{
-                              margin: 0,
-                              fontSize: '0.75rem',
-                              backgroundColor: '#1e1e1e'
-                            }}
-                          >
-                            {suggestion.autoFix}
-                          </SyntaxHighlighter>
-                        </div>
+              {!analyzing && suggestions.length === 0 && (
+                <div style={{
+                  padding: '3rem',
+                  textAlign: 'center',
+                  color: '#a0a0a0'
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1.5rem', color: '#e74c32' }}>G</div>
+                  <p style={{ fontSize: '1rem', lineHeight: '1.5' }}>Click "Analyze with Gemini" to receive suggestions for improving your ML model</p>
+                </div>
+              )}
+
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  style={{
+                    backgroundColor: '#252526',
+                    border: '1px solid #333333',
+                    borderRadius: '0.5rem',
+                    margin: '0 0 1rem 0',
+                    overflow: 'hidden',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+                    borderLeft: `4px solid ${getSeverityColor(suggestion.severity)}`
+                  }}
+                >
+                  {/* Suggestion Header */}
+                  <div
+                    onClick={() => setSelectedSuggestion(selectedSuggestion === index ? null : index)}
+                    style={{
+                      padding: '1rem',
+                      borderBottom: selectedSuggestion === index ? '1px solid #333333' : 'none',
+                      cursor: 'pointer',
+                      backgroundColor: selectedSuggestion === index ? '#2d2d2d' : '#252526'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{
+                          width: '0.75rem',
+                          height: '0.75rem',
+                          borderRadius: '50%',
+                          backgroundColor: getSeverityColor(suggestion.severity)
+                        }}></span>
+                        <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: '500', color: '#e0e0e0' }}>
+                          {suggestion.title}
+                        </h5>
                       </div>
-                    )}
+                      <span style={{
+                        fontSize: '0.8rem',
+                        padding: '0.2rem 0.5rem',
+                        backgroundColor: '#333333',
+                        borderRadius: '0.25rem',
+                        color: '#a0a0a0'
+                      }}>
+                        Line {suggestion.line}
+                      </span>
+                    </div>
+                    <p style={{
+                      margin: '0.75rem 0 0 0',
+                      fontSize: '0.9rem',
+                      color: '#a0a0a0',
+                      lineHeight: 1.5
+                    }}>
+                      {suggestion.message}
+                    </p>
+                  </div>
 
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => setSelectedSuggestion(null)}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.7rem',
-                          backgroundColor: '#f3f4f6',
-                          color: '#374151',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Dismiss
-                      </button>
-                      {suggestion.line && (
+                  {/* Expanded Content */}
+                  {selectedSuggestion === index && (
+                    <div style={{ padding: '1rem', backgroundColor: '#2d2d2d' }}>
+                      {/* Suggestion Details */}
+                      <div style={{ marginBottom: '1rem' }}>
+                        <h6 style={{
+                          margin: '0 0 0.75rem 0',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          color: '#e0e0e0'
+                        }}>
+                          Recommended Solution
+                        </h6>
+                        <p style={{
+                          margin: 0,
+                          fontSize: '0.9rem',
+                          color: '#cccccc',
+                          lineHeight: 1.5
+                        }}>
+                          {suggestion.suggestion}
+                        </p>
+                      </div>
+
+                      {/* Auto-fix Code */}
+                      {suggestion.autoFix && (
+                        <div style={{ marginBottom: '1rem' }}>
+                          <h6 style={{
+                            margin: '0 0 0.75rem 0',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            color: '#e0e0e0'
+                          }}>
+                            Suggested Code
+                          </h6>
+                          <div style={{
+                            backgroundColor: '#1e1e1e',
+                            borderRadius: '0.25rem',
+                            overflow: 'hidden'
+                          }}>
+                            <SyntaxHighlighter
+                              language="python"
+                              style={{
+                                'hljs': {
+                                  display: 'block',
+                                  overflowX: 'auto',
+                                  padding: '0.75em',
+                                  color: '#abb2bf',
+                                  background: '#1e1e1e'
+                                },
+                                'hljs-comment': { color: '#5c6370', fontStyle: 'italic' },
+                                'hljs-keyword': { color: '#c678dd' },
+                                'hljs-string': { color: '#98c379' },
+                                'hljs-number': { color: '#d19a66' },
+                                'hljs-function': { color: '#61dafb' }
+                              }}
+                              customStyle={{
+                                margin: 0,
+                                fontSize: '0.85rem',
+                                backgroundColor: '#1e1e1e',
+                                padding: '1rem'
+                              }}
+                            >
+                              {suggestion.autoFix}
+                            </SyntaxHighlighter>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
                         <button
                           onClick={() => {
-                            // Scroll to line in editor
-                            if (textareaRef.current) {
-                              const lines = code.split('\n');
-                              const targetLine = Math.max(0, suggestion.line - 1);
-                              const scrollPos = targetLine * 20; // Approximate line height
-                              textareaRef.current.scrollTop = scrollPos;
-                              
-                              // Focus and select the line
-                              const lineStart = lines.slice(0, targetLine).join('\n').length + (targetLine > 0 ? 1 : 0);
-                              const lineEnd = lineStart + lines[targetLine]?.length || 0;
-                              textareaRef.current.focus();
-                              textareaRef.current.setSelectionRange(lineStart, lineEnd);
-                            }
+                            console.log('Generate button clicked for suggestion:', suggestion);
+                            // Generate code with Gemini for this specific suggestion
+                            generateCodeForSuggestion(suggestion);
                           }}
                           style={{
-                            padding: '0.25rem 0.5rem',
-                            fontSize: '0.7rem',
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.85rem',
                             backgroundColor: '#e74c32',
                             color: 'white',
                             border: 'none',
                             borderRadius: '0.25rem',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            flex: 1
+                          }}
+                        >
+                          Generate with Gemini
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Scroll to the line in the code view
+                            const lineElements = document.querySelectorAll('.react-syntax-highlighter-line-number');
+                            if (lineElements && lineElements[suggestion.line - 1]) {
+                              lineElements[suggestion.line - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          }}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#333333',
+                            color: '#cccccc',
+                            border: '1px solid #444444',
+                            borderRadius: '0.25rem',
+                            cursor: 'pointer',
+                            flex: 1
                           }}
                         >
                           Go to Line
                         </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  )}
+                </div>
+              ))}
+            </div>
 
-          {/* Suggestions Footer */}
-          <div style={{
-            padding: '0.75rem',
-            borderTop: '1px solid #e1e1e1',
-            backgroundColor: '#ffffff',
-            fontSize: '0.7rem',
-            color: '#666666',
-            textAlign: 'center'
-          }}>
-            Powered by Bit • Model-aware suggestions
+            {/* Custom scrollbar styles */}
+            <style>
+              {`
+                ::-webkit-scrollbar {
+                  width: 10px;
+                  height: 10px;
+                }
+                ::-webkit-scrollbar-track {
+                  background: #1e1e1e;
+                }
+                ::-webkit-scrollbar-thumb {
+                  background: #555;
+                  border-radius: 4px;
+                }
+                ::-webkit-scrollbar-thumb:hover {
+                  background: #777;
+                }
+              `}
+            </style>
           </div>
         </div>
       )}

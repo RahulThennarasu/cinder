@@ -4,7 +4,7 @@ import uvicorn
 import numpy as np
 import time
 import os
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from datetime import datetime, timedelta
 import re
 
@@ -174,6 +174,14 @@ class ImprovementSuggestion(BaseModel):
     severity: float = Field(..., description="How severe the issue is (0-1)")
     impact: float = Field(..., description="Estimated impact of fix (0-1)")
     code_example: str = Field(..., description="Example code for implementation")
+
+# Add new model for code suggestion requests
+class CodeSuggestionRequest(BaseModel):
+    framework: str = Field(..., description="ML framework (pytorch, tensorflow, sklearn)")
+    suggestionType: str = Field(..., description="Type of suggestion (performance, overfitting, etc.)")
+    suggestionTitle: str = Field(..., description="Title of the suggestion")
+    currentCode: str = Field(..., description="Current code to improve")
+    modelMetrics: Dict[str, Any] = Field({}, description="Current model performance metrics")
 
 # Track server start time
 server_start_time = datetime.now()
@@ -1215,6 +1223,293 @@ async def get_sample_predictions(
         offset=offset,
         include_errors_only=errors_only
     )
+
+# Add new endpoint for generating suggestion code
+@app.post("/api/generate-suggestion-code")
+async def generate_suggestion_code(request: CodeSuggestionRequest):
+    """
+    Generate code for a specific improvement suggestion using Gemini.
+    """
+    try:
+        start_time = time.time()
+        
+        # Extract request data
+        framework = request.framework.lower()
+        suggestion_type = request.suggestionType
+        suggestion_title = request.suggestionTitle
+        current_code = request.currentCode
+        
+        # Create a category from the suggestion title
+        category = suggestion_title.lower().replace(" ", "_")
+        
+        # Create context for code generation
+        model_context = {
+            "accuracy": request.modelMetrics.get("accuracy", 0),
+            "framework": framework,
+            "error_rate": 1.0 - request.modelMetrics.get("accuracy", 0)
+        }
+        
+        # Use the code generator if available
+        if HAS_CODE_GENERATOR:
+            try:
+                code_generator = SimpleCodeGenerator()
+                generated_code = code_generator.generate_code_example(
+                    framework=framework,
+                    category=category,
+                    model_context=model_context
+                )
+                
+                return {
+                    "code": generated_code,
+                    "generationTime": time.time() - start_time
+                }
+            except Exception as e:
+                logging.error(f"Error generating code with Gemini: {str(e)}")
+                # Fall back to template code
+                return {
+                    "code": generate_fallback_code(framework, suggestion_type, suggestion_title),
+                    "generationTime": time.time() - start_time,
+                    "error": str(e)
+                }
+        else:
+            # Return fallback code if Gemini is not available
+            return {
+                "code": generate_fallback_code(framework, suggestion_type, suggestion_title),
+                "generationTime": time.time() - start_time
+            }
+            
+    except Exception as e:
+        logging.error(f"Error in generate_suggestion_code: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Code generation failed: {str(e)}")
+
+def generate_fallback_code(framework: str, suggestion_type: str, suggestion_title: str) -> str:
+    """Generate fallback code templates based on suggestion type and framework."""
+    framework = framework.lower()
+    
+    # Data normalization suggestion
+    if suggestion_type == "data_preprocessing" and "normalization" in suggestion_title.lower():
+        if framework == "pytorch":
+            return """# Add data normalization for better convergence
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+
+# For preprocessing the data before creating DataLoader
+def normalize_data(X_train, X_val=None):
+    """Normalize input features using StandardScaler."""
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    
+    if X_val is not None:
+        # Use the same scaler for validation data
+        X_val_scaled = scaler.transform(X_val)
+        return X_train_scaled, X_val_scaled, scaler
+    
+    return X_train_scaled, scaler
+
+# Example usage:
+# X_train_scaled, X_val_scaled, scaler = normalize_data(X_train, X_val)
+# train_dataset = TensorDataset(torch.FloatTensor(X_train_scaled), torch.LongTensor(y_train))
+
+# Alternative: Add BatchNorm layers to your model
+class NormalizedNeuralNetwork(nn.Module):
+    def __init__(self, input_size=10, hidden_size=20, num_classes=2):
+        super(NormalizedNeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.bn1 = nn.BatchNorm1d(hidden_size)  # Add BatchNorm after first layer
+        self.relu = nn.ReLU()
+        self.layer2 = nn.Linear(hidden_size, num_classes)
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.bn1(out)  # Apply BatchNorm
+        out = self.relu(out)
+        out = self.layer2(out)
+        return F.log_softmax(out, dim=1)"""
+        elif framework == "tensorflow":
+            return """# Add data normalization for better convergence
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+
+# Method 1: Use StandardScaler before training
+def normalize_data(X_train, X_val=None):
+    """Normalize input features using StandardScaler."""
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    
+    if X_val is not None:
+        # Use the same scaler for validation data
+        X_val_scaled = scaler.transform(X_val)
+        return X_train_scaled, X_val_scaled, scaler
+    
+    return X_train_scaled, scaler
+
+# Method 2: Add normalization layer to your model
+def create_normalized_model(input_shape, num_classes=2):
+    model = tf.keras.Sequential([
+        # Add a normalization layer that adapts to the data
+        tf.keras.layers.Normalization(axis=-1),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+    ])
+    
+    model.compile(
+        optimizer='adam',
+        loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model"""
+        else:  # sklearn
+            return """# Add data normalization for better convergence
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+
+# Method 1: Use StandardScaler directly
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Train model on scaled data
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train_scaled, y_train)
+
+# Method 2: Use Pipeline to combine preprocessing and model
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),  # First scale the data
+    ('classifier', RandomForestClassifier(n_estimators=100, random_state=42))  # Then apply the classifier
+])
+
+# Train the pipeline
+pipeline.fit(X_train, y_train)
+
+# Predict using the pipeline (scaling happens automatically)
+y_pred = pipeline.predict(X_test)"""
+    
+    # Performance/accuracy suggestions
+    elif suggestion_type == "performance" and "accuracy" in suggestion_title.lower():
+        if framework == "pytorch":
+            return """# Increase model complexity to improve accuracy
+class ImprovedNeuralNetwork(nn.Module):
+    def __init__(self, input_size=10, hidden_size=64, num_classes=2):
+        super(ImprovedNeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.bn1 = nn.BatchNorm1d(hidden_size)
+        self.layer2 = nn.Linear(hidden_size, hidden_size // 2)
+        self.bn2 = nn.BatchNorm1d(hidden_size // 2)
+        self.layer3 = nn.Linear(hidden_size // 2, num_classes)
+        self.dropout = nn.Dropout(0.3)
+        self.relu = nn.ReLU()
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+        out = self.layer2(x)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+        out = self.layer3(out)
+        return F.log_softmax(out, dim=1)"""
+        elif framework == "tensorflow":
+            return """# Increase model complexity to improve accuracy
+def create_improved_model(input_shape, num_classes=2):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(128, activation='relu', input_shape=(input_shape,)),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+    ])
+    
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+        loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model"""
+        else:  # sklearn
+            return """# Increase model complexity to improve accuracy
+def create_improved_model():
+    model = RandomForestClassifier(
+        n_estimators=200,  # More trees
+        max_depth=15,      # Deeper trees
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features='sqrt',
+        bootstrap=True,
+        random_state=42
+    )
+    return model"""
+    
+    # Overfitting/regularization suggestions
+    elif suggestion_type == "overfitting" and "regularization" in suggestion_title.lower():
+        if framework == "pytorch":
+            return """# Add dropout regularization to prevent overfitting
+class RegularizedNeuralNetwork(nn.Module):
+    def __init__(self, input_size=10, hidden_size=20, num_classes=2):
+        super(RegularizedNeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.dropout1 = nn.Dropout(0.3)  # Add dropout after first layer
+        self.relu = nn.ReLU()
+        self.layer2 = nn.Linear(hidden_size, num_classes)
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.relu(out)
+        out = self.dropout1(out)  # Apply dropout
+        out = self.layer2(out)
+        return F.log_softmax(out, dim=1)"""
+        elif framework == "tensorflow":
+            return """# Add dropout regularization to prevent overfitting
+def create_regularized_model(input_shape, num_classes=2):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(64, activation='relu', input_shape=(input_shape,)),
+        tf.keras.layers.Dropout(0.3),  # Add dropout layer
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dropout(0.3),  # Add dropout layer
+        tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+    ])
+    
+    model.compile(
+        optimizer='adam',
+        loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model"""
+        else:  # sklearn
+            return """# Add regularization to prevent overfitting
+from sklearn.linear_model import LogisticRegression
+
+def create_regularized_model():
+    # Use L2 regularization (Ridge)
+    model = LogisticRegression(
+        C=0.1,  # Smaller C means stronger regularization
+        penalty='l2',
+        solver='liblinear',
+        random_state=42
+    )
+    return model"""
+    
+    # Default fallback for any other suggestion
+    return f"""# Generated code for: {suggestion_title}
+# Framework: {framework}
+# This is a fallback implementation
+
+# Please modify this template based on your specific model structure
+def improve_model():
+    """Implement the suggested improvement"""
+    # TODO: Implement the specific improvement
+    pass"""
+
+
 
 def start_server(model_debugger, port: int = 8000):
     """Start the FastAPI server with the given ModelDebugger instance."""
