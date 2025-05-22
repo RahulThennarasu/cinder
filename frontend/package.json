@@ -4,6 +4,7 @@
   "description": "Frontend dashboard for CompileML with standard CSS - Machine Learning Model Analysis Tool",
   "private": true,
   "dependencies": {
+    "lucide-react": "^0.511.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
