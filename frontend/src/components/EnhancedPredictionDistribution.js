@@ -14,7 +14,6 @@ const EnhancedPredictionDistribution = ({ predictionDistribution,
   featureImportance  }) => {
   const [selectedClass, setSelectedClass] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
-  const [selectedFeature, setSelectedFeature] = useState(null);
 
   
   // Add proper null checks
@@ -451,7 +450,7 @@ const getClassErrors = (className) => {
                 
                 let fillColor = '#e74c32';
                 if (isSelected) fillColor = '#e74c32';
-                else if (hasImbalance) fillColor = entry.count > expectedCount ? '#4e42f5' : '#1807fa';
+                else if (hasImbalance) fillColor = entry.count > expectedCount ? '#4e42f5' : '#ffba66';
                 
                 return (
                   <Cell 
@@ -477,7 +476,7 @@ const getClassErrors = (className) => {
             <span className="legend-label">Overrepresented</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#1807fa' }}></span>
+            <span className="legend-color" style={{ backgroundColor: '#ffba66' }}></span>
             <span className="legend-label">Underrepresented</span>
           </div>
           <div className="legend-item">

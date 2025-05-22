@@ -1563,3 +1563,33 @@ pre {
     justify-content: space-between;
   }
 }
+
+.chart-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.tab-button {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: #6b7280;
+}
+
+.tab-button.active {
+  background-color: #e74c32;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.tab-button:hover:not(.active) {
+  background-color: #f3f4f6;
+  color: #374151;
+}
