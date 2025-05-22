@@ -6,6 +6,7 @@ import {
 import ModelImprovementFlowchart from './ModelImprovementFlowchart';
 import EnhancedPredictionDistribution from './EnhancedPredictionDistribution';
 import ModelImprovementSuggestions from './ModelImprovementSuggestions';
+import CodeEditor from './CodeEditor';
 
 // Constants
 const COLORS = ['#e74c32', '#4e42f5', '#ffba66', '#ffd166', '#e74c32', '#82ca9d'];
@@ -177,7 +178,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
       { id: 'improve', label: 'Model Suggestions' },
       { id: 'errors', label: 'Error Analysis' },
       { id: 'features', label: 'Feature Importance' },
-      { id: 'training', label: 'Training History' }
+      { id: 'code', label: 'Code Editor' }
     ];
 
     return (
@@ -200,21 +201,22 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   // Render based on active tab
   const renderTabContent = () => {
     switch (activeTab) {
-        case 'improvement':  // Note: changed from 'improvements' to 'improvement'
-  return (
-    <div className="grid">
-      <div className="card">
-        <ModelImprovementFlowchart 
-          modelInfo={modelInfo}
-          errorAnalysis={errorAnalysis}
-          confidenceAnalysis={confidenceAnalysis}
-        />
-      </div>
-    </div>
-  );
+      case 'improvement':
+        return (
+          <div className="grid">
+            <div className="card">
+              <ModelImprovementFlowchart 
+                modelInfo={modelInfo}
+                errorAnalysis={errorAnalysis}
+                confidenceAnalysis={confidenceAnalysis}
+              />
+            </div>
+          </div>
+        );
 
-  case 'improvements':
-      return <ModelImprovementSuggestions />;
+      case 'improve':
+        return <ModelImprovementSuggestions />;
+
       case 'overview':
         return (
           <div className="grid grid-cols-2">
@@ -334,14 +336,15 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
               )}
             </div>
 
-            {/* Enhanced Prediction Distribution */}
-            <div className="card">
+            {/* Enhanced Prediction Distribution with Training History */}
+            <div className="card" style={{ padding: 0 }}>
               <EnhancedPredictionDistribution 
                 predictionDistribution={predictionDistribution}
                 errorAnalysis={errorAnalysis}
                 confidenceAnalysis={confidenceAnalysis}
                 featureImportance={featureImportance}
                 modelInfo={modelInfo}
+                trainingHistory={trainingHistory}
               />
             </div>
           </div>
@@ -597,56 +600,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
             </div>
           </div>
         );
-      case 'improve':  // Add this case
-      return <ModelImprovementSuggestions />;
 
-      case 'training':
-        return (
-          <div className="grid">
-            {/* Training History */}
-            <div className="card">
-              <h3 className="card-title">Training History</h3>
-              {trainingHistory && trainingHistory.length > 0 ? (
-                <div className="chart-container-tall">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trainingHistory}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="iteration" />
-                      <YAxis yAxisId="left" label={{ value: 'Accuracy', angle: -90, position: 'insideLeft' }} />
-                      <YAxis yAxisId="right" orientation="right" label={{ value: 'Loss', angle: 90, position: 'insideRight' }} />
-                      <Tooltip formatter={(value, name) => [value.toFixed(4), name]} />
-                      <Legend />
-                      <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#e74c32" name="Accuracy" />
-                      <Line yAxisId="right" type="monotone" dataKey="loss" stroke="#7dd3fc" name="Loss" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="empty-state">No training history available</div>
-              )}
-            </div>
-            
-            {/* Learning Rate */}
-            <div className="card">
-              <h3 className="card-title">Learning Rate</h3>
-              {trainingHistory && trainingHistory.length > 0 && trainingHistory[0].learning_rate ? (
-                <div className="chart-container">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trainingHistory}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="iteration" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [value.toExponential(4), 'Learning Rate']} />
-                      <Line type="monotone" dataKey="learning_rate" stroke="#e74c32" name="Learning Rate" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="empty-state">No learning rate data available</div>
-              )}
-            </div>
-          </div>
-        );
+      case 'code':
+        return <CodeEditor modelInfo={modelInfo} />;
 
       default:
         return <div>Select a tab to view data</div>;

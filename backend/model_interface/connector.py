@@ -52,8 +52,50 @@ class ModelDebugger:
         # Training history storage
         self.training_history = []
         
+        # CAPTURE THE SOURCE FILE PATH OF THE CALLING SCRIPT
+        self.source_file_path = self._capture_source_file_path()
+        
         logging.info(f"Initialized ModelDebugger for {self.framework} model: {name}")
+        if self.source_file_path:
+            logging.info(f"Source file captured: {self.source_file_path}")
     
+    def _capture_source_file_path(self):
+        """Capture the file path of the script that created this ModelDebugger instance."""
+        try:
+            import inspect
+            import os
+            
+            # Get the current stack
+            stack = inspect.stack()
+            
+            # Look for the first frame that's not from our backend code
+            for frame_info in stack[1:]:  # Skip the current frame
+                frame_file = frame_info.filename
+                
+                # Skip frames from our backend or system files
+                if (not frame_file.endswith('connector.py') and 
+                    not frame_file.endswith('server.py') and
+                    not 'site-packages' in frame_file and
+                    not frame_file.startswith('<') and
+                    frame_file.endswith('.py')):
+                    
+                    # This is likely the user's script
+                    abs_path = os.path.abspath(frame_file)
+                    logging.info(f"Captured source file from stack: {abs_path}")
+                    return abs_path
+            
+            # Fallback: try to get the main module
+            import __main__
+            if hasattr(__main__, '__file__') and __main__.__file__:
+                abs_path = os.path.abspath(__main__.__file__)
+                logging.info(f"Captured source file from __main__: {abs_path}")
+                return abs_path
+                
+        except Exception as e:
+            logging.warning(f"Could not capture source file path: {str(e)}")
+        
+        return None
+
     def _detect_framework(self) -> str:
         """Detect which ML framework the model uses."""
         if isinstance(self.model, torch.nn.Module):

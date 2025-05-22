@@ -7,6 +7,9 @@ import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 
+import inspect
+from pathlib import Path
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -52,6 +55,14 @@ class ModelInfoResponse(BaseModel):
     recall: Optional[float] = Field(None, description="Recall score (weighted average for multi-class)")
     f1: Optional[float] = Field(None, description="F1 score (weighted average for multi-class)")
     roc_auc: Optional[float] = Field(None, description="ROC AUC score (for binary classification)")
+class ModelCodeResponse(BaseModel):
+    code: str = Field(..., description="The model's source code")
+    file_path: Optional[str] = Field(None, description="Path to the code file")
+    framework: str = Field(..., description="ML framework detected")
+
+class SaveCodeRequest(BaseModel):
+    code: str = Field(..., description="Code to save")
+    file_path: Optional[str] = Field(None, description="Optional file path to save to")
 
 class ErrorType(BaseModel):
     name: str = Field(..., description="Name of the error type")
@@ -181,6 +192,360 @@ async def get_status():
         "version": "1.0.0",
         "started_at": server_start_time.isoformat()
     }
+@app.get("/api/model-code", response_model=ModelCodeResponse)
+async def get_model_code():
+    """Get the source code of the current model from the executing script."""
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    try:
+        model_code = ""
+        file_path = None
+        
+        # Method 1: Check if debugger has the source file path stored
+        if hasattr(debugger, 'source_file_path') and debugger.source_file_path:
+            try:
+                with open(debugger.source_file_path, 'r', encoding='utf-8') as f:
+                    model_code = f.read()
+                file_path = debugger.source_file_path
+                logging.info(f"Loaded code from stored source file: {file_path}")
+            except Exception as e:
+                logging.warning(f"Could not read stored source file {debugger.source_file_path}: {str(e)}")
+        
+        # Method 2: Try to get the main module file (the script that was executed)
+        if not model_code:
+            try:
+                import __main__
+                if hasattr(__main__, '__file__') and __main__.__file__:
+                    main_file = os.path.abspath(__main__.__file__)
+                    with open(main_file, 'r', encoding='utf-8') as f:
+                        model_code = f.read()
+                    file_path = main_file
+                    logging.info(f"Loaded code from main module: {file_path}")
+            except Exception as e:
+                logging.warning(f"Could not read main module file: {str(e)}")
+        
+        # Method 3: Try to get source from the calling frame/stack
+        if not model_code:
+            try:
+                import inspect
+                # Get the stack and find the first frame that's not from our backend
+                for frame_info in inspect.stack():
+                    frame_file = frame_info.filename
+                    # Skip frames from our backend or system files
+                    if (not frame_file.endswith('server.py') and 
+                        not frame_file.endswith('connector.py') and
+                        not 'site-packages' in frame_file and
+                        not frame_file.startswith('<') and
+                        frame_file.endswith('.py')):
+                        
+                        with open(frame_file, 'r', encoding='utf-8') as f:
+                            model_code = f.read()
+                        file_path = frame_file
+                        logging.info(f"Loaded code from stack frame: {file_path}")
+                        break
+            except Exception as e:
+                logging.warning(f"Could not read from stack frames: {str(e)}")
+        
+        # Method 4: Look for common files in current working directory
+        if not model_code:
+            try:
+                current_dir = os.getcwd()
+                potential_files = [
+                    'run_server.py',
+                    'run_2_demo.py', 
+                    'high_variance.py',
+                    'sklearn_demo.py',
+                    'tensorflow_demo.py',
+                    'model.py',
+                    'train.py',
+                    'main.py'
+                ]
+                
+                for filename in potential_files:
+                    file_path = os.path.join(current_dir, filename)
+                    if os.path.exists(file_path):
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            model_code = f.read()
+                        logging.info(f"Loaded code from common file: {file_path}")
+                        break
+                    
+                    # Also check in examples directory
+                    examples_path = os.path.join(current_dir, 'examples', filename)
+                    if os.path.exists(examples_path):
+                        with open(examples_path, 'r', encoding='utf-8') as f:
+                            model_code = f.read()
+                        file_path = examples_path
+                        logging.info(f"Loaded code from examples: {file_path}")
+                        break
+                        
+            except Exception as e:
+                logging.warning(f"Could not read model file: {str(e)}")
+        
+        # Method 5: Generate template if nothing else works
+        if not model_code:
+            model_code = generate_code_template(debugger.framework)
+            file_path = f"generated_template_{debugger.framework.lower()}.py"
+            logging.info(f"Generated template for framework: {debugger.framework}")
+        
+        return ModelCodeResponse(
+            code=model_code,
+            file_path=file_path,
+            framework=debugger.framework
+        )
+        
+    except Exception as e:
+        logging.error(f"Error getting model code: {str(e)}")
+        # Return a template as fallback
+        return ModelCodeResponse(
+            code=generate_code_template(debugger.framework),
+            file_path="error_fallback_template.py",
+            framework=debugger.framework
+        )
+
+@app.post("/api/model-code")
+async def save_model_code(request: SaveCodeRequest):
+    """Save the model code to a file."""
+    global debugger
+    if debugger is None:
+        raise HTTPException(status_code=404, detail="No model connected")
+    
+    try:
+        # Determine the file path
+        if request.file_path:
+            file_path = request.file_path
+        else:
+            # Use a default path based on the current working directory
+            current_dir = os.getcwd()
+            file_path = os.path.join(current_dir, "saved_model_code.py")
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        # Save the code
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(request.code)
+        
+        logging.info(f"Model code saved to: {file_path}")
+        
+        return {
+            "message": "Code saved successfully",
+            "file_path": file_path,
+            "size": len(request.code)
+        }
+        
+    except Exception as e:
+        logging.error(f"Error saving model code: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save code: {str(e)}")
+
+def generate_code_template(framework: str) -> str:
+    """Generate a code template based on the ML framework."""
+    
+    if framework.lower() == "pytorch":
+        return '''import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import TensorDataset, DataLoader
+import numpy as np
+
+class NeuralNetwork(nn.Module):
+    def __init__(self, input_size=10, hidden_size=20, num_classes=2):
+        super(NeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.relu = nn.ReLU()
+        self.layer2 = nn.Linear(hidden_size, num_classes)
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.relu(out)
+        out = self.layer2(out)
+        return F.log_softmax(out, dim=1)
+
+def generate_synthetic_data(num_samples=500, input_size=10, num_classes=2):
+    """Generate synthetic data for demonstration."""
+    X = torch.randn(num_samples, input_size)
+    weights = torch.randn(input_size)
+    bias = torch.randn(1)
+    scores = torch.matmul(X, weights) + bias
+    y = (scores > 0).long()
+    
+    # Add some noise
+    noise_indices = torch.randperm(num_samples)[:int(num_samples * 0.1)]
+    y[noise_indices] = 1 - y[noise_indices]
+    
+    return X, y
+
+def train_model(model, train_loader, num_epochs=10):
+    """Train the model with the provided data."""
+    criterion = nn.NLLLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    
+    for epoch in range(num_epochs):
+        total_loss = 0
+        correct = 0
+        total = 0
+        
+        for inputs, labels in train_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            total_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+        
+        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(train_loader):.4f}, Accuracy: {100*correct/total:.2f}%')
+
+# Create and train model
+if __name__ == "__main__":
+    # Generate data
+    X, y = generate_synthetic_data()
+    dataset = TensorDataset(X, y)
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    
+    # Create model
+    model = NeuralNetwork()
+    
+    # Train model
+    train_model(model, dataloader)
+'''
+    
+    elif framework.lower() == "tensorflow":
+        return '''import tensorflow as tf
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+def create_model(input_shape, num_classes=2):
+    """Create a TensorFlow/Keras model."""
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(64, activation='relu', input_shape=(input_shape,)),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+    ])
+    
+    model.compile(
+        optimizer='adam',
+        loss='sparse_categorical_crossentropy' if num_classes > 2 else 'binary_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model
+
+def generate_synthetic_data(num_samples=500, input_size=10):
+    """Generate synthetic data for demonstration."""
+    X = np.random.randn(num_samples, input_size)
+    weights = np.random.randn(input_size)
+    bias = np.random.randn(1)
+    scores = np.dot(X, weights) + bias
+    y = (scores > 0).astype(int)
+    
+    # Add some noise
+    noise_indices = np.random.choice(num_samples, int(num_samples * 0.1), replace=False)
+    y[noise_indices] = 1 - y[noise_indices]
+    
+    return X, y
+
+def train_model(model, X_train, y_train, X_val, y_val, epochs=20):
+    """Train the model."""
+    history = model.fit(
+        X_train, y_train,
+        epochs=epochs,
+        batch_size=32,
+        validation_data=(X_val, y_val),
+        verbose=1
+    )
+    return history
+
+# Create and train model
+if __name__ == "__main__":
+    # Generate data
+    X, y = generate_synthetic_data()
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Create model
+    model = create_model(X.shape[1])
+    
+    # Train model
+    history = train_model(model, X_train, y_train, X_val, y_val)
+    
+    # Evaluate
+    test_loss, test_accuracy = model.evaluate(X_val, y_val)
+    print(f'Test Accuracy: {test_accuracy:.4f}')
+'''
+    
+    else:  # sklearn
+        return '''import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+def create_model(model_type='random_forest'):
+    """Create a scikit-learn model."""
+    if model_type == 'random_forest':
+        model = RandomForestClassifier(
+            n_estimators=100,
+            max_depth=10,
+            random_state=42
+        )
+    elif model_type == 'logistic_regression':
+        model = LogisticRegression(
+            random_state=42,
+            max_iter=1000
+        )
+    else:
+        raise ValueError("Unknown model type")
+    
+    return model
+
+def generate_synthetic_data(num_samples=500, num_features=10):
+    """Generate synthetic data for demonstration."""
+    X, y = make_classification(
+        n_samples=num_samples,
+        n_features=num_features,
+        n_informative=8,
+        n_redundant=2,
+        n_clusters_per_class=1,
+        random_state=42
+    )
+    return X, y
+
+def train_and_evaluate_model(model, X_train, X_test, y_train, y_test):
+    """Train and evaluate the model."""
+    # Train
+    model.fit(X_train, y_train)
+    
+    # Predict
+    y_pred = model.predict(X_test)
+    
+    # Evaluate
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f'Accuracy: {accuracy:.4f}')
+    print('\\nClassification Report:')
+    print(classification_report(y_test, y_pred))
+    
+    return accuracy
+
+# Create and train model
+if __name__ == "__main__":
+    # Generate data
+    X, y = generate_synthetic_data()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Create model
+    model = create_model('random_forest')
+    
+    # Train and evaluate
+    accuracy = train_and_evaluate_model(model, X_train, X_test, y_train, y_test)
+'''
 
 # Model info endpoint
 @app.get("/api/model", response_model=ModelInfoResponse)

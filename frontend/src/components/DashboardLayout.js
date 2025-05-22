@@ -63,7 +63,6 @@ const DashboardLayout = ({
                 {serverStatus?.status === 'online' ? 'API Connected' : 'API Disconnected'}
               </span>
             </div>
-            <button className="primary-button">Run Analysis</button>
           </div>
         </div>
       </header>
