@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -18,8 +18,7 @@ const CodeEditor = ({ modelInfo }) => {
   // Add state for panel width
   const [panelWidth, setPanelWidth] = useState(450); // Default width
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeStartX, setResizeStartX] = useState(0);
-  const [initialWidth, setInitialWidth] = useState(0);
+  const [startX, setStartX] = useState(0);
   
   // Reference to the container
   const containerRef = useRef(null);
@@ -58,26 +57,45 @@ const CodeEditor = ({ modelInfo }) => {
 
   const startResize = (e) => {
   setIsResizing(true);
-  setResizeStartX(e.clientX);
-  setInitialWidth(panelWidth);
+  setStartX(e.clientX);
   e.preventDefault();
+};
+
+// Without useCallback:
+const handleResize = (e) => {
+  if (!isResizing) return;
+  
+  // Calculate the distance moved
+  const dx = startX - e.clientX;
+  // Update the panel width
+  const newWidth = Math.max(300, Math.min(800, panelWidth + dx));
+  
+  setPanelWidth(newWidth);
+  setStartX(e.clientX);
 };
 
 const stopResize = () => {
   setIsResizing(false);
 };
 
-const handleResize = (e) => {
+// Then in your useEffect:
+useEffect(() => {
   if (isResizing) {
-    // Calculate the new width based on mouse position
-    // Since we're dragging from the left edge, we subtract from the initial width
-    const newWidth = initialWidth - (e.clientX - resizeStartX);
-    
-    // Apply min/max constraints
-    const constrainedWidth = Math.max(300, Math.min(800, newWidth));
-    setPanelWidth(constrainedWidth);
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResize);
+    document.body.style.userSelect = 'none';
+  } else {
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+    document.body.style.userSelect = '';
   }
-};
+  
+  return () => {
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+    document.body.style.userSelect = '';
+  };
+}, [isResizing, startX, panelWidth]); // Include dependencies used in handleResize
 
   // Load the model code (read-only)
   const loadModelCode = async () => {
@@ -1034,58 +1052,54 @@ def improve_model():
 
         {/* Code Viewer (Read-only) */}
         <div style={{
-          height: 'calc(100vh - 200px)',
-          overflow: 'hidden',
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1
+        height: 'calc(100vh - 137px)',
+        overflow: 'auto',
+        position: 'relative',
+        flex: 1
         }}>
-          <div style={{ height: '100%', overflow: 'auto' }}>
-            <SyntaxHighlighter
-              language="python"
-              style={vs}
-              showLineNumbers={true}
-              lineNumberStyle={{
-                minWidth: '3em',
-                paddingRight: '1em',
-                textAlign: 'right',
-                color: '#999999',
-                borderRight: '1px solid #e1e1e1',
-                marginRight: '1em',
-                userSelect: 'none'
-              }}
-              customStyle={{
-                margin: 0,
-                padding: '1rem',
-                backgroundColor: '#ffffff',
-                fontSize: '0.85rem',
-                lineHeight: '1.5',
-                fontFamily: 'Consolas, "Courier New", monospace',
-                minHeight: '100%'
-              }}
-              codeTagProps={{
+        <SyntaxHighlighter
+            language="python"
+            style={vs}
+            showLineNumbers={true}
+            lineNumberStyle={{
+            minWidth: '3em',
+            paddingRight: '1em',
+            textAlign: 'right',
+            color: '#999999',
+            borderRight: '1px solid #e1e1e1',
+            marginRight: '1em',
+            userSelect: 'none'
+            }}
+            customStyle={{
+            margin: 0,
+            padding: '1rem',
+            backgroundColor: '#ffffff',
+            fontSize: '0.85rem',
+            lineHeight: '1.5',
+            fontFamily: 'Consolas, "Courier New", monospace',
+            overflow: 'visible' // Make sure this isn't adding its own scrollbar
+            }}
+            codeTagProps={{
+            style: {
+                fontFamily: 'Consolas, "Courier New", monospace'
+            }
+            }}
+            wrapLines={true}
+            lineProps={lineNumber => {
+            // Highlight lines that have suggestions
+            const highlightLine = suggestions.some(s => s.line === lineNumber);
+            return {
                 style: {
-                  fontFamily: 'Consolas, "Courier New", monospace'
+                display: 'block',
+                backgroundColor: highlightLine ? 'rgba(231, 76, 50, 0.1)' : undefined,
+                borderLeft: highlightLine ? '3px solid #e74c32' : undefined,
+                paddingLeft: highlightLine ? '1rem' : undefined,
                 }
-              }}
-              wrapLines={true}
-              lineProps={lineNumber => {
-                // Highlight lines that have suggestions
-                const highlightLine = suggestions.some(s => s.line === lineNumber);
-                return {
-                  style: {
-                    display: 'block',
-                    backgroundColor: highlightLine ? 'rgba(231, 76, 50, 0.1)' : undefined,
-                    borderLeft: highlightLine ? '3px solid #e74c32' : undefined,
-                    paddingLeft: highlightLine ? '1rem' : undefined,
-                  }
-                };
-              }}
-            >
-              {code}
-            </SyntaxHighlighter>
-          </div>
+            };
+            }}
+        >
+            {code}
+        </SyntaxHighlighter>
         </div>
       </div>
 
@@ -1103,32 +1117,25 @@ def improve_model():
           position: 'relative',
           boxShadow: '-2px 0 10px rgba(0, 0, 0, 0.05)'
         }}>
-        <div
+          {/* Resize Handle */}
+            <div
             style={{
                 position: 'absolute',
                 left: 0,
                 top: 0,
-                width: '5px',
+                width: '8px', // Make it a bit wider for easier grabbing
                 height: '100%',
                 cursor: 'col-resize',
-                zIndex: 10
+                zIndex: 10,
+                backgroundColor: isResizing ? 'rgba(231, 76, 50, 0.3)' : 'transparent',
+                transition: 'background-color 0.2s',
+                // Add this to make it more visible on hover
+                ':hover': {
+                backgroundColor: 'rgba(231, 76, 50, 0.1)'
+                }
             }}
             onMouseDown={startResize}
-            ></div>
-          {/* Resize Handle */}
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: '5px',
-              height: '100%',
-              cursor: 'col-resize',
-              zIndex: 10,
-              backgroundColor: isResizing ? 'rgba(231, 76, 50, 0.3)' : 'transparent'
-            }}
-            onMouseDown={startResize}
-          ></div>
+            />
 
           {/* Suggestions Header */}
           <div style={{
@@ -1206,8 +1213,6 @@ def improve_model():
             flex: 1, 
             overflow: 'auto', 
             padding: '0.75rem', 
-            scrollbarWidth: 'thin', 
-            scrollbarColor: '#ddd #fff' 
           }}>
             {analyzing && (
               <div style={{
