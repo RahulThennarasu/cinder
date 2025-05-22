@@ -6,6 +6,7 @@ import time
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+import re
 
 import inspect
 from pathlib import Path
@@ -59,6 +60,25 @@ class ModelCodeResponse(BaseModel):
     code: str = Field(..., description="The model's source code")
     file_path: Optional[str] = Field(None, description="Path to the code file")
     framework: str = Field(..., description="ML framework detected")
+class CodeAnalysisRequest(BaseModel):
+    code: str = Field(..., description="Code to analyze")
+    framework: str = Field(..., description="ML framework (pytorch, tensorflow, sklearn)")
+    modelMetrics: Dict[str, Any] = Field({}, description="Current model performance metrics")
+    analysisType: str = Field("ml_code_review", description="Type of analysis to perform")
+
+class CodeSuggestion(BaseModel):
+    type: str = Field(..., description="Type of suggestion (performance, overfitting, etc.)")
+    severity: str = Field(..., description="Severity level (high, medium, low)")
+    line: Optional[int] = Field(None, description="Line number where issue occurs")
+    title: str = Field(..., description="Brief title of the issue")
+    message: str = Field(..., description="Detailed description of the issue")
+    suggestion: str = Field(..., description="Recommended solution")
+    autoFix: Optional[str] = Field(None, description="Auto-fix code snippet")
+
+class CodeAnalysisResponse(BaseModel):
+    suggestions: List[CodeSuggestion] = Field(..., description="List of AI-generated suggestions")
+    analysisTime: float = Field(..., description="Time taken for analysis in seconds")
+    codeQualityScore: float = Field(..., description="Overall code quality score (0-1)")
 
 class SaveCodeRequest(BaseModel):
     code: str = Field(..., description="Code to save")
@@ -192,6 +212,391 @@ async def get_status():
         "version": "1.0.0",
         "started_at": server_start_time.isoformat()
     }
+@app.post("/api/analyze-code", response_model=CodeAnalysisResponse)
+async def analyze_code(request: CodeAnalysisRequest):
+    """
+    Analyze ML code and provide AI-powered suggestions for improvement.
+    """
+    global debugger
+    
+    try:
+        import time
+        start_time = time.time()
+        
+        # Get current model context
+        model_context = {
+            "accuracy": request.modelMetrics.get("accuracy", 0),
+            "precision": request.modelMetrics.get("precision", 0),
+            "recall": request.modelMetrics.get("recall", 0),
+            "f1": request.modelMetrics.get("f1", 0),
+            "dataset_size": request.modelMetrics.get("dataset_size", 0),
+            "framework": request.framework
+        }
+        
+        # Analyze code using multiple strategies
+        suggestions = []
+        code_lines = request.code.lower().split('\n')
+        
+        # 1. Performance-based suggestions
+        suggestions.extend(analyze_performance_issues(request.code, model_context))
+        
+        # 2. Framework-specific suggestions
+        suggestions.extend(analyze_framework_issues(request.code, request.framework))
+        
+        # 3. ML best practices
+        suggestions.extend(analyze_ml_best_practices(request.code, model_context))
+        
+        # 4. Use Gemini API for advanced analysis if available
+        if HAS_CODE_GENERATOR:
+            try:
+                gemini_suggestions = await analyze_with_gemini(request.code, model_context)
+                suggestions.extend(gemini_suggestions)
+            except Exception as e:
+                logging.warning(f"Gemini analysis failed: {str(e)}")
+        
+        # Calculate code quality score
+        quality_score = calculate_code_quality_score(request.code, suggestions)
+        
+        analysis_time = time.time() - start_time
+        
+        return CodeAnalysisResponse(
+            suggestions=suggestions[:10],  # Limit to top 10 suggestions
+            analysisTime=analysis_time,
+            codeQualityScore=quality_score
+        )
+        
+    except Exception as e:
+        logging.error(f"Error in code analysis: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Code analysis failed: {str(e)}")
+
+def analyze_performance_issues(code: str, model_context: Dict[str, Any]) -> List[CodeSuggestion]:
+    """Analyze code for performance-related issues based on model metrics."""
+    suggestions = []
+    accuracy = model_context.get("accuracy", 0)
+    framework = model_context.get("framework", "").lower()
+    
+    # Low accuracy suggestions
+    if accuracy < 0.8:
+        # Check for model complexity
+        if not re.search(r'hidden.*\d+.*\d+', code, re.IGNORECASE):
+            suggestions.append(CodeSuggestion(
+                type="performance",
+                severity="high",
+                line=find_line_with_pattern(code, ["class ", "def create_model", "model ="]),
+                title="Insufficient Model Complexity",
+                message=f"Model accuracy is {accuracy*100:.1f}%. Consider increasing model complexity.",
+                suggestion="Add more layers or increase hidden units to improve model capacity.",
+                autoFix=generate_complexity_fix(framework)
+            ))
+    
+    # High accuracy but potential overfitting
+    if accuracy > 0.95:
+        if "dropout" not in code.lower() and framework != "sklearn":
+            suggestions.append(CodeSuggestion(
+                type="overfitting",
+                severity="medium",
+                line=find_line_with_pattern(code, ["forward", "model.add", "Sequential"]),
+                title="Potential Overfitting Risk",
+                message="Very high accuracy detected without regularization. This may indicate overfitting.",
+                suggestion="Add dropout layers or other regularization techniques.",
+                autoFix=generate_regularization_fix(framework)
+            ))
+    
+    return suggestions
+
+def analyze_framework_issues(code: str, framework: str) -> List[CodeSuggestion]:
+    """Analyze framework-specific code issues."""
+    suggestions = []
+    framework = framework.lower()
+    
+    if framework == "pytorch":
+        # Check for missing .eval() in inference
+        if "model(" in code and "model.eval()" not in code:
+            suggestions.append(CodeSuggestion(
+                type="pytorch_best_practice",
+                severity="medium",
+                line=find_line_with_pattern(code, ["model("]),
+                title="Missing model.eval() for Inference",
+                message="PyTorch models should be set to eval mode during inference.",
+                suggestion="Add model.eval() before inference to disable dropout and batch norm.",
+                autoFix="model.eval()  # Set model to evaluation mode\nwith torch.no_grad():\n    predictions = model(input_data)"
+            ))
+        
+        # Check for gradient computation in inference
+        if "model(" in code and "torch.no_grad()" not in code and "with torch.no_grad" not in code:
+            suggestions.append(CodeSuggestion(
+                type="pytorch_optimization",
+                severity="low",
+                line=find_line_with_pattern(code, ["model("]),
+                title="Unnecessary Gradient Computation",
+                message="Computing gradients during inference wastes memory and computation.",
+                suggestion="Wrap inference code with torch.no_grad() context manager.",
+                autoFix="with torch.no_grad():\n    predictions = model(input_data)"
+            ))
+    
+    elif framework == "tensorflow":
+        # Check for missing compilation
+        if "Sequential" in code and "compile" not in code:
+            suggestions.append(CodeSuggestion(
+                type="tensorflow_setup",
+                severity="high",
+                line=find_line_with_pattern(code, ["Sequential", "Model"]),
+                title="Model Not Compiled",
+                message="TensorFlow models must be compiled before training.",
+                suggestion="Add model.compile() with optimizer, loss, and metrics.",
+                autoFix="model.compile(\n    optimizer='adam',\n    loss='sparse_categorical_crossentropy',\n    metrics=['accuracy']\n)"
+            ))
+    
+    elif framework == "sklearn":
+        # Check for missing train/test split
+        if "fit(" in code and "train_test_split" not in code:
+            suggestions.append(CodeSuggestion(
+                type="sklearn_best_practice",
+                severity="medium",
+                line=find_line_with_pattern(code, ["fit("]),
+                title="No Train/Test Split Detected",
+                message="Training on the entire dataset without validation can lead to overfitting.",
+                suggestion="Use train_test_split to create separate training and testing sets.",
+                autoFix="from sklearn.model_selection import train_test_split\nX_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)"
+            ))
+    
+    return suggestions
+
+def analyze_ml_best_practices(code: str, model_context: Dict[str, Any]) -> List[CodeSuggestion]:
+    """Analyze general ML best practices."""
+    suggestions = []
+    
+    # Check for hardcoded hyperparameters
+    lr_pattern = re.search(r'lr\s*=\s*0\.01|learning_rate\s*=\s*0\.01', code)
+    if lr_pattern:
+        suggestions.append(CodeSuggestion(
+            type="hyperparameters",
+            severity="low",
+            line=code[:lr_pattern.start()].count('\n') + 1,
+            title="Hardcoded Learning Rate",
+            message="Hardcoded learning rates may not be optimal for your specific problem.",
+            suggestion="Consider using learning rate scheduling or hyperparameter tuning.",
+            autoFix="# Use learning rate scheduler\nscheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)"
+        ))
+    
+    # Check for missing data normalization
+    if not re.search(r'normalize|standardscaler|batchnorm', code, re.IGNORECASE):
+        suggestions.append(CodeSuggestion(
+            type="data_preprocessing",
+            severity="medium",
+            line=find_line_with_pattern(code, ["fit(", "train("]),
+            title="Missing Data Normalization",
+            message="Neural networks typically perform better with normalized input data.",
+            suggestion="Consider normalizing your input features for better convergence.",
+            autoFix="from sklearn.preprocessing import StandardScaler\nscaler = StandardScaler()\nX_scaled = scaler.fit_transform(X)"
+        ))
+    
+    # Check for missing cross-validation
+    if "fit(" in code and "cross_val" not in code.lower():
+        suggestions.append(CodeSuggestion(
+            type="evaluation",
+            severity="low",
+            line=find_line_with_pattern(code, ["fit("]),
+            title="Consider Cross-Validation",
+            message="Single train/test splits may not provide robust performance estimates.",
+            suggestion="Use k-fold cross-validation for more reliable model evaluation.",
+            autoFix="from sklearn.model_selection import cross_val_score\nscores = cross_val_score(model, X, y, cv=5)\nprint(f'CV Accuracy: {scores.mean():.3f} (+/- {scores.std() * 2:.3f})')"
+        ))
+    
+    return suggestions
+
+async def analyze_with_gemini(code: str, model_context: Dict[str, Any]) -> List[CodeSuggestion]:
+    """Use Gemini API for advanced code analysis."""
+    if not HAS_CODE_GENERATOR:
+        return []
+    
+    try:
+        code_generator = SimpleCodeGenerator()
+        
+        # Create a detailed prompt for code analysis
+        prompt = f"""
+        Analyze this {model_context['framework']} machine learning code for potential improvements.
+        
+        Current model performance:
+        - Accuracy: {model_context['accuracy']:.3f}
+        - Framework: {model_context['framework']}
+        
+        Code to analyze:
+        ```python
+        {code}
+        ```
+        
+        Please identify up to 3 specific issues and provide:
+        1. Issue type (performance/overfitting/optimization/best_practice)
+        2. Severity (high/medium/low)
+        3. Line number where the issue occurs
+        4. Brief description
+        5. Specific improvement suggestion
+        6. Code snippet to fix the issue
+        
+        Focus on ML-specific issues like overfitting, underfitting, inefficient training, missing regularization, etc.
+        
+        Return as JSON format:
+        {{
+            "suggestions": [
+                {{
+                    "type": "performance",
+                    "severity": "high",
+                    "line": 10,
+                    "title": "Issue Title",
+                    "message": "Detailed description",
+                    "suggestion": "How to fix it",
+                    "autoFix": "code snippet"
+                }}
+            ]
+        }}
+        """
+        
+        # Call Gemini API
+        response = code_generator.client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
+        
+        if hasattr(response, 'text'):
+            # Parse JSON response
+            import json
+            try:
+                # Extract JSON from response
+                json_start = response.text.find('{')
+                json_end = response.text.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = response.text[json_start:json_end]
+                    gemini_result = json.loads(json_str)
+                    
+                    # Convert to CodeSuggestion objects
+                    suggestions = []
+                    for item in gemini_result.get("suggestions", []):
+                        suggestions.append(CodeSuggestion(
+                            type=item.get("type", "general"),
+                            severity=item.get("severity", "medium"),
+                            line=item.get("line"),
+                            title=item.get("title", "AI Suggestion"),
+                            message=item.get("message", ""),
+                            suggestion=item.get("suggestion", ""),
+                            autoFix=item.get("autoFix")
+                        ))
+                    
+                    return suggestions
+            except json.JSONDecodeError:
+                logging.warning("Failed to parse Gemini JSON response")
+                
+    except Exception as e:
+        logging.error(f"Gemini analysis failed: {str(e)}")
+    
+    return []
+
+def find_line_with_pattern(code: str, patterns: List[str]) -> Optional[int]:
+    """Find the line number containing any of the given patterns."""
+    lines = code.split('\n')
+    for i, line in enumerate(lines):
+        for pattern in patterns:
+            if pattern.lower() in line.lower():
+                return i + 1
+    return None
+
+def generate_complexity_fix(framework: str) -> str:
+    """Generate code to increase model complexity."""
+    if framework == "pytorch":
+        return """# Increase model complexity
+self.layer1 = nn.Linear(input_size, hidden_size * 2)
+self.layer2 = nn.Linear(hidden_size * 2, hidden_size)
+self.layer3 = nn.Linear(hidden_size, num_classes)"""
+    elif framework == "tensorflow":
+        return """# Add more layers for increased complexity
+model.add(tf.keras.layers.Dense(128, activation='relu'))
+model.add(tf.keras.layers.Dense(64, activation='relu'))"""
+    else:
+        return """# Use more complex model
+model = RandomForestClassifier(n_estimators=200, max_depth=15)"""
+
+def generate_regularization_fix(framework: str) -> str:
+    """Generate code to add regularization."""
+    if framework == "pytorch":
+        return """# Add dropout for regularization
+self.dropout1 = nn.Dropout(0.3)
+self.dropout2 = nn.Dropout(0.5)
+
+# In forward pass:
+x = self.dropout1(x)"""
+    elif framework == "tensorflow":
+        return """# Add dropout layers
+model.add(tf.keras.layers.Dropout(0.3))"""
+    else:
+        return """# Use regularization parameters
+model = RandomForestClassifier(min_samples_split=5, min_samples_leaf=2)"""
+
+def calculate_code_quality_score(code: str, suggestions: List[CodeSuggestion]) -> float:
+    """Calculate overall code quality score (0-1)."""
+    base_score = 1.0
+    
+    # Deduct points based on suggestions
+    for suggestion in suggestions:
+        if suggestion.severity == "high":
+            base_score -= 0.15
+        elif suggestion.severity == "medium":
+            base_score -= 0.10
+        elif suggestion.severity == "low":
+            base_score -= 0.05
+    
+    # Bonus points for good practices
+    code_lower = code.lower()
+    
+    # Has error handling
+    if "try:" in code_lower and "except" in code_lower:
+        base_score += 0.05
+    
+    # Has documentation
+    if '"""' in code or "'''" in code:
+        base_score += 0.05
+    
+    # Has type hints
+    if "->" in code and ":" in code:
+        base_score += 0.03
+    
+    # Has proper imports
+    if "import" in code_lower:
+        base_score += 0.02
+    
+    return max(0.0, min(1.0, base_score))
+
+# Also add this helper function to your server.py
+def get_code_analysis_insights(code: str, suggestions: List[CodeSuggestion]) -> Dict[str, Any]:
+    """Generate insights about the code analysis."""
+    code_lines = len(code.split('\n'))
+    
+    # Count different types of issues
+    issue_counts = {}
+    for suggestion in suggestions:
+        issue_type = suggestion.type
+        if issue_type not in issue_counts:
+            issue_counts[issue_type] = 0
+        issue_counts[issue_type] += 1
+    
+    # Determine main areas for improvement
+    improvement_areas = []
+    if issue_counts.get("performance", 0) > 0:
+        improvement_areas.append("Model Performance")
+    if issue_counts.get("overfitting", 0) > 0:
+        improvement_areas.append("Regularization")
+    if issue_counts.get("optimization", 0) > 0:
+        improvement_areas.append("Training Optimization")
+    if issue_counts.get("best_practice", 0) > 0:
+        improvement_areas.append("Code Quality")
+    
+    return {
+        "total_lines": code_lines,
+        "total_suggestions": len(suggestions),
+        "issue_breakdown": issue_counts,
+        "main_improvement_areas": improvement_areas,
+        "complexity_estimate": "High" if code_lines > 100 else "Medium" if code_lines > 50 else "Low"
+    }
+
 @app.get("/api/model-code", response_model=ModelCodeResponse)
 async def get_model_code():
     """Get the source code of the current model from the executing script."""

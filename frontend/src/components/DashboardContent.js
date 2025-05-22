@@ -176,8 +176,6 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
       { id: 'performance', label: 'Performance' },
       { id: 'improvement', label: 'Model Improvement' },
       { id: 'improve', label: 'Model Suggestions' },
-      { id: 'errors', label: 'Error Analysis' },
-      { id: 'features', label: 'Feature Importance' },
       { id: 'code', label: 'Code Editor' }
     ];
 
