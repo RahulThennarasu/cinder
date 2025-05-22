@@ -451,7 +451,7 @@ const getClassErrors = (className) => {
                 
                 let fillColor = '#e74c32';
                 if (isSelected) fillColor = '#e74c32';
-                else if (hasImbalance) fillColor = entry.count > expectedCount ? '#ff9066' : '#ffba66';
+                else if (hasImbalance) fillColor = entry.count > expectedCount ? '#4e42f5' : '#1807fa';
                 
                 return (
                   <Cell 
@@ -473,11 +473,11 @@ const getClassErrors = (className) => {
             <span className="legend-label">Balanced Class</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#ff9066' }}></span>
+            <span className="legend-color" style={{ backgroundColor: '#4e42f5' }}></span>
             <span className="legend-label">Overrepresented</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#ffba66' }}></span>
+            <span className="legend-color" style={{ backgroundColor: '#1807fa' }}></span>
             <span className="legend-label">Underrepresented</span>
           </div>
           <div className="legend-item">

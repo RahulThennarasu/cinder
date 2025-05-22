@@ -123,7 +123,7 @@ const ModelImprovementSuggestions = () => {
     }
     
     // Otherwise return a placeholder
-    return `# Generate code to see a ${activeTab} implementation for this improvement\n# Click the "Generate Code" button above to begin`;
+    return `# Generate code to see a ${activeTab} implementation for this improvement\n# Click the "Bit Code" button above to begin`;
   };
 
   const copyToClipboard = (text) => {
@@ -350,10 +350,10 @@ const ModelImprovementSuggestions = () => {
                             className="model-suggestions-generate-button"
                           >
                             {generatingCode 
-                              ? 'Generating Code...' 
+                              ? 'Bit is thinking...' 
                               : generatedCode[activeSection] && generatedCode[activeSection][activeTab]
-                                ? 'Regenerate Code'
-                                : 'Generate Code'
+                                ? 'Regenerate'
+                                : 'Bit Code '
                             }
                           </button>
                           <div className="model-suggestions-code-framework">

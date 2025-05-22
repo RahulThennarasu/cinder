@@ -8,7 +8,7 @@ import EnhancedPredictionDistribution from './EnhancedPredictionDistribution';
 import ModelImprovementSuggestions from './ModelImprovementSuggestions';
 
 // Constants
-const COLORS = ['#e74c32', '#ff9066', '#ffba66', '#ffd166', '#e74c32', '#82ca9d'];
+const COLORS = ['#e74c32', '#4e42f5', '#1807fa', '#ffd166', '#e74c32', '#82ca9d'];
 
 const DashboardContent = ({ serverStatus, modelInfo }) => {
   // State management
