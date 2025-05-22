@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const CodeEditor = ({ modelInfo }) => {
   const [code, setCode] = useState('');
@@ -12,11 +13,16 @@ const CodeEditor = ({ modelInfo }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(null);
 
   // Add state for panel width
-  const [panelWidth, setPanelWidth] = useState(500); // Default width
+  const [panelWidth, setPanelWidth] = useState(450); // Default width
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeDirection, setResizeDirection] = useState(null); // 'left' or 'right'
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [initialWidth, setInitialWidth] = useState(0);
+  
+  // Reference to the container
+  const containerRef = useRef(null);
 
   useEffect(() => {
     // Load model code when component mounts
@@ -24,52 +30,54 @@ const CodeEditor = ({ modelInfo }) => {
   }, [modelInfo]);
 
   useEffect(() => {
-    // Add event listeners for resizing
-    if (isResizing) {
-      document.addEventListener('mousemove', handleResize);
-      document.addEventListener('mouseup', stopResize);
+  // Only add listeners when actually resizing
+  if (isResizing) {
+    window.addEventListener('mousemove', handleResize);
+    window.addEventListener('mouseup', stopResize);
+    // Prevent text selection during resize
+    document.body.style.userSelect = 'none';
+  }
+  
+  // Cleanup function
+  return () => {
+    window.removeEventListener('mousemove', handleResize);
+    window.removeEventListener('mouseup', stopResize);
+    document.body.style.userSelect = '';
+  };
+}, [isResizing]);
+
+  // Reset copied state after a delay
+  useEffect(() => {
+    if (copiedCode !== null) {
+      const timer = setTimeout(() => {
+        setCopiedCode(null);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
+  }, [copiedCode]);
 
-    return () => {
-      // Clean up event listeners
-      document.removeEventListener('mousemove', handleResize);
-      document.removeEventListener('mouseup', stopResize);
-    };
-  }, [isResizing, resizeDirection]);
+  const startResize = (e) => {
+  setIsResizing(true);
+  setResizeStartX(e.clientX);
+  setInitialWidth(panelWidth);
+  e.preventDefault();
+};
 
-  const startResize = (e, direction) => {
-    setIsResizing(true);
-    setResizeDirection(direction);
-    e.preventDefault();
-  };
+const stopResize = () => {
+  setIsResizing(false);
+};
 
-  const stopResize = () => {
-    setIsResizing(false);
-    setResizeDirection(null);
-  };
-
-  const handleResize = (e) => {
-    if (isResizing) {
-      // Get container dimensions
-      const containerRect = document.querySelector('.code-editor-container')?.getBoundingClientRect() ||
-                           document.body.getBoundingClientRect();
-
-      let newWidth;
-
-      if (resizeDirection === 'left') {
-        // Resizing from left edge (expanding to the left)
-        newWidth = containerRect.right - e.clientX;
-      } else {
-        // Resizing from right edge (expanding to the right)
-        newWidth = e.clientX - (containerRect.right - panelWidth);
-      }
-
-      // Set min and max width constraints
-      if (newWidth > 300 && newWidth < 800) {
-        setPanelWidth(newWidth);
-      }
-    }
-  };
+const handleResize = (e) => {
+  if (isResizing) {
+    // Calculate the new width based on mouse position
+    // Since we're dragging from the left edge, we subtract from the initial width
+    const newWidth = initialWidth - (e.clientX - resizeStartX);
+    
+    // Apply min/max constraints
+    const constrainedWidth = Math.max(300, Math.min(800, newWidth));
+    setPanelWidth(constrainedWidth);
+  }
+};
 
   // Load the model code (read-only)
   const loadModelCode = async () => {
@@ -784,7 +792,7 @@ grid_search = GridSearchCV(
 grid_search.fit(X_train, y_train)
 best_model = grid_search.best_estimator_
 print(f"Best parameters: {grid_search.best_params_}")`;
-      }
+}
     } else if (type === 'data' && title.includes('Class Imbalance')) {
       if (framework === 'pytorch') {
         return `# Handle class imbalance with weighted sampling
@@ -886,6 +894,12 @@ def improve_model():
     }
   };
 
+  // Function to copy code to clipboard
+  const copyToClipboard = (code, suggestionIndex) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(suggestionIndex);
+  };
+
   if (loading) {
     return (
       <div style={{
@@ -922,7 +936,13 @@ def improve_model():
   }
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', color: '#333333', minHeight: '100vh', display: 'flex' }}>
+    <div className="code-editor-wrapper" ref={containerRef} style={{ 
+      backgroundColor: '#f8fafc', 
+      color: '#333333', 
+      minHeight: '100vh', 
+      display: 'flex',
+      position: 'relative'
+    }}>
       {/* Main Code Viewer */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
@@ -1071,315 +1091,377 @@ def improve_model():
 
       {/* Suggestions Panel */}
       {showSuggestions && (
-        <div className="code-editor-container" style={{ display: 'flex', position: 'relative' }}>
-          {/* Left resize handle */}
+        <div className="suggestions-panel" style={{ 
+          width: `${panelWidth}px`,
+          backgroundColor: '#fff', 
+          borderLeft: '1px solid #e1e1e1',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          overflow: 'hidden',
+          color: '#333',
+          position: 'relative',
+          boxShadow: '-2px 0 10px rgba(0, 0, 0, 0.05)'
+        }}>
+        <div
+            style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '5px',
+                height: '100%',
+                cursor: 'col-resize',
+                zIndex: 10
+            }}
+            onMouseDown={startResize}
+            ></div>
+          {/* Resize Handle */}
           <div
             style={{
               position: 'absolute',
               left: 0,
               top: 0,
-              width: '6px',
+              width: '5px',
               height: '100%',
               cursor: 'col-resize',
               zIndex: 10,
-              backgroundColor: isResizing && resizeDirection === 'left' ? '#e74c32' : 'transparent'
+              backgroundColor: isResizing ? 'rgba(231, 76, 50, 0.3)' : 'transparent'
             }}
-            onMouseDown={(e) => startResize(e, 'left')}
+            onMouseDown={startResize}
           ></div>
 
-          <div
-            style={{
-              width: panelWidth, // Adjustable width
-              backgroundColor: '#1e1e1e', // VS Code dark theme background
-              borderLeft: '1px solid #333333',
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100vh',
-              overflow: 'hidden',
-              color: '#cccccc', // VS Code text color
-              position: 'relative'
-            }}
-          >
-            {/* Right resize handle */}
-            <div
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                width: '6px',
-                height: '100%',
-                cursor: 'col-resize',
-                zIndex: 10,
-                backgroundColor: isResizing && resizeDirection === 'right' ? '#e74c32' : 'transparent'
-              }}
-              onMouseDown={(e) => startResize(e, 'right')}
-            ></div>
-            {/* Suggestions Header */}
-            <div style={{
-              padding: '1rem',
-              borderBottom: '1px solid #333333',
-              backgroundColor: '#252526' // VS Code panel header color
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#e0e0e0' }}>
-                  Gemini Suggestions
-                </h4>
-                {/* Removed close button as requested */}
-              </div>
-              <p style={{
-                margin: '0.5rem 0 0 0',
-                fontSize: '0.9rem',
-                color: '#a0a0a0'
+          {/* Suggestions Header */}
+          <div style={{
+            padding: '1rem',
+            borderBottom: '1px solid #e1e1e1',
+            backgroundColor: '#fff'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ 
+                margin: 0, 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                color: '#333' 
               }}>
-                {analyzing ? 'Analyzing your code...' :
-                 suggestions.length > 0 ? `${suggestions.length} suggestions found` :
-                 'Click "Analyze with Gemini" to get suggestions'}
-              </p>
+                Gemini Suggestions
+              </h4>
             </div>
+            <p style={{
+              margin: '0.5rem 0 0 0',
+              fontSize: '0.9rem',
+              color: '#666'
+            }}>
+              {analyzing ? 'Analyzing your code...' :
+                suggestions.length > 0 ? `${suggestions.length} suggestions found` :
+                'Click "Analyze with Gemini" to get suggestions'}
+            </p>
+          </div>
 
-            {/* Model Performance Context */}
-            {modelInfo && (
-              <div style={{
-                padding: '1.25rem',
-                backgroundColor: '#252526',
-                borderBottom: '1px solid #333333'
+          {/* Model Performance Context */}
+          {modelInfo && (
+            <div style={{
+              padding: '1.25rem',
+              backgroundColor: '#f9fafb',
+              borderBottom: '1px solid #e1e1e1'
+            }}>
+              <h5 style={{ 
+                margin: '0 0 0.75rem 0', 
+                fontSize: '1rem', 
+                fontWeight: '600', 
+                color: '#333' 
               }}>
-                <h5 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', fontWeight: '600', color: '#e0e0e0' }}>
-                  Current Model Performance
-                </h5>
-                <div style={{ fontSize: '0.9rem', color: '#a0a0a0' }}>
-                  <div style={{ marginBottom: '0.5rem' }}>Accuracy: <strong style={{ color: '#e0e0e0' }}>{((modelInfo.accuracy || 0) * 100).toFixed(1)}%</strong></div>
-                  {modelInfo.precision && <div style={{ marginBottom: '0.5rem' }}>Precision: <strong style={{ color: '#e0e0e0' }}>{(modelInfo.precision * 100).toFixed(1)}%</strong></div>}
-                  {modelInfo.recall && <div style={{ marginBottom: '0.5rem' }}>Recall: <strong style={{ color: '#e0e0e0' }}>{(modelInfo.recall * 100).toFixed(1)}%</strong></div>}
-                  <div>Framework: <strong style={{ color: '#e0e0e0' }}>{modelInfo.framework || 'Unknown'}</strong></div>
+                Current Model Performance
+              </h5>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  Accuracy: <strong style={{ color: '#333' }}>
+                    {((modelInfo.accuracy || 0) * 100).toFixed(1)}%
+                  </strong>
                 </div>
+                {modelInfo.precision && (
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    Precision: <strong style={{ color: '#333' }}>
+                      {(modelInfo.precision * 100).toFixed(1)}%
+                    </strong>
+                  </div>
+                )}
+                {modelInfo.recall && (
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    Recall: <strong style={{ color: '#333' }}>
+                      {(modelInfo.recall * 100).toFixed(1)}%
+                    </strong>
+                  </div>
+                )}
+                <div>
+                  Framework: <strong style={{ color: '#333' }}>
+                    {modelInfo.framework || 'Unknown'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Suggestions List */}
+          <div style={{ 
+            flex: 1, 
+            overflow: 'auto', 
+            padding: '0.75rem', 
+            scrollbarWidth: 'thin', 
+            scrollbarColor: '#ddd #fff' 
+          }}>
+            {analyzing && (
+              <div style={{
+                padding: '2rem',
+                textAlign: 'center',
+                color: '#666'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '3px solid #f3f3f3',
+                  borderTop: '3px solid #e74c32',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 1rem'
+                }}></div>
+                <p style={{ fontSize: '1rem' }}>Gemini is analyzing your code...</p>
               </div>
             )}
 
-            {/* Suggestions List with Slider */}
-            <div style={{ flex: 1, overflow: 'auto', padding: '0.75rem', scrollbarWidth: 'thin', scrollbarColor: '#555 #1e1e1e' }}>
-              {analyzing && (
-                <div style={{
-                  padding: '2rem',
-                  textAlign: 'center',
-                  color: '#a0a0a0'
-                }}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    border: '3px solid #333333',
-                    borderTop: '3px solid #e74c32',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                    margin: '0 auto 1rem'
-                  }}></div>
-                  <p style={{ fontSize: '1rem' }}>Gemini is analyzing your code...</p>
-                </div>
-              )}
+            {!analyzing && suggestions.length === 0 && (
+              <div style={{
+                padding: '3rem',
+                textAlign: 'center',
+                color: '#666'
+              }}>
+                <div style={{ 
+                  fontSize: '3rem', 
+                  marginBottom: '1.5rem', 
+                  color: '#e74c32' 
+                }}>G</div>
+                <p style={{ fontSize: '1rem', lineHeight: '1.5' }}>
+                  Click "Analyze with Gemini" to receive suggestions for improving your ML model
+                </p>
+              </div>
+            )}
 
-              {!analyzing && suggestions.length === 0 && (
-                <div style={{
-                  padding: '3rem',
-                  textAlign: 'center',
-                  color: '#a0a0a0'
-                }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1.5rem', color: '#e74c32' }}>G</div>
-                  <p style={{ fontSize: '1rem', lineHeight: '1.5' }}>Click "Analyze with Gemini" to receive suggestions for improving your ML model</p>
-                </div>
-              )}
-
-              {suggestions.map((suggestion, index) => (
+            {suggestions.map((suggestion, index) => (
+              <div
+                key={index}
+                style={{
+                  backgroundColor: '#fff',
+                  border: '1px solid #e1e1e1',
+                  borderRadius: '0.5rem',
+                  margin: '0 0 1rem 0',
+                  overflow: 'hidden',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  borderLeft: `4px solid ${getSeverityColor(suggestion.severity)}`
+                }}
+              >
+                {/* Suggestion Header */}
                 <div
-                  key={index}
+                  onClick={() => setSelectedSuggestion(selectedSuggestion === index ? null : index)}
                   style={{
-                    backgroundColor: '#252526',
-                    border: '1px solid #333333',
-                    borderRadius: '0.5rem',
-                    margin: '0 0 1rem 0',
-                    overflow: 'hidden',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
-                    borderLeft: `4px solid ${getSeverityColor(suggestion.severity)}`
+                    padding: '1rem',
+                    borderBottom: selectedSuggestion === index ? '1px solid #e1e1e1' : 'none',
+                    cursor: 'pointer',
+                    backgroundColor: selectedSuggestion === index ? '#f9fafb' : '#fff'
                   }}
                 >
-                  {/* Suggestion Header */}
-                  <div
-                    onClick={() => setSelectedSuggestion(selectedSuggestion === index ? null : index)}
-                    style={{
-                      padding: '1rem',
-                      borderBottom: selectedSuggestion === index ? '1px solid #333333' : 'none',
-                      cursor: 'pointer',
-                      backgroundColor: selectedSuggestion === index ? '#2d2d2d' : '#252526'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{
-                          width: '0.75rem',
-                          height: '0.75rem',
-                          borderRadius: '50%',
-                          backgroundColor: getSeverityColor(suggestion.severity)
-                        }}></span>
-                        <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: '500', color: '#e0e0e0' }}>
-                          {suggestion.title}
-                        </h5>
-                      </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <span style={{
-                        fontSize: '0.8rem',
-                        padding: '0.2rem 0.5rem',
-                        backgroundColor: '#333333',
-                        borderRadius: '0.25rem',
-                        color: '#a0a0a0'
-                      }}>
-                        Line {suggestion.line}
-                      </span>
+                        width: '0.75rem',
+                        height: '0.75rem',
+                        borderRadius: '50%',
+                        backgroundColor: getSeverityColor(suggestion.severity)
+                      }}></span>
+                      <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: '500', color: '#333' }}>
+                        {suggestion.title}
+                      </h5>
                     </div>
-                    <p style={{
-                      margin: '0.75rem 0 0 0',
-                      fontSize: '0.9rem',
-                      color: '#a0a0a0',
-                      lineHeight: 1.5
+                    <span style={{
+                      fontSize: '0.8rem',
+                      padding: '0.2rem 0.5rem',
+                      backgroundColor: '#f1f5f9',
+                      borderRadius: '0.25rem',
+                      color: '#64748b'
                     }}>
-                      {suggestion.message}
-                    </p>
+                      Line {suggestion.line}
+                    </span>
                   </div>
+                  <p style={{
+                    margin: '0.75rem 0 0 0',
+                    fontSize: '0.9rem',
+                    color: '#666',
+                    lineHeight: 1.5
+                  }}>
+                    {suggestion.message}
+                  </p>
+                </div>
 
-                  {/* Expanded Content */}
-                  {selectedSuggestion === index && (
-                    <div style={{ padding: '1rem', backgroundColor: '#2d2d2d' }}>
-                      {/* Suggestion Details */}
+                {/* Expanded Content */}
+                {selectedSuggestion === index && (
+                  <div style={{ padding: '1rem', backgroundColor: '#f9fafb' }}>
+                    {/* Suggestion Details */}
+                    <div style={{ marginBottom: '1rem' }}>
+                      <h6 style={{
+                        margin: '0 0 0.75rem 0',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        color: '#333'
+                      }}>
+                        Recommended Solution
+                      </h6>
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.9rem',
+                        color: '#4b5563',
+                        lineHeight: 1.5
+                      }}>
+                        {suggestion.suggestion}
+                      </p>
+                    </div>
+
+                    {/* Auto-fix Code */}
+                    {suggestion.autoFix && (
                       <div style={{ marginBottom: '1rem' }}>
                         <h6 style={{
                           margin: '0 0 0.75rem 0',
                           fontSize: '0.9rem',
                           fontWeight: '600',
-                          color: '#e0e0e0'
+                          color: '#333'
                         }}>
-                          Recommended Solution
+                          Suggested Code
                         </h6>
-                        <p style={{
-                          margin: 0,
-                          fontSize: '0.9rem',
-                          color: '#cccccc',
-                          lineHeight: 1.5
+                        <div style={{
+                          backgroundColor: '#1e1e1e',
+                          borderRadius: '0.25rem',
+                          overflow: 'hidden'
                         }}>
-                          {suggestion.suggestion}
-                        </p>
-                      </div>
-
-                      {/* Auto-fix Code */}
-                      {suggestion.autoFix && (
-                        <div style={{ marginBottom: '1rem' }}>
-                          <h6 style={{
-                            margin: '0 0 0.75rem 0',
-                            fontSize: '0.9rem',
-                            fontWeight: '600',
-                            color: '#e0e0e0'
-                          }}>
-                            Suggested Code
-                          </h6>
+                          <SyntaxHighlighter
+                            language="python"
+                            style={vscDarkPlus}
+                            customStyle={{
+                              margin: 0,
+                              fontSize: '0.85rem',
+                              backgroundColor: '#1e1e1e',
+                              padding: '1rem'
+                            }}
+                          >
+                            {suggestion.autoFix}
+                          </SyntaxHighlighter>
+                          
+                          {/* Code footer with copy button */}
                           <div style={{
-                            backgroundColor: '#1e1e1e',
-                            borderRadius: '0.25rem',
-                            overflow: 'hidden'
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#252526',
+                            borderTop: '1px solid #333'
                           }}>
-                            <SyntaxHighlighter
-                              language="python"
+                            <span style={{ 
+                              color: '#aaa', 
+                              fontSize: '0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}>
+                              <span style={{ color: '#e74c32', fontWeight: 'bold' }}>G</span>
+                              Generated by Gemini
+                            </span>
+                            <button
+                              onClick={() => copyToClipboard(suggestion.autoFix, index)}
                               style={{
-                                'hljs': {
-                                  display: 'block',
-                                  overflowX: 'auto',
-                                  padding: '0.75em',
-                                  color: '#abb2bf',
-                                  background: '#1e1e1e'
-                                },
-                                'hljs-comment': { color: '#5c6370', fontStyle: 'italic' },
-                                'hljs-keyword': { color: '#c678dd' },
-                                'hljs-string': { color: '#98c379' },
-                                'hljs-number': { color: '#d19a66' },
-                                'hljs-function': { color: '#61dafb' }
-                              }}
-                              customStyle={{
-                                margin: 0,
-                                fontSize: '0.85rem',
-                                backgroundColor: '#1e1e1e',
-                                padding: '1rem'
+                                background: 'none',
+                                border: '1px solid #555',
+                                borderRadius: '0.25rem',
+                                padding: '0.25rem 0.5rem',
+                                color: '#eee',
+                                fontSize: '0.75rem',
+                                cursor: 'pointer'
                               }}
                             >
-                              {suggestion.autoFix}
-                            </SyntaxHighlighter>
+                              {copiedCode === index ? 'Copied!' : 'Copy Code'}
+                            </button>
                           </div>
                         </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                        <button
-                          onClick={() => {
-                            console.log('Generate button clicked for suggestion:', suggestion);
-                            // Generate code with Gemini for this specific suggestion
-                            generateCodeForSuggestion(suggestion);
-                          }}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#e74c32',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '0.25rem',
-                            cursor: 'pointer',
-                            flex: 1
-                          }}
-                        >
-                          Generate with Gemini
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Scroll to the line in the code view
-                            const lineElements = document.querySelectorAll('.react-syntax-highlighter-line-number');
-                            if (lineElements && lineElements[suggestion.line - 1]) {
-                              lineElements[suggestion.line - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                          }}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            fontSize: '0.85rem',
-                            backgroundColor: '#333333',
-                            color: '#cccccc',
-                            border: '1px solid #444444',
-                            borderRadius: '0.25rem',
-                            cursor: 'pointer',
-                            flex: 1
-                          }}
-                        >
-                          Go to Line
-                        </button>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    )}
 
-            {/* Custom scrollbar styles */}
-            <style>
-              {`
-                ::-webkit-scrollbar {
-                  width: 10px;
-                  height: 10px;
-                }
-                ::-webkit-scrollbar-track {
-                  background: #1e1e1e;
-                }
-                ::-webkit-scrollbar-thumb {
-                  background: #555;
-                  border-radius: 4px;
-                }
-                ::-webkit-scrollbar-thumb:hover {
-                  background: #777;
-                }
-              `}
-            </style>
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                      <button
+                        onClick={() => {
+                          console.log('Generate button clicked for suggestion:', suggestion);
+                          // Generate code with Gemini for this specific suggestion
+                          generateCodeForSuggestion(suggestion);
+                        }}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          fontSize: '0.85rem',
+                          backgroundColor: '#e74c32',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '0.25rem',
+                          cursor: 'pointer',
+                          flex: 1
+                        }}
+                      >
+                        Generate with Gemini
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Scroll to the line in the code view
+                          const lineElements = document.querySelectorAll('.react-syntax-highlighter-line-number');
+                          if (lineElements && lineElements[suggestion.line - 1]) {
+                            lineElements[suggestion.line - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }
+                        }}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          fontSize: '0.85rem',
+                          backgroundColor: '#fff',
+                          color: '#333',
+                          border: '1px solid #e1e1e1',
+                          borderRadius: '0.25rem',
+                          cursor: 'pointer',
+                          flex: 1
+                        }}
+                      >
+                        Go to Line
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+
+          {/* Custom scrollbar styles */}
+          <style>
+            {`
+              ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+              }
+              ::-webkit-scrollbar-track {
+                background: #f1f1f1;
+              }
+              ::-webkit-scrollbar-thumb {
+                background: #ccc;
+                border-radius: 4px;
+              }
+              ::-webkit-scrollbar-thumb:hover {
+                background: #aaa;
+              }
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}
+          </style>
         </div>
       )}
     </div>
