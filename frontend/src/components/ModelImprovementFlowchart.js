@@ -172,6 +172,7 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
                   ? 'Regenerate Code' 
                   : 'Generate with Bit'}
             </button>
+            
             {hasGeneratedCode && (
               <button
                 className="flowchart-copy-button"

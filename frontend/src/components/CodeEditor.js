@@ -1211,6 +1211,31 @@ def improve_model():
                 fontWeight: "500",
               }}
             >
+              <div style={{ 
+                width: "16px", 
+                height: "16px", 
+                position: "relative",
+                flexShrink: 0
+              }}>
+                <div style={{ 
+                  width: "14px", 
+                  height: "14px", 
+                  background: "rgba(255,255,255,0.3)", 
+                  borderRadius: "3px", 
+                  position: "absolute", 
+                  bottom: "0", 
+                  right: "0"
+                }}></div>
+                <div style={{ 
+                  width: "14px", 
+                  height: "14px", 
+                  background: "rgba(255,255,255,0.9)", 
+                  borderRadius: "3px", 
+                  position: "absolute", 
+                  top: "0", 
+                  left: "0" 
+                }}></div>
+              </div>
               {analyzing ? "Analyzing..." : "Bit Analyze"}
             </button>
             <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -1692,7 +1717,6 @@ def improve_model():
                     color: "#D5451B",
                   }}
                 >
-                  [._.]
                 </div>
                 <p style={{ fontSize: "1rem", lineHeight: "1.5" }}></p>
               </div>
@@ -1916,7 +1940,7 @@ def improve_model():
                         style={{
                           padding: "0.5rem 1rem",
                           fontSize: "0.85rem", 
-                          backgroundColor: "#f0f0f0", // Different color
+                          backgroundColor: "#f0f0f0",
                           fontWeight: '300',
                           fontFamily: 'Consolas, "Courier New", monospace',
                           color: "black",
@@ -1924,10 +1948,39 @@ def improve_model():
                           borderRadius: "0.25rem",
                           cursor: "pointer",
                           flex: 1,
-                          
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px"
                         }}
                       >
-                        Bit Code
+                        <div style={{ 
+                          width: "16px", 
+                          height: "16px", 
+                          position: "relative",
+                          flexShrink: 0
+                        }}>
+                          <div style={{ 
+                            width: "14px", 
+                            height: "14px", 
+                            background: "#FF9B45", 
+                            borderRadius: "3px", 
+                            position: "absolute", 
+                            bottom: "0", 
+                            right: "0", 
+                            opacity: "0.6" 
+                          }}></div>
+                          <div style={{ 
+                            width: "14px", 
+                            height: "14px", 
+                            background: "#D5451B", 
+                            borderRadius: "3px", 
+                            position: "absolute", 
+                            top: "0", 
+                            left: "0" 
+                          }}></div>
+                        </div>
+                        <span>Bit Code</span>
                       </button>
                       <button
                         onClick={() => {
