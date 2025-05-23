@@ -176,7 +176,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
       { id: 'performance', label: 'Performance' },
       { id: 'improvement', label: 'Model Improvement' },
       { id: 'improve', label: 'Model Suggestions' },
-      { id: 'code', label: 'Code Editor' }
+      { id: 'code', label: 'Bit Model Design' }
     ];
 
     return (

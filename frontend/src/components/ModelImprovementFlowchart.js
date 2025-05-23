@@ -185,7 +185,7 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
         </div>
         <div className="flowchart-code-box">
           <SyntaxHighlighter 
-            language="python"
+           language="python"
             style={vscDarkPlus}
             showLineNumbers={true}
             customStyle={{ margin: 0 }}

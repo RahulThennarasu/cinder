@@ -16,9 +16,10 @@ const CodeEditor = ({ modelInfo }) => {
   const [copiedCode, setCopiedCode] = useState(null);
 
   // Add state for panel width
-  const [panelWidth, setPanelWidth] = useState(450); // Default width
   const [isResizing, setIsResizing] = useState(false);
   const [startX, setStartX] = useState(0);
+  const [panelWidth, setPanelWidth] = useState(500); // Dramatically increased to 1200px
+
   
   // Reference to the container
   const containerRef = useRef(null);
@@ -28,22 +29,6 @@ const CodeEditor = ({ modelInfo }) => {
     loadModelCode();
   }, [modelInfo]);
 
-  useEffect(() => {
-  // Only add listeners when actually resizing
-  if (isResizing) {
-    window.addEventListener('mousemove', handleResize);
-    window.addEventListener('mouseup', stopResize);
-    // Prevent text selection during resize
-    document.body.style.userSelect = 'none';
-  }
-  
-  // Cleanup function
-  return () => {
-    window.removeEventListener('mousemove', handleResize);
-    window.removeEventListener('mouseup', stopResize);
-    document.body.style.userSelect = '';
-  };
-}, [isResizing]);
 
   // Reset copied state after a delay
   useEffect(() => {
@@ -55,47 +40,59 @@ const CodeEditor = ({ modelInfo }) => {
     }
   }, [copiedCode]);
 
-  const startResize = (e) => {
-  setIsResizing(true);
-  setStartX(e.clientX);
-  e.preventDefault();
-};
+  // Add this useEffect to log the panel width whenever it changes
+  useEffect(() => {
+    console.log('Panel width changed to:', panelWidth);
+  }, [panelWidth]);
 
-// Without useCallback:
-const handleResize = (e) => {
-  if (!isResizing) return;
-  
-  // Calculate the distance moved
-  const dx = startX - e.clientX;
-  // Update the panel width
-  const newWidth = Math.max(300, Math.min(800, panelWidth + dx));
-  
-  setPanelWidth(newWidth);
-  setStartX(e.clientX);
-};
-
-const stopResize = () => {
-  setIsResizing(false);
-};
-
-// Then in your useEffect:
-useEffect(() => {
-  if (isResizing) {
-    document.addEventListener('mousemove', handleResize);
-    document.addEventListener('mouseup', stopResize);
-    document.body.style.userSelect = 'none';
-  } else {
-    document.removeEventListener('mousemove', handleResize);
-    document.removeEventListener('mouseup', stopResize);
-    document.body.style.userSelect = '';
-  }
-  
-  return () => {
-    document.removeEventListener('mousemove', handleResize);
-    document.removeEventListener('mouseup', stopResize);
-    document.body.style.userSelect = '';
+  const startResize = (mouseDownEvent) => {
+    mouseDownEvent.preventDefault();
+    
+    setIsResizing(true);
+    // Get the initial mouse position
+    setStartX(mouseDownEvent.clientX);
   };
-}, [isResizing, startX, panelWidth]); // Include dependencies used in handleResize
+
+  const handleResize = (e) => {
+    if (!isResizing) return;
+    
+    console.log('Resizing panel...');
+    
+    // For a right-side panel, calculate width from right edge of container to mouse position
+    const containerRect = containerRef.current.getBoundingClientRect();
+    
+    // When dragging left, width should increase
+    const newWidth = containerRect.right - e.clientX;
+    console.log('New width calculated:', newWidth);
+    
+    // Apply constraints - increased max width to 1800px
+    const constrainedWidth = Math.max(400, Math.min(1800, newWidth));
+    console.log('Constrained width:', constrainedWidth);
+    
+    setPanelWidth(constrainedWidth);
+  };
+
+  const stopResize = () => {
+    setIsResizing(false);
+  };
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', stopResize);
+      document.body.style.userSelect = 'none';
+    } else {
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
+      document.body.style.userSelect = '';
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, startX, panelWidth]); // Include dependencies used in handleResize
 
   // Load the model code (read-only)
   const loadModelCode = async () => {
@@ -156,7 +153,7 @@ useEffect(() => {
         generateMockSuggestions(code);
       }
     } catch (err) {
-      console.error('Gemini analysis failed:', err);
+      console.error('Bit analysis failed:', err);
       generateMockSuggestions(code);
     } finally {
       setAnalyzing(false);
@@ -463,7 +460,7 @@ def evaluate_model(model, X_test, y_test):
           throw new Error('API call failed');
         }
       } catch (apiError) {
-        console.error('Error calling Gemini API:', apiError);
+        console.error('Error calling Bit API:', apiError);
         console.log('Falling back to local code generation');
       }
       
@@ -904,9 +901,9 @@ def improve_model():
       case 'high':
         return '#e74c32'; // Red
       case 'medium':
-        return '#f59e0b'; // Amber
+        return '#f5d742'; // Amber
       case 'low':
-        return '#10b981'; // Green
+        return '#89c261'; // Green
       default:
         return '#6b7280'; // Gray
     }
@@ -959,10 +956,16 @@ def improve_model():
       color: '#333333', 
       minHeight: '100vh', 
       display: 'flex',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden' // Prevent scrolling when panel is very wide
     }}>
-      {/* Main Code Viewer */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* Main Code Viewer - make sure it can shrink */}
+      <div style={{ 
+        flex: '1 1 auto', // Allow shrinking
+        minWidth: '300px', // Ensure minimum width
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
         {/* Header */}
         <div style={{
           display: 'flex',
@@ -977,7 +980,7 @@ def improve_model():
         }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#333333' }}>
-              Gemini Code Analysis
+            Bit's Hyperparameter Tuning Recommendations
               {analyzing && (
                 <span style={{
                   marginLeft: '1rem',
@@ -993,7 +996,7 @@ def improve_model():
               )}
             </h3>
             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: '#666666' }}>
-              AI-powered model code analysis
+              Machine Learning Model Analysis
               {modelInfo?.framework && (
                 <span style={{
                   marginLeft: '0.5rem',
@@ -1028,7 +1031,7 @@ def improve_model():
                 fontWeight: '500'
               }}
             >
-              {analyzing ? 'Analyzing...' : 'Analyze with Gemini'}
+              {analyzing ? 'Analyzing...' : 'Bit Analyze'}
             </button>
           </div>
         </div>
@@ -1118,95 +1121,187 @@ def improve_model():
           boxShadow: '-2px 0 10px rgba(0, 0, 0, 0.05)'
         }}>
           {/* Resize Handle */}
-            <div
+          <div
             style={{
+              position: 'absolute',
+              left: '-5px', // Position it slightly outside the panel for easier grabbing
+              top: 0,
+              width: '10px', // Make it wider for easier grabbing
+              height: '100%',
+              cursor: 'col-resize',
+              zIndex: 10,
+              backgroundColor: isResizing ? 'rgba(231, 76, 50, 0.3)' : 'transparent',
+              transition: 'background-color 0.2s',
+              // Add a visible indicator
+              '&::after': {
+                content: '""',
                 position: 'absolute',
-                left: 0,
+                left: '5px',
                 top: 0,
-                width: '8px', // Make it a bit wider for easier grabbing
+                width: '2px',
                 height: '100%',
-                cursor: 'col-resize',
-                zIndex: 10,
-                backgroundColor: isResizing ? 'rgba(231, 76, 50, 0.3)' : 'transparent',
-                transition: 'background-color 0.2s',
-                // Add this to make it more visible on hover
-                ':hover': {
-                backgroundColor: 'rgba(231, 76, 50, 0.1)'
-                }
+                backgroundColor: '#e1e1e1'
+              }
             }}
             onMouseDown={startResize}
-            />
-
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(231, 76, 50, 0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          />
+            
           {/* Suggestions Header */}
-          <div style={{
-            padding: '1rem',
-            borderBottom: '1px solid #e1e1e1',
-            backgroundColor: '#fff'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4 style={{ 
-                margin: 0, 
-                fontSize: '1.1rem', 
-                fontWeight: '600', 
-                color: '#333' 
-              }}>
-                Gemini Suggestions
-              </h4>
-            </div>
-            <p style={{
-              margin: '0.5rem 0 0 0',
-              fontSize: '0.9rem',
-              color: '#666'
+            <div style={{
+            padding: '0.75rem 1.25rem',
+            marginTop: '1rem',
+            marginLeft: '1rem',
+            marginRight: '1rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '9999px', // Fully rounded corners for pill shape
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
             }}>
-              {analyzing ? 'Analyzing your code...' :
-                suggestions.length > 0 ? `${suggestions.length} suggestions found` :
-                'Click "Analyze with Gemini" to get suggestions'}
-            </p>
-          </div>
+            {/* Add a small colored dot indicator like in Image 2 */}
+            <div style={{
+                width: '0.75rem',
+                height: '0.75rem',
+                backgroundColor: '#e74c32', // Using your brand color instead of green
+                borderRadius: '50%'
+            }}></div>
+            
+            <h4 style={{ 
+                margin: 0, 
+                fontSize: '1rem', 
+                fontWeight: '400', 
+                color: '#333',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+            }}>
+                Bit's Suggestions
+            </h4>
+            </div>
+
+{/* Suggestions count as a separate element */}
+<div style={{
+  padding: '0.5rem 1.25rem',
+  display: 'flex',
+  alignItems: 'center'
+}}>
+  <p style={{
+    margin: 0,
+    fontSize: '0.9rem',
+    color: '#666',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+  }}>
+    {analyzing ? 'Analyzing your code...' :
+      suggestions.length > 0 ? `${suggestions.length} suggestions found` :
+      ''}
+  </p>
+</div>
 
           {/* Model Performance Context */}
-          {modelInfo && (
-            <div style={{
-              padding: '1.25rem',
-              backgroundColor: '#f9fafb',
-              borderBottom: '1px solid #e1e1e1'
-            }}>
-              <h5 style={{ 
-                margin: '0 0 0.75rem 0', 
-                fontSize: '1rem', 
-                fontWeight: '600', 
-                color: '#333' 
-              }}>
-                Current Model Performance
-              </h5>
-              <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                <div style={{ marginBottom: '0.5rem' }}>
-                  Accuracy: <strong style={{ color: '#333' }}>
-                    {((modelInfo.accuracy || 0) * 100).toFixed(1)}%
-                  </strong>
-                </div>
-                {modelInfo.precision && (
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    Precision: <strong style={{ color: '#333' }}>
-                      {(modelInfo.precision * 100).toFixed(1)}%
-                    </strong>
-                  </div>
-                )}
-                {modelInfo.recall && (
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    Recall: <strong style={{ color: '#333' }}>
-                      {(modelInfo.recall * 100).toFixed(1)}%
-                    </strong>
-                  </div>
-                )}
-                <div>
-                  Framework: <strong style={{ color: '#333' }}>
-                    {modelInfo.framework || 'Unknown'}
-                  </strong>
-                </div>
-              </div>
+{modelInfo && (
+  <div style={{
+    margin: '1rem',
+    backgroundColor: '#ffffff',
+    borderRadius: '0.75rem',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+    overflow: 'hidden',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+  }}>
+    {/* Section Header */}
+    <div style={{
+      padding: '0.75rem 1.25rem',
+      backgroundColor: '#f8f9fa',
+      borderBottom: '1px solid #f0f0f0',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+    }}>
+      <h5 style={{ 
+        margin: 0, 
+        fontSize: '1rem', 
+        fontWeight: '300', 
+        color: '#333'
+      }}>
+        Current Model Performance
+      </h5>
+    </div>
+    
+    {/* Section Content */}
+    <div style={{ 
+      padding: '1rem 1.25rem',
+      fontSize: '0.9rem', 
+      color: '#666' 
+    }}>
+      {/* Metrics displayed in a clean, modern style */}
+      <div style={{ 
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '1rem',
+      }}>
+        {/* Accuracy */}
+        <div style={{
+          padding: '0.75rem',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '0.5rem',
+        }}>
+          <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
+            Accuracy
+          </div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '500', color: '#333' }}>
+            {((modelInfo.accuracy || 0) * 100).toFixed(1)}%
+          </div>
+        </div>
+        
+        {/* Precision */}
+        {modelInfo.precision && (
+          <div style={{
+            padding: '0.75rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '0.5rem',
+          }}>
+            <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
+              Precision
             </div>
-          )}
+            <div style={{ fontSize: '1.25rem', fontWeight: '500', color: '#333' }}>
+              {(modelInfo.precision * 100).toFixed(1)}%
+            </div>
+          </div>
+        )}
+        
+        {/* Recall */}
+        {modelInfo.recall && (
+          <div style={{
+            padding: '0.75rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '0.5rem',
+          }}>
+            <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
+              Recall
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: '500', color: '#333' }}>
+              {(modelInfo.recall * 100).toFixed(1)}%
+            </div>
+          </div>
+        )}
+        
+        {/* Framework */}
+        <div style={{
+          padding: '0.75rem',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '0.5rem',
+        }}>
+          <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
+            Framework
+          </div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '300', color: '#333' }}>
+            {modelInfo.framework || 'Unknown'}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Suggestions List */}
           <div style={{ 
@@ -1229,7 +1324,7 @@ def improve_model():
                   animation: 'spin 1s linear infinite',
                   margin: '0 auto 1rem'
                 }}></div>
-                <p style={{ fontSize: '1rem' }}>Gemini is analyzing your code...</p>
+                <p style={{ fontSize: '1rem' }}>Bit is analyzing your code...</p>
               </div>
             )}
 
@@ -1243,10 +1338,10 @@ def improve_model():
                   fontSize: '3rem', 
                   marginBottom: '1.5rem', 
                   color: '#e74c32' 
-                }}>G</div>
+                }}>._.</div>
                 <p style={{ fontSize: '1rem', lineHeight: '1.5' }}>
-                  Click "Analyze with Gemini" to receive suggestions for improving your ML model
                 </p>
+                Bit Analyze
               </div>
             )}
 
@@ -1374,7 +1469,7 @@ def improve_model():
                               gap: '0.5rem'
                             }}>
                               <span style={{ color: '#e74c32', fontWeight: 'bold' }}>G</span>
-                              Generated by Gemini
+                              Created by Bit
                             </span>
                             <button
                               onClick={() => copyToClipboard(suggestion.autoFix, index)}
@@ -1414,7 +1509,7 @@ def improve_model():
                           flex: 1
                         }}
                       >
-                        Generate with Gemini
+                        Solve with Bit
                       </button>
                       <button
                         onClick={() => {
@@ -1444,7 +1539,7 @@ def improve_model():
             ))}
           </div>
 
-          {/* Custom scrollbar styles */}
+          {/* Custom scrollbar and animation styles */}
           <style>
             {`
               ::-webkit-scrollbar {
@@ -1464,6 +1559,12 @@ def improve_model():
               @keyframes spin {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
+              }
+              .suggestions-panel {
+                transition: width 0.3s ease;
+              }
+              .resize-handle-visible {
+                background-color: rgba(231, 76, 50, 0.1);
               }
             `}
           </style>
