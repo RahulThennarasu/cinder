@@ -21,11 +21,11 @@ import CodeEditor from "./CodeEditor";
 
 // Constants
 const COLORS = [
-  "#e74c32",
-  "#4e42f5",
-  "#ffba66",
+  "#D5451B",
+  "#521C0D",
+  "#FF9B45",
   "#ffd166",
-  "#e74c32",
+  "#D5451B",
   "#82ca9d",
 ];
 
@@ -586,14 +586,14 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                             cx="50%"
                             cy="50%"
                             outerRadius={80}
-                            fill="#e74c32"
+                            fill="#D5451B"
                             dataKey="value"
                             label={({ name, percent }) =>
                               `${name} ${(percent * 100).toFixed(0)}%`
                             }
                           >
                             <Cell fill="#7dd3fc" />
-                            <Cell fill="#e74c32" />
+                            <Cell fill="#D5451B" />
                           </Pie>
                           <Tooltip />
                         </PieChart>
@@ -683,7 +683,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                             "Importance",
                           ]}
                         />
-                        <Bar dataKey="importance" fill="#e74c32" />
+                        <Bar dataKey="importance" fill="#D5451B" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

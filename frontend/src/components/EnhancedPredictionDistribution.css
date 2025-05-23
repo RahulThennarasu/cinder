@@ -21,7 +21,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #e74c32, #4e42f5, #1807fa);
+  background: linear-gradient(90deg, #D5451B, #521C0D, #1807fa);
 }
 
 /* Header with improved layout */
@@ -76,7 +76,7 @@
   position: absolute;
   inset: 0;
   border-radius: 8px;
-  background: linear-gradient(135deg, #e74c32, #dc2626);
+  background: linear-gradient(135deg, #D5451B, #dc2626);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -107,7 +107,7 @@
   padding: 1.25rem;
   background: linear-gradient(135deg, #fef7f0 0%, #fed7aa 100%);
   border-radius: 12px;
-  border-left: 5px solid #e74c32;
+  border-left: 5px solid #D5451B;
   position: relative;
 }
 
@@ -228,7 +228,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #e74c32, #4e42f5);
+  background: linear-gradient(90deg, #D5451B, #521C0D);
   border-radius: 16px 16px 0 0;
 }
 
@@ -392,7 +392,7 @@
 }
 
 .action-button.primary {
-  background: linear-gradient(135deg, #e74c32 0%, #dc2626 100%);
+  background: linear-gradient(135deg, #D5451B 0%, #dc2626 100%);
   color: white;
   box-shadow: 0 4px 8px rgba(231, 76, 50, 0.3);
 }
@@ -826,7 +826,7 @@
   
   .chart-description {
     background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
-    border-left-color: #e74c32;
+    border-left-color: #D5451B;
   }
   
   .chart-description-text {
@@ -1054,7 +1054,7 @@ html {
 
 /* Gradient text effects */
 .gradient-text {
-  background: linear-gradient(135deg, #e74c32, #4e42f5);
+  background: linear-gradient(135deg, #D5451B, #521C0D);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

@@ -230,7 +230,7 @@ const FeatureImportance3D = ({ featureImportance }) => {
           bottom: 10px;
           left: 10px;
           background-color: rgba(255, 255, 255, 0.9);
-          border-left: 3px solid #e74c32;
+          border-left: 3px solid #D5451B;
           padding: 8px 12px;
           border-radius: 4px;
           box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -251,7 +251,7 @@ const FeatureImportance3D = ({ featureImportance }) => {
         
         .tooltip-importance span {
           font-weight: 600;
-          color: #e74c32;
+          color: #D5451B;
         }
         
         .tooltip-description {

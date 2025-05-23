@@ -20,6 +20,12 @@ const CodeEditor = ({ modelInfo }) => {
   const [startX, setStartX] = useState(0);
   const [panelWidth, setPanelWidth] = useState(500); // Dramatically increased to 1200px
 
+  // Add these state variables
+  const [originalCode, setOriginalCode] = useState(""); // Store original code for undo
+  const [changeHistory, setChangeHistory] = useState([]); // Track changes for undo
+  const [lastChanges, setLastChanges] = useState({ added: [], removed: [] }); // Track last changes
+  const [showDiff, setShowDiff] = useState(false); // Toggle diff view
+
   // Reference to the container
   const containerRef = useRef(null);
 
@@ -100,17 +106,140 @@ const CodeEditor = ({ modelInfo }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setCode(data.code || "# No model code available");
+        const loadedCode = data.code || "# No model code available";
+        setCode(loadedCode);
+        setOriginalCode(loadedCode); // Save original code
       } else {
         // For demo purposes, load sample code if API fails
-        setCode(getSampleModelCode(modelInfo?.framework || "pytorch"));
+        const sampleCode = getSampleModelCode(
+          modelInfo?.framework || "pytorch",
+        );
+        setCode(sampleCode);
+        setOriginalCode(sampleCode); // Save original code
       }
     } catch (err) {
       console.error("Error loading model code:", err);
-      setCode(getSampleModelCode(modelInfo?.framework || "pytorch"));
+      const sampleCode = getSampleModelCode(modelInfo?.framework || "pytorch");
+      setCode(sampleCode);
+      setOriginalCode(sampleCode); // Save original code
     } finally {
       setLoading(false);
     }
+  };
+
+  // Find the best location to insert code
+  const findInsertLocation = (suggestionLine, suggestionType) => {
+    const codeLines = code.split("\n");
+
+    // Default to the suggestion line
+    let insertLine = Math.min(suggestionLine, codeLines.length);
+
+    // For class-related changes, try to find the class definition
+    if (suggestionType === "overfitting" && code.includes("class ")) {
+      // Find the class definition
+      const classDefMatch = code.match(/class\s+\w+\([^)]*\):/);
+      if (classDefMatch) {
+        const classDefIndex = code.indexOf(classDefMatch[0]);
+        const linesBeforeClass =
+          code.substring(0, classDefIndex).split("\n").length - 1;
+
+        // Find the __init__ method
+        const initMethodMatch = code.match(/def\s+__init__\s*\([^)]*\):/);
+        if (initMethodMatch) {
+          const initMethodIndex = code.indexOf(initMethodMatch[0]);
+          const linesBeforeInit =
+            code.substring(0, initMethodIndex).split("\n").length - 1;
+
+          // Insert after the first line of __init__ method
+          insertLine = linesBeforeInit + 1;
+        } else {
+          // Insert after the class definition
+          insertLine = linesBeforeClass + 1;
+        }
+      }
+    }
+
+    // For forward method changes
+    if (suggestionType === "performance" && code.includes("def forward(")) {
+      const forwardMethodMatch = code.match(/def\s+forward\s*\([^)]*\):/);
+      if (forwardMethodMatch) {
+        const forwardMethodIndex = code.indexOf(forwardMethodMatch[0]);
+        const linesBeforeForward =
+          code.substring(0, forwardMethodIndex).split("\n").length - 1;
+
+        // Insert after the first line of forward method
+        insertLine = linesBeforeForward + 1;
+      }
+    }
+
+    return insertLine;
+  };
+
+  // Apply suggested code to main code
+  const applySuggestion = (suggestion) => {
+    // Save current code to history for undo
+    setChangeHistory((prev) => [...prev, code]);
+
+    const codeLines = code.split("\n");
+    const insertLine = findInsertLocation(suggestion.line, suggestion.type);
+
+    // Parse the suggested code
+    const suggestionLines = suggestion.autoFix.split("\n");
+
+    // Remove comment lines for cleaner insertion
+    const codeToInsert = suggestionLines
+      .filter((line) => !line.trim().startsWith("#"))
+      .join("\n");
+
+    // Track what's being added for highlighting
+    const addedLines = [];
+
+    // Create new code with insertion
+    const newCodeLines = [...codeLines];
+    const insertPoint = insertLine;
+
+    // Insert the code and track added lines
+    newCodeLines.splice(insertPoint, 0, codeToInsert);
+
+    for (let i = 0; i < suggestionLines.length; i++) {
+      if (!suggestionLines[i].trim().startsWith("#")) {
+        addedLines.push(insertPoint + i);
+      }
+    }
+
+    const newCode = newCodeLines.join("\n");
+    setCode(newCode);
+
+    // Track changes for highlighting
+    setLastChanges({
+      added: addedLines,
+      removed: [],
+    });
+
+    // Show diff view
+    setShowDiff(true);
+
+    // Update suggestions list
+    setSuggestions((prev) => prev.filter((s) => s.title !== suggestion.title));
+  };
+
+  // Undo last code change
+  const undoChange = () => {
+    if (changeHistory.length > 0) {
+      const previousCode = changeHistory[changeHistory.length - 1];
+      setCode(previousCode);
+      setChangeHistory((prev) => prev.slice(0, -1));
+      setShowDiff(false);
+      setLastChanges({ added: [], removed: [] });
+    }
+  };
+
+  // Reset code to original
+  const resetCode = () => {
+    setCode(originalCode);
+    setChangeHistory([]);
+    setShowDiff(false);
+    setLastChanges({ added: [], removed: [] });
   };
 
   // Analyze code with Gemini
@@ -921,13 +1050,13 @@ def improve_model():
   const getSeverityColor = (severity) => {
     switch (severity) {
       case "high":
-        return "#e74c32"; // Red
+        return "#521C0D"; // Red
       case "medium":
-        return "#f5d742"; // Amber
+        return "#D5451B"; // Amber
       case "low":
-        return "#89c261"; // Green
+        return "#FF9B45"; // Green
       default:
-        return "#6b7280"; // Gray
+        return "#F4E7E1"; // Gray
     }
   };
 
@@ -957,7 +1086,7 @@ def improve_model():
             width: "40px",
             height: "40px",
             border: "3px solid #f3f3f3",
-            borderTop: "3px solid #e74c32",
+            borderTop: "3px solid #D5451B",
             borderRadius: "50%",
             animation: "spin 1s linear infinite",
             margin: "0 auto 1rem",
@@ -1027,7 +1156,7 @@ def improve_model():
                   style={{
                     marginLeft: "1rem",
                     padding: "0.2rem 0.5rem",
-                    backgroundColor: "#e74c32",
+                    backgroundColor: "#D5451B",
                     borderRadius: "0.25rem",
                     fontSize: "0.7rem",
                     fontWeight: "500",
@@ -1051,7 +1180,7 @@ def improve_model():
                   style={{
                     marginLeft: "0.5rem",
                     padding: "0.2rem 0.5rem",
-                    backgroundColor: "#e74c32",
+                    backgroundColor: "#D5451B",
                     borderRadius: "0.25rem",
                     fontSize: "0.7rem",
                     fontWeight: "500",
@@ -1071,7 +1200,7 @@ def improve_model():
               style={{
                 padding: "0.5rem 1rem",
                 fontSize: "0.8rem",
-                backgroundColor: "#e74c32",
+                backgroundColor: "#D5451B",
                 color: "white",
                 border: "none",
                 borderRadius: "0.25rem",
@@ -1084,6 +1213,49 @@ def improve_model():
             >
               {analyzing ? "Analyzing..." : "Bit Analyze"}
             </button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              {changeHistory.length > 0 && (
+                <button
+                  onClick={undoChange}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.8rem",
+                    backgroundColor: "#f8fafc",
+                    color: "#333333",
+                    border: "1px solid #e1e1e1",
+                    borderRadius: "0.25rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontWeight: "500",
+                  }}
+                >
+                  Undo Change
+                </button>
+              )}
+
+              {code !== originalCode && (
+                <button
+                  onClick={resetCode}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.8rem",
+                    backgroundColor: "#f8fafc",
+                    color: "#333333",
+                    border: "1px solid #e1e1e1",
+                    borderRadius: "0.25rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontWeight: "500",
+                  }}
+                >
+                  Reset Code
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1091,19 +1263,31 @@ def improve_model():
         <div
           style={{
             padding: "0.4rem 1.5rem",
-            backgroundColor: "#1e293b",
-            color: "white",
+            backgroundColor: "#f8f9fa",
+            color: "black",
+            fontFamily: 'Consolas, "Courier New", monospace',
             fontSize: "0.75rem",
+            fontWeight: "500",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
           <span>model_code.py</span>
-          <span>
-            {code.split("\n").length} lines |
-            {suggestions.length > 0 && ` ${suggestions.length} suggestions`}
-          </span>
+          <div>
+            <span>{code.split("\n").length} lines</span>
+            {showDiff && (
+              <span style={{ marginLeft: "1rem", color: "#10b981" }}>
+                {lastChanges.added.length > 0 &&
+                  `+${lastChanges.added.length} lines added`}
+              </span>
+            )}
+            {suggestions.length > 0 && (
+              <span style={{ marginLeft: "1rem" }}>
+                {suggestions.length} suggestions
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Code Viewer (Read-only) */}
@@ -1144,20 +1328,28 @@ def improve_model():
             }}
             wrapLines={true}
             lineProps={(lineNumber) => {
-              // Highlight lines that have suggestions
-              const highlightLine = suggestions.some(
+              // Highlight lines with suggestions
+              const hasSuggestion = suggestions.some(
                 (s) => s.line === lineNumber,
               );
-              return {
-                style: {
-                  display: "block",
-                  backgroundColor: highlightLine
-                    ? "rgba(231, 76, 50, 0.1)"
-                    : undefined,
-                  borderLeft: highlightLine ? "3px solid #e74c32" : undefined,
-                  paddingLeft: highlightLine ? "1rem" : undefined,
-                },
-              };
+
+              // Highlight added lines
+              const isAdded = lastChanges.added.includes(lineNumber);
+
+              // Decide on style based on highlights
+              let style = { display: "block" };
+
+              if (isAdded) {
+                style.backgroundColor = "rgba(16, 185, 129, 0.1)"; // Light green for added
+                style.borderLeft = "3px solid #10b981";
+                style.paddingLeft = "1rem";
+              } else if (hasSuggestion) {
+                style.backgroundColor = "rgba(231, 76, 50, 0.1)"; // Light red for suggestions
+                style.borderLeft = "3px solid #D5451B";
+                style.paddingLeft = "1rem";
+              }
+
+              return { style };
             }}
           >
             {code}
@@ -1236,7 +1428,7 @@ def improve_model():
               style={{
                 width: "0.75rem",
                 height: "0.75rem",
-                backgroundColor: "#e74c32", // Using your brand color instead of green
+                backgroundColor: "#D5451B", // Using your brand color instead of green
                 borderRadius: "50%",
               }}
             ></div>
@@ -1473,7 +1665,7 @@ def improve_model():
                     width: "40px",
                     height: "40px",
                     border: "3px solid #f3f3f3",
-                    borderTop: "3px solid #e74c32",
+                    borderTop: "3px solid #D5451B",
                     borderRadius: "50%",
                     animation: "spin 1s linear infinite",
                     margin: "0 auto 1rem",
@@ -1497,10 +1689,10 @@ def improve_model():
                   style={{
                     fontSize: "7.5rem",
                     marginBottom: "1.5rem",
-                    color: "#e74c32",
+                    color: "#D5451B",
                   }}
                 >
-                  ._.
+                  [._.]
                 </div>
                 <p style={{ fontSize: "1rem", lineHeight: "1.5" }}></p>
               </div>
@@ -1677,7 +1869,7 @@ def improve_model():
                               }}
                             >
                               <span
-                                style={{ color: "#e74c32", fontWeight: "bold" }}
+                                style={{ color: "#D5451B", fontWeight: "bold" }}
                               >
                                 B
                               </span>
@@ -1723,8 +1915,30 @@ def improve_model():
                         }}
                         style={{
                           padding: "0.5rem 1rem",
+                          fontSize: "0.85rem", 
+                          backgroundColor: "#f0f0f0", // Different color
+                          fontWeight: '300',
+                          fontFamily: 'Consolas, "Courier New", monospace',
+                          color: "black",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          flex: 1,
+                          
+                        }}
+                      >
+                        Bit Code
+                      </button>
+                      <button
+                        onClick={() => {
+                          applySuggestion(suggestion);
+                          setSelectedSuggestion(null);
+                        }}
+                        style={{
+                          padding: "0.5rem 1rem",
                           fontSize: "0.85rem",
-                          backgroundColor: "#e74c32",
+                          backgroundColor: "#D5451B", // Different color
+                          fontWeight: '500',
                           color: "white",
                           border: "none",
                           borderRadius: "0.25rem",
@@ -1732,7 +1946,7 @@ def improve_model():
                           flex: 1,
                         }}
                       >
-                        Solve with Bit
+                        Apply to Code
                       </button>
                       <button
                         onClick={() => {
@@ -1754,6 +1968,9 @@ def improve_model():
                           padding: "0.5rem 1rem",
                           fontSize: "0.85rem",
                           backgroundColor: "#fff",
+                          backgroundColor: "#dbdbdb", // Different color
+                          fontWeight: '500',
+                          fontFamily: 'Consolas, "Courier New", monospace',
                           color: "#333",
                           border: "1px solid #e1e1e1",
                           borderRadius: "0.25rem",
@@ -1768,6 +1985,16 @@ def improve_model():
                 )}
               </div>
             ))}
+            {/* Diff View Information Banner (only when showing diffs) */}
+{showDiff && lastChanges.added.length > 0 && (
+  <div style={{ margin: "1rem", padding: "1rem", backgroundColor: "rgba(16, 185, 129, 0.1)", borderRadius: "0.5rem", border: "1px solid #10b981", fontSize: "0.9rem", color: "#064e3b" }}>
+    <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>Code Changes Applied</div>
+    <div>
+      <p style={{ margin: "0 0 0.5rem 0" }}>Added {lastChanges.added.length} new lines to the code</p>
+      <p style={{ margin: "0" }}>Lines highlighted in green show the newly added code</p>
+    </div>
+  </div>
+)}
           </div>
 
           {/* Custom scrollbar and animation styles */}

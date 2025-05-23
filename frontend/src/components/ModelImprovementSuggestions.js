@@ -135,9 +135,9 @@ const ModelImprovementSuggestions = () => {
   const getImpactColor = (impact) => {
     if (!impact) return '#6B7280'; // Default gray
     const level = impact.toLowerCase();
-    if (level.includes('high')) return '#e74c32'; // Indigo for high
-    if (level.includes('medium')) return '#e74c32'; // Blue for medium
-    return '#e74c32'; // Emerald for low
+    if (level.includes('high')) return '#D5451B'; // Indigo for high
+    if (level.includes('medium')) return '#D5451B'; // Blue for medium
+    return '#D5451B'; // Emerald for low
   };
 
   // Format category for display

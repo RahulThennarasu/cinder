@@ -510,7 +510,7 @@ if len(error_indices) > 0:
             style={{
               padding: "10px 16px",
               border: "none",
-              background: activeChartTab === tab.id ? "#e74c32" : "none",
+              background: activeChartTab === tab.id ? "#D5451B" : "none",
               cursor: "pointer",
               borderRadius: activeChartTab === tab.id ? "8px 8px 0 0" : "8px",
               fontWeight: "500",
@@ -572,11 +572,11 @@ if len(error_indices) > 0:
                       Math.abs(entry.count - expectedCount) >
                       expectedCount * 0.3;
 
-                    let fillColor = "#e74c32";
-                    if (isSelected) fillColor = "#e74c32";
+                    let fillColor = "#D5451B";
+                    if (isSelected) fillColor = "#D5451B";
                     else if (hasImbalance)
                       fillColor =
-                        entry.count > expectedCount ? "#4e42f5" : "#ffba66";
+                        entry.count > expectedCount ? "#521C0D" : "#FF9B45";
 
                     return (
                       <Cell
@@ -596,21 +596,21 @@ if len(error_indices) > 0:
               <div className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: "#e74c32" }}
+                  style={{ backgroundColor: "#D5451B" }}
                 ></span>
                 <span className="legend-label">Balanced Class</span>
               </div>
               <div className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: "#4e42f5" }}
+                  style={{ backgroundColor: "#521C0D" }}
                 ></span>
                 <span className="legend-label">Overrepresented</span>
               </div>
               <div className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: "#ffba66" }}
+                  style={{ backgroundColor: "#FF9B45" }}
                 ></span>
                 <span className="legend-label">Underrepresented</span>
               </div>
@@ -655,7 +655,7 @@ if len(error_indices) > 0:
                     yAxisId="left"
                     type="monotone"
                     dataKey="accuracy"
-                    stroke="#e74c32"
+                    stroke="#D5451B"
                     name="Accuracy"
                     strokeWidth={2}
                   />
@@ -705,7 +705,7 @@ if len(error_indices) > 0:
                   <Line
                     type="monotone"
                     dataKey="learning_rate"
-                    stroke="#e74c32"
+                    stroke="#D5451B"
                     name="Learning Rate"
                     strokeWidth={2}
                   />

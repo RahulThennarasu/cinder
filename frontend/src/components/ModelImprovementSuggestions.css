@@ -42,7 +42,7 @@
 .model-suggestions-next-button {
   padding: 8px 16px;
   background-color: #ffffff;
-  color: #e74c32;
+  color: #D5451B;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   font-size: 14px;
@@ -53,7 +53,7 @@
 
 .model-suggestions-next-button:hover {
   background-color: #f3f4f6;
-  border-color: #e74c32;
+  border-color: #D5451B;
 }
 
 .model-suggestions-empty {
@@ -86,7 +86,7 @@
   width: 40px;
   height: 40px;
   border: 3px solid #f3f3f3;
-  border-top: 3px solid #e74c32;
+  border-top: 3px solid #D5451B;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 24px;
@@ -171,7 +171,7 @@
 
 .model-suggestion-error-button {
   padding: 10px 20px;
-  background-color: #e74c32;
+  background-color: #D5451B;
   color: white;
   border: none;
   border-radius: 6px;
@@ -181,7 +181,7 @@
 }
 
 .model-suggestion-error-button:hover {
-  background-color: #e74c32;
+  background-color: #D5451B;
 }
 
 /* Framework-specific styling */
@@ -280,7 +280,7 @@
 }
 
 .model-suggestions-complexity-bar.active {
-  background-color: #e74c32;
+  background-color: #D5451B;
 }
 
 /* Algorithm metrics */
@@ -438,7 +438,7 @@
 }
 
 .improvement-potential {
-  color: #e74c32;
+  color: #D5451B;
 }
 
 .model-suggestions-metric-label {
@@ -462,7 +462,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #e74c32;
+  background-color: #D5451B;
   margin-right: 8px;
   display: inline-block;
 }
@@ -509,9 +509,9 @@
 }
 
 .model-suggestions-framework-button.active {
-  background-color: #e74c32;
+  background-color: #D5451B;
   color: white;
-  border-color: #e74c32;
+  border-color: #D5451B;
 }
 
 .model-suggestions-content {
@@ -556,7 +556,7 @@
 
 .model-suggestions-sidebar-item.active {
   background-color: #f3f4f6;
-  border-left: 3px solid #e74c32;
+  border-left: 3px solid #D5451B;
 }
 
 .model-suggestions-sidebar-item-header {
@@ -692,7 +692,7 @@
 
 .model-suggestions-generate-button {
   padding: 8px 16px;
-  background-color: #e74c32;
+  background-color: #D5451B;
   color: white;
   border: none;
   border-radius: 6px;
@@ -703,7 +703,7 @@
 }
 
 .model-suggestions-generate-button:hover:not(:disabled) {
-  background-color: #e74c32;
+  background-color: #D5451B;
 }
 
 .model-suggestions-generate-button:disabled {

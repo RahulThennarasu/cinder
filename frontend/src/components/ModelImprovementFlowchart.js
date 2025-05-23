@@ -480,7 +480,7 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
         }
         
         .flowchart-generate-button {
-          background-color: #e74c32;
+          background-color: #D5451B;
           color: white;
           border: none;
           padding: 6px 12px;
