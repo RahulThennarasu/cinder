@@ -1,15 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
-} from 'recharts';
-import ModelImprovementFlowchart from './ModelImprovementFlowchart';
-import EnhancedPredictionDistribution from './EnhancedPredictionDistribution';
-import ModelImprovementSuggestions from './ModelImprovementSuggestions';
-import CodeEditor from './CodeEditor';
+import React, { useState, useEffect } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import ModelImprovementFlowchart from "./ModelImprovementFlowchart";
+import EnhancedPredictionDistribution from "./EnhancedPredictionDistribution";
+import ModelImprovementSuggestions from "./ModelImprovementSuggestions";
+import CodeEditor from "./CodeEditor";
 
 // Constants
-const COLORS = ['#e74c32', '#4e42f5', '#ffba66', '#ffd166', '#e74c32', '#82ca9d'];
+const COLORS = [
+  "#e74c32",
+  "#4e42f5",
+  "#ffba66",
+  "#ffd166",
+  "#e74c32",
+  "#82ca9d",
+];
 
 const DashboardContent = ({ serverStatus, modelInfo }) => {
   // State management
@@ -20,19 +38,21 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   const [errorAnalysis, setErrorAnalysis] = useState(null);
   const [confidenceAnalysis, setConfidenceAnalysis] = useState(null);
   const [improvementSuggestions, setImprovementSuggestions] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
-      const API_BASE_URL = 'http://localhost:8000/api';
-      
+      const API_BASE_URL = "http://localhost:8000/api";
+
       try {
         // Only fetch if we have a server connection
-        if (serverStatus && serverStatus.status === 'online') {
+        if (serverStatus && serverStatus.status === "online") {
           // Confusion matrix
           try {
-            const confusionResponse = await fetch(`${API_BASE_URL}/confusion-matrix`);
+            const confusionResponse = await fetch(
+              `${API_BASE_URL}/confusion-matrix`,
+            );
             const confusionData = await confusionResponse.json();
             setConfusionMatrix(confusionData);
           } catch (e) {
@@ -41,7 +61,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
 
           // Feature importance
           try {
-            const importanceResponse = await fetch(`${API_BASE_URL}/feature-importance`);
+            const importanceResponse = await fetch(
+              `${API_BASE_URL}/feature-importance`,
+            );
             const importanceData = await importanceResponse.json();
             setFeatureImportance(importanceData);
           } catch (e) {
@@ -50,7 +72,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
 
           // Training history
           try {
-            const historyResponse = await fetch(`${API_BASE_URL}/training-history`);
+            const historyResponse = await fetch(
+              `${API_BASE_URL}/training-history`,
+            );
             const historyData = await historyResponse.json();
             setTrainingHistory(historyData);
           } catch (e) {
@@ -59,7 +83,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
 
           // Prediction distribution
           try {
-            const distributionResponse = await fetch(`${API_BASE_URL}/prediction-distribution`);
+            const distributionResponse = await fetch(
+              `${API_BASE_URL}/prediction-distribution`,
+            );
             const distributionData = await distributionResponse.json();
             setPredictionDistribution(distributionData);
           } catch (e) {
@@ -77,7 +103,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
 
           // Confidence analysis
           try {
-            const confidenceResponse = await fetch(`${API_BASE_URL}/confidence-analysis`);
+            const confidenceResponse = await fetch(
+              `${API_BASE_URL}/confidence-analysis`,
+            );
             const confidenceData = await confidenceResponse.json();
             setConfidenceAnalysis(confidenceData);
           } catch (e) {
@@ -95,30 +123,38 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   // Prepare feature importance data for chart
   const prepareFeatureImportanceData = () => {
     if (!featureImportance || !featureImportance.feature_names) return [];
-    
-    return featureImportance.feature_names.map((name, idx) => ({
-      name: name,
-      importance: featureImportance.importance_values[idx]
-    })).sort((a, b) => b.importance - a.importance).slice(0, 10);
+
+    return featureImportance.feature_names
+      .map((name, idx) => ({
+        name: name,
+        importance: featureImportance.importance_values[idx],
+      }))
+      .sort((a, b) => b.importance - a.importance)
+      .slice(0, 10);
   };
 
   // Prepare confidence distribution data
   const prepareConfidenceData = () => {
-    if (!confidenceAnalysis || !confidenceAnalysis.confidence_distribution) return [];
-    
-    const { bin_edges, overall, correct, incorrect } = confidenceAnalysis.confidence_distribution;
-    
+    if (!confidenceAnalysis || !confidenceAnalysis.confidence_distribution)
+      return [];
+
+    const { bin_edges, overall, correct, incorrect } =
+      confidenceAnalysis.confidence_distribution;
+
     return bin_edges.slice(0, -1).map((edge, idx) => ({
-      range: `${(edge * 100).toFixed(0)}-${(bin_edges[idx+1] * 100).toFixed(0)}%`,
+      range: `${(edge * 100).toFixed(0)}-${(bin_edges[idx + 1] * 100).toFixed(0)}%`,
       overall: overall[idx],
       correct: correct[idx],
-      incorrect: incorrect[idx]
+      incorrect: incorrect[idx],
     }));
   };
 
   // Helper function for confusion matrix visualization
   const renderConfusionMatrix = () => {
-    if (!confusionMatrix) return <div className="empty-state">Confusion matrix data unavailable</div>;
+    if (!confusionMatrix)
+      return (
+        <div className="empty-state">Confusion matrix data unavailable</div>
+      );
 
     return (
       <div className="card">
@@ -129,31 +165,30 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
               <tr>
                 <th></th>
                 {confusionMatrix.labels.map((label, idx) => (
-                  <th key={idx}>
-                    Predicted: {label}
-                  </th>
+                  <th key={idx}>Predicted: {label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {confusionMatrix.matrix.map((row, rowIdx) => (
                 <tr key={rowIdx}>
-                  <th>
-                    Actual: {confusionMatrix.labels[rowIdx]}
-                  </th>
+                  <th>Actual: {confusionMatrix.labels[rowIdx]}</th>
                   {row.map((cell, cellIdx) => {
                     const isCorrect = rowIdx === cellIdx;
-                    const opacity = cell / Math.max(...confusionMatrix.matrix.flat());
+                    const opacity =
+                      cell / Math.max(...confusionMatrix.matrix.flat());
                     const style = {
-                      backgroundColor: isCorrect 
+                      backgroundColor: isCorrect
                         ? `rgba(255, 123, 0, ${opacity})`
-                        : `rgba(231, 76, 50, ${opacity*0.7})`
+                        : `rgba(231, 76, 50, ${opacity * 0.7})`,
                     };
-                    
+
                     return (
-                      <td 
+                      <td
                         key={cellIdx}
-                        className={isCorrect ? 'correct-cell' : 'incorrect-cell'}
+                        className={
+                          isCorrect ? "correct-cell" : "incorrect-cell"
+                        }
                         style={style}
                       >
                         {cell}
@@ -172,21 +207,21 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   // Render tabs
   const renderTabs = () => {
     const tabs = [
-      { id: 'overview', label: 'Overview' },
-      { id: 'performance', label: 'Performance' },
-      { id: 'improvement', label: 'Model Improvement' },
-      { id: 'improve', label: 'Model Suggestions' },
-      { id: 'code', label: 'Bit Model Design' }
+      { id: "overview", label: "Overview" },
+      { id: "performance", label: "Performance" },
+      { id: "improvement", label: "Model Improvement" },
+      { id: "improve", label: "Model Suggestions" },
+      { id: "code", label: "Bit Model Design" },
     ];
 
     return (
       <div className="tabs">
         <nav className="tab-list">
-          {tabs.map(tab => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+              className={`tab-button ${activeTab === tab.id ? "active" : ""}`}
             >
               {tab.label}
             </button>
@@ -199,11 +234,11 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   // Render based on active tab
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'improvement':
+      case "improvement":
         return (
           <div className="grid">
             <div className="card">
-              <ModelImprovementFlowchart 
+              <ModelImprovementFlowchart
                 modelInfo={modelInfo}
                 errorAnalysis={errorAnalysis}
                 confidenceAnalysis={confidenceAnalysis}
@@ -212,10 +247,10 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
           </div>
         );
 
-      case 'improve':
+      case "improve":
         return <ModelImprovementSuggestions />;
 
-      case 'overview':
+      case "overview":
         return (
           <div className="grid grid-cols-2">
             {/* Model Info */}
@@ -233,7 +268,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                   </div>
                   <div className="info-row">
                     <span className="info-label">Dataset Size:</span>
-                    <span className="info-value">{modelInfo.dataset_size} samples</span>
+                    <span className="info-value">
+                      {modelInfo.dataset_size} samples
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -248,7 +285,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                 <div>
                   <div className="info-row">
                     <span className="info-label">Status:</span>
-                    <span className="info-value status-value">{serverStatus.status}</span>
+                    <span className="info-value status-value">
+                      {serverStatus.status}
+                    </span>
                   </div>
                   <div className="info-row">
                     <span className="info-label">Uptime:</span>
@@ -260,7 +299,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                   </div>
                   <div className="info-row">
                     <span className="info-label">Memory Usage:</span>
-                    <span className="info-value">{serverStatus.memory_usage?.toFixed(2)} MB</span>
+                    <span className="info-value">
+                      {serverStatus.memory_usage?.toFixed(2)} MB
+                    </span>
                   </div>
                 </div>
               )}
@@ -274,11 +315,13 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                   <div className="metric-container">
                     <div className="metric-header">
                       <span className="metric-label">Accuracy</span>
-                      <span className="metric-value">{(modelInfo.accuracy * 100).toFixed(2)}%</span>
+                      <span className="metric-value">
+                        {(modelInfo.accuracy * 100).toFixed(2)}%
+                      </span>
                     </div>
                     <div className="progress-bar">
-                      <div 
-                        className="progress-fill" 
+                      <div
+                        className="progress-fill"
                         style={{ width: `${modelInfo.accuracy * 100}%` }}
                       ></div>
                     </div>
@@ -288,11 +331,13 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                     <div className="metric-container">
                       <div className="metric-header">
                         <span className="metric-label">Precision</span>
-                        <span className="metric-value">{(modelInfo.precision * 100).toFixed(2)}%</span>
+                        <span className="metric-value">
+                          {(modelInfo.precision * 100).toFixed(2)}%
+                        </span>
                       </div>
                       <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
+                        <div
+                          className="progress-fill"
                           style={{ width: `${modelInfo.precision * 100}%` }}
                         ></div>
                       </div>
@@ -303,11 +348,13 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                     <div className="metric-container">
                       <div className="metric-header">
                         <span className="metric-label">Recall</span>
-                        <span className="metric-value">{(modelInfo.recall * 100).toFixed(2)}%</span>
+                        <span className="metric-value">
+                          {(modelInfo.recall * 100).toFixed(2)}%
+                        </span>
                       </div>
                       <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
+                        <div
+                          className="progress-fill"
                           style={{ width: `${modelInfo.recall * 100}%` }}
                         ></div>
                       </div>
@@ -318,11 +365,13 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                     <div className="metric-container">
                       <div className="metric-header">
                         <span className="metric-label">F1 Score</span>
-                        <span className="metric-value">{(modelInfo.f1 * 100).toFixed(2)}%</span>
+                        <span className="metric-value">
+                          {(modelInfo.f1 * 100).toFixed(2)}%
+                        </span>
                       </div>
                       <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
+                        <div
+                          className="progress-fill"
                           style={{ width: `${modelInfo.f1 * 100}%` }}
                         ></div>
                       </div>
@@ -336,7 +385,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
 
             {/* Enhanced Prediction Distribution with Training History */}
             <div className="card" style={{ padding: 0 }}>
-              <EnhancedPredictionDistribution 
+              <EnhancedPredictionDistribution
                 predictionDistribution={predictionDistribution}
                 errorAnalysis={errorAnalysis}
                 confidenceAnalysis={confidenceAnalysis}
@@ -348,7 +397,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
           </div>
         );
 
-      case 'performance':
+      case "performance":
         return (
           <div className="grid">
             {/* Performance Metrics Table */}
@@ -368,15 +417,19 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                       <tr>
                         <td>
                           <div className="table-label">Accuracy</div>
-                          <div className="table-sublabel">Overall model accuracy</div>
+                          <div className="table-sublabel">
+                            Overall model accuracy
+                          </div>
                         </td>
                         <td>
-                          <div className="table-value">{(modelInfo.accuracy * 100).toFixed(2)}%</div>
+                          <div className="table-value">
+                            {(modelInfo.accuracy * 100).toFixed(2)}%
+                          </div>
                         </td>
-                        <td style={{ width: '33%' }}>
+                        <td style={{ width: "33%" }}>
                           <div className="progress-bar">
-                            <div 
-                              className="progress-fill" 
+                            <div
+                              className="progress-fill"
                               style={{ width: `${modelInfo.accuracy * 100}%` }}
                             ></div>
                           </div>
@@ -386,16 +439,22 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                         <tr>
                           <td>
                             <div className="table-label">Precision</div>
-                            <div className="table-sublabel">Positive prediction accuracy</div>
+                            <div className="table-sublabel">
+                              Positive prediction accuracy
+                            </div>
                           </td>
                           <td>
-                            <div className="table-value">{(modelInfo.precision * 100).toFixed(2)}%</div>
+                            <div className="table-value">
+                              {(modelInfo.precision * 100).toFixed(2)}%
+                            </div>
                           </td>
                           <td>
                             <div className="progress-bar">
-                              <div 
-                                className="progress-fill" 
-                                style={{ width: `${modelInfo.precision * 100}%` }}
+                              <div
+                                className="progress-fill"
+                                style={{
+                                  width: `${modelInfo.precision * 100}%`,
+                                }}
                               ></div>
                             </div>
                           </td>
@@ -405,15 +464,19 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                         <tr>
                           <td>
                             <div className="table-label">Recall</div>
-                            <div className="table-sublabel">Positive identification rate</div>
+                            <div className="table-sublabel">
+                              Positive identification rate
+                            </div>
                           </td>
                           <td>
-                            <div className="table-value">{(modelInfo.recall * 100).toFixed(2)}%</div>
+                            <div className="table-value">
+                              {(modelInfo.recall * 100).toFixed(2)}%
+                            </div>
                           </td>
                           <td>
                             <div className="progress-bar">
-                              <div 
-                                className="progress-fill" 
+                              <div
+                                className="progress-fill"
                                 style={{ width: `${modelInfo.recall * 100}%` }}
                               ></div>
                             </div>
@@ -424,15 +487,19 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                         <tr>
                           <td>
                             <div className="table-label">F1 Score</div>
-                            <div className="table-sublabel">Balance of precision and recall</div>
+                            <div className="table-sublabel">
+                              Balance of precision and recall
+                            </div>
                           </td>
                           <td>
-                            <div className="table-value">{(modelInfo.f1 * 100).toFixed(2)}%</div>
+                            <div className="table-value">
+                              {(modelInfo.f1 * 100).toFixed(2)}%
+                            </div>
                           </td>
                           <td>
                             <div className="progress-bar">
-                              <div 
-                                className="progress-fill" 
+                              <div
+                                className="progress-fill"
                                 style={{ width: `${modelInfo.f1 * 100}%` }}
                               ></div>
                             </div>
@@ -443,15 +510,19 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                         <tr>
                           <td>
                             <div className="table-label">ROC AUC</div>
-                            <div className="table-sublabel">Area under ROC curve</div>
+                            <div className="table-sublabel">
+                              Area under ROC curve
+                            </div>
                           </td>
                           <td>
-                            <div className="table-value">{(modelInfo.roc_auc * 100).toFixed(2)}%</div>
+                            <div className="table-value">
+                              {(modelInfo.roc_auc * 100).toFixed(2)}%
+                            </div>
                           </td>
                           <td>
                             <div className="progress-bar">
-                              <div 
-                                className="progress-fill" 
+                              <div
+                                className="progress-fill"
                                 style={{ width: `${modelInfo.roc_auc * 100}%` }}
                               ></div>
                             </div>
@@ -471,7 +542,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
           </div>
         );
 
-      case 'errors':
+      case "errors":
         return (
           <div className="grid grid-cols-2">
             {/* Error Analysis */}
@@ -482,14 +553,18 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                   <div className="stats-grid">
                     <div className="stat-box">
                       <div className="stat-label">Error Count</div>
-                      <div className="stat-value">{errorAnalysis.error_count}</div>
+                      <div className="stat-value">
+                        {errorAnalysis.error_count}
+                      </div>
                     </div>
                     <div className="stat-box">
                       <div className="stat-label">Error Rate</div>
-                      <div className="stat-value">{(errorAnalysis.error_rate * 100).toFixed(2)}%</div>
+                      <div className="stat-value">
+                        {(errorAnalysis.error_rate * 100).toFixed(2)}%
+                      </div>
                     </div>
                   </div>
-                  
+
                   <div className="chart-section">
                     <div className="metric-header">
                       <span className="metric-label">Correct vs. Errors</span>
@@ -499,15 +574,23 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                         <PieChart>
                           <Pie
                             data={[
-                              { name: 'Correct', value: errorAnalysis.correct_count },
-                              { name: 'Errors', value: errorAnalysis.error_count }
+                              {
+                                name: "Correct",
+                                value: errorAnalysis.correct_count,
+                              },
+                              {
+                                name: "Errors",
+                                value: errorAnalysis.error_count,
+                              },
                             ]}
                             cx="50%"
                             cy="50%"
                             outerRadius={80}
                             fill="#e74c32"
                             dataKey="value"
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            label={({ name, percent }) =>
+                              `${name} ${(percent * 100).toFixed(0)}%`
+                            }
                           >
                             <Cell fill="#7dd3fc" />
                             <Cell fill="#e74c32" />
@@ -549,7 +632,11 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                           </td>
                           <td>
                             <div className="table-value">
-                              {((type.count / errorAnalysis.error_count) * 100).toFixed(2)}%
+                              {(
+                                (type.count / errorAnalysis.error_count) *
+                                100
+                              ).toFixed(2)}
+                              %
                             </div>
                           </td>
                         </tr>
@@ -558,13 +645,15 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                   </table>
                 </div>
               ) : (
-                <div className="empty-state">Error type analysis unavailable</div>
+                <div className="empty-state">
+                  Error type analysis unavailable
+                </div>
               )}
             </div>
           </div>
         );
 
-      case 'features':
+      case "features":
         return (
           <div className="grid">
             {/* Feature Importance */}
@@ -574,7 +663,9 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                 <div>
                   <div className="method-info">
                     <span className="method-label">Method: </span>
-                    <span className="method-value">{featureImportance.importance_method}</span>
+                    <span className="method-value">
+                      {featureImportance.importance_method}
+                    </span>
                   </div>
                   <div className="chart-container-tall">
                     <ResponsiveContainer width="100%" height="100%">
@@ -584,22 +675,29 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                         margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" domain={[0, 'dataMax']} />
+                        <XAxis type="number" domain={[0, "dataMax"]} />
                         <YAxis dataKey="name" type="category" width={100} />
-                        <Tooltip formatter={(value) => [(value * 100).toFixed(2) + '%', 'Importance']} />
+                        <Tooltip
+                          formatter={(value) => [
+                            (value * 100).toFixed(2) + "%",
+                            "Importance",
+                          ]}
+                        />
                         <Bar dataKey="importance" fill="#e74c32" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
               ) : (
-                <div className="empty-state">Feature importance unavailable</div>
+                <div className="empty-state">
+                  Feature importance unavailable
+                </div>
               )}
             </div>
           </div>
         );
 
-      case 'code':
+      case "code":
         return <CodeEditor modelInfo={modelInfo} />;
 
       default:

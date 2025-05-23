@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vs } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 const CodeEditor = ({ modelInfo }) => {
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,7 +20,6 @@ const CodeEditor = ({ modelInfo }) => {
   const [startX, setStartX] = useState(0);
   const [panelWidth, setPanelWidth] = useState(500); // Dramatically increased to 1200px
 
-  
   // Reference to the container
   const containerRef = useRef(null);
 
@@ -28,7 +27,6 @@ const CodeEditor = ({ modelInfo }) => {
     // Load model code when component mounts
     loadModelCode();
   }, [modelInfo]);
-
 
   // Reset copied state after a delay
   useEffect(() => {
@@ -42,12 +40,12 @@ const CodeEditor = ({ modelInfo }) => {
 
   // Add this useEffect to log the panel width whenever it changes
   useEffect(() => {
-    console.log('Panel width changed to:', panelWidth);
+    console.log("Panel width changed to:", panelWidth);
   }, [panelWidth]);
 
   const startResize = (mouseDownEvent) => {
     mouseDownEvent.preventDefault();
-    
+
     setIsResizing(true);
     // Get the initial mouse position
     setStartX(mouseDownEvent.clientX);
@@ -55,20 +53,20 @@ const CodeEditor = ({ modelInfo }) => {
 
   const handleResize = (e) => {
     if (!isResizing) return;
-    
-    console.log('Resizing panel...');
-    
+
+    console.log("Resizing panel...");
+
     // For a right-side panel, calculate width from right edge of container to mouse position
     const containerRect = containerRef.current.getBoundingClientRect();
-    
+
     // When dragging left, width should increase
     const newWidth = containerRect.right - e.clientX;
-    console.log('New width calculated:', newWidth);
-    
+    console.log("New width calculated:", newWidth);
+
     // Apply constraints - increased max width to 1800px
     const constrainedWidth = Math.max(400, Math.min(1800, newWidth));
-    console.log('Constrained width:', constrainedWidth);
-    
+    console.log("Constrained width:", constrainedWidth);
+
     setPanelWidth(constrainedWidth);
   };
 
@@ -78,19 +76,19 @@ const CodeEditor = ({ modelInfo }) => {
 
   useEffect(() => {
     if (isResizing) {
-      document.addEventListener('mousemove', handleResize);
-      document.addEventListener('mouseup', stopResize);
-      document.body.style.userSelect = 'none';
+      document.addEventListener("mousemove", handleResize);
+      document.addEventListener("mouseup", stopResize);
+      document.body.style.userSelect = "none";
     } else {
-      document.removeEventListener('mousemove', handleResize);
-      document.removeEventListener('mouseup', stopResize);
-      document.body.style.userSelect = '';
+      document.removeEventListener("mousemove", handleResize);
+      document.removeEventListener("mouseup", stopResize);
+      document.body.style.userSelect = "";
     }
-    
+
     return () => {
-      document.removeEventListener('mousemove', handleResize);
-      document.removeEventListener('mouseup', stopResize);
-      document.body.style.userSelect = '';
+      document.removeEventListener("mousemove", handleResize);
+      document.removeEventListener("mouseup", stopResize);
+      document.body.style.userSelect = "";
     };
   }, [isResizing, startX, panelWidth]); // Include dependencies used in handleResize
 
@@ -98,18 +96,18 @@ const CodeEditor = ({ modelInfo }) => {
   const loadModelCode = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/model-code');
+      const response = await fetch("http://localhost:8000/api/model-code");
 
       if (response.ok) {
         const data = await response.json();
-        setCode(data.code || '# No model code available');
+        setCode(data.code || "# No model code available");
       } else {
         // For demo purposes, load sample code if API fails
-        setCode(getSampleModelCode(modelInfo?.framework || 'pytorch'));
+        setCode(getSampleModelCode(modelInfo?.framework || "pytorch"));
       }
     } catch (err) {
-      console.error('Error loading model code:', err);
-      setCode(getSampleModelCode(modelInfo?.framework || 'pytorch'));
+      console.error("Error loading model code:", err);
+      setCode(getSampleModelCode(modelInfo?.framework || "pytorch"));
     } finally {
       setLoading(false);
     }
@@ -126,23 +124,23 @@ const CodeEditor = ({ modelInfo }) => {
       // Create analysis context from model info
       const analysisContext = {
         code: code,
-        framework: modelInfo?.framework || 'unknown',
+        framework: modelInfo?.framework || "unknown",
         modelMetrics: {
           accuracy: modelInfo?.accuracy || 0,
           precision: modelInfo?.precision || 0,
           recall: modelInfo?.recall || 0,
           f1: modelInfo?.f1 || 0,
-          dataset_size: modelInfo?.dataset_size || 0
+          dataset_size: modelInfo?.dataset_size || 0,
         },
-        analysisType: 'ml_code_review'
+        analysisType: "ml_code_review",
       };
 
-      const response = await fetch('http://localhost:8000/api/analyze-code', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8000/api/analyze-code", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(analysisContext)
+        body: JSON.stringify(analysisContext),
       });
 
       if (response.ok) {
@@ -153,7 +151,7 @@ const CodeEditor = ({ modelInfo }) => {
         generateMockSuggestions(code);
       }
     } catch (err) {
-      console.error('Bit analysis failed:', err);
+      console.error("Bit analysis failed:", err);
       generateMockSuggestions(code);
     } finally {
       setAnalyzing(false);
@@ -163,67 +161,85 @@ const CodeEditor = ({ modelInfo }) => {
   // Generate mock suggestions based on code patterns and model metrics
   const generateMockSuggestions = (codeToAnalyze) => {
     const suggestions = [];
-    const framework = modelInfo?.framework?.toLowerCase() || 'unknown';
+    const framework = modelInfo?.framework?.toLowerCase() || "unknown";
     const accuracy = modelInfo?.accuracy || 0;
 
     // Pattern-based analysis
-    const codeLines = codeToAnalyze.toLowerCase().split('\n');
+    const codeLines = codeToAnalyze.toLowerCase().split("\n");
 
     // Check for common ML issues
     if (accuracy < 0.8) {
       suggestions.push({
-        type: 'performance',
-        severity: 'high',
-        line: findLineWithPattern(codeLines, ['model =', 'class ']),
-        title: 'Low Model Accuracy Detected',
+        type: "performance",
+        severity: "high",
+        line: findLineWithPattern(codeLines, ["model =", "class "]),
+        title: "Low Model Accuracy Detected",
         message: `Your model accuracy is ${(accuracy * 100).toFixed(1)}%. Consider increasing model complexity or improving data quality.`,
-        suggestion: framework === 'pytorch'
-          ? 'Try adding more layers: nn.Linear(hidden_size, hidden_size * 2)'
-          : framework === 'tensorflow'
-          ? 'Add more dense layers: tf.keras.layers.Dense(128, activation="relu")'
-          : 'Try RandomForestClassifier with more estimators',
-        autoFix: generateAutoFix('increase_complexity', framework)
+        suggestion:
+          framework === "pytorch"
+            ? "Try adding more layers: nn.Linear(hidden_size, hidden_size * 2)"
+            : framework === "tensorflow"
+              ? 'Add more dense layers: tf.keras.layers.Dense(128, activation="relu")'
+              : "Try RandomForestClassifier with more estimators",
+        autoFix: generateAutoFix("increase_complexity", framework),
       });
     }
 
     // Check for missing regularization
-    if (!codeToAnalyze.includes('dropout') && !codeToAnalyze.includes('Dropout') && framework !== 'sklearn') {
+    if (
+      !codeToAnalyze.includes("dropout") &&
+      !codeToAnalyze.includes("Dropout") &&
+      framework !== "sklearn"
+    ) {
       suggestions.push({
-        type: 'overfitting',
-        severity: 'medium',
-        line: findLineWithPattern(codeLines, ['forward', 'model.add', 'sequential']),
-        title: 'Missing Regularization',
-        message: 'No dropout layers detected. This may lead to overfitting.',
-        suggestion: framework === 'pytorch'
-          ? 'Add: self.dropout = nn.Dropout(0.3)'
-          : 'Add: tf.keras.layers.Dropout(0.3)',
-        autoFix: generateAutoFix('add_dropout', framework)
+        type: "overfitting",
+        severity: "medium",
+        line: findLineWithPattern(codeLines, [
+          "forward",
+          "model.add",
+          "sequential",
+        ]),
+        title: "Missing Regularization",
+        message: "No dropout layers detected. This may lead to overfitting.",
+        suggestion:
+          framework === "pytorch"
+            ? "Add: self.dropout = nn.Dropout(0.3)"
+            : "Add: tf.keras.layers.Dropout(0.3)",
+        autoFix: generateAutoFix("add_dropout", framework),
       });
     }
 
     // Check for hardcoded learning rates
-    if (codeToAnalyze.includes('lr=0.01') || codeToAnalyze.includes('learning_rate=0.01')) {
+    if (
+      codeToAnalyze.includes("lr=0.01") ||
+      codeToAnalyze.includes("learning_rate=0.01")
+    ) {
       suggestions.push({
-        type: 'optimization',
-        severity: 'low',
-        line: findLineWithPattern(codeLines, ['optimizer', 'adam', 'sgd']),
-        title: 'Hardcoded Learning Rate',
-        message: 'Hardcoded learning rates may not be optimal for your specific problem.',
-        suggestion: 'Use adaptive learning rate or scheduler',
-        autoFix: generateAutoFix('adaptive_lr', framework)
+        type: "optimization",
+        severity: "low",
+        line: findLineWithPattern(codeLines, ["optimizer", "adam", "sgd"]),
+        title: "Hardcoded Learning Rate",
+        message:
+          "Hardcoded learning rates may not be optimal for your specific problem.",
+        suggestion: "Use adaptive learning rate or scheduler",
+        autoFix: generateAutoFix("adaptive_lr", framework),
       });
     }
 
     // Check for class imbalance handling
-    if (!codeToAnalyze.includes('class_weight') && !codeToAnalyze.includes('WeightedRandomSampler')) {
+    if (
+      !codeToAnalyze.includes("class_weight") &&
+      !codeToAnalyze.includes("WeightedRandomSampler")
+    ) {
       suggestions.push({
-        type: 'data',
-        severity: 'medium',
-        line: findLineWithPattern(codeLines, ['fit(', 'train(', 'dataloader']),
-        title: 'Class Imbalance Not Addressed',
-        message: 'Consider handling class imbalance with weights or sampling techniques.',
+        type: "data",
+        severity: "medium",
+        line: findLineWithPattern(codeLines, ["fit(", "train(", "dataloader"]),
+        title: "Class Imbalance Not Addressed",
+        message:
+          "Consider handling class imbalance with weights or sampling techniques.",
         suggestion: 'Add class_weight="balanced" or use weighted sampling',
-        autoFix: generateAutoFix('class_weights', framework)
+        autoFix: generateAutoFix("class_weights", framework),
       });
     }
 
@@ -251,7 +267,7 @@ self.output_layer = nn.Linear(hidden_size * 2, num_classes)`,
 model.add(tf.keras.layers.Dense(128, activation='relu'))
 model.add(tf.keras.layers.Dense(64, activation='relu'))`,
         sklearn: `# Increase model complexity
-model = RandomForestClassifier(n_estimators=200, max_depth=10)`
+model = RandomForestClassifier(n_estimators=200, max_depth=10)`,
       },
       add_dropout: {
         pytorch: `# Add dropout to prevent overfitting
@@ -260,7 +276,7 @@ self.dropout = nn.Dropout(0.3)
 # Use in forward pass:
 x = self.dropout(x)`,
         tensorflow: `# Add dropout to prevent overfitting
-model.add(tf.keras.layers.Dropout(0.3))`
+model.add(tf.keras.layers.Dropout(0.3))`,
       },
       adaptive_lr: {
         pytorch: `# Use learning rate scheduler
@@ -268,7 +284,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)`,
         tensorflow: `# Use learning rate scheduler
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5)
-model.fit(X_train, y_train, callbacks=[reduce_lr])`
+model.fit(X_train, y_train, callbacks=[reduce_lr])`,
       },
       class_weights: {
         pytorch: `# Handle class imbalance with weighted sampling
@@ -279,17 +295,20 @@ sampler = WeightedRandomSampler(sample_weights, len(sample_weights))`,
         tensorflow: `# Handle class imbalance with class weights
 class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
 class_weight_dict = dict(enumerate(class_weights))
-model.fit(X_train, y_train, class_weight=class_weight_dict)`
-      }
+model.fit(X_train, y_train, class_weight=class_weight_dict)`,
+      },
     };
 
-    return fixes[fixType]?.[framework] || "# No specific fix available for this framework";
+    return (
+      fixes[fixType]?.[framework] ||
+      "# No specific fix available for this framework"
+    );
   };
 
   // Sample model code for demo purposes
   const getSampleModelCode = (framework) => {
     switch (framework.toLowerCase()) {
-      case 'pytorch':
+      case "pytorch":
         return `import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -336,7 +355,7 @@ def train_model(model, train_loader, val_loader, epochs=10):
                 
         accuracy = correct / len(val_loader.dataset)
         print(f'Epoch {epoch+1}: Accuracy = {accuracy:.4f}')`;
-      case 'tensorflow':
+      case "tensorflow":
         return `import tensorflow as tf
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -410,63 +429,63 @@ def evaluate_model(model, X_test, y_test):
   const generateCodeForSuggestion = async (suggestion) => {
     try {
       setAnalyzing(true); // Add loading state while generating code
-      
-      console.log('Starting code generation for suggestion:', suggestion);
-      
+
+      console.log("Starting code generation for suggestion:", suggestion);
+
       // Create request context
       const requestContext = {
-        framework: modelInfo?.framework || 'pytorch',
+        framework: modelInfo?.framework || "pytorch",
         suggestionType: suggestion.type,
         suggestionTitle: suggestion.title,
         currentCode: code,
         modelMetrics: {
           accuracy: modelInfo?.accuracy || 0,
           precision: modelInfo?.precision || 0,
-          recall: modelInfo?.recall || 0
-        }
+          recall: modelInfo?.recall || 0,
+        },
       };
 
-      console.log('Request context prepared:', requestContext);
-      
+      console.log("Request context prepared:", requestContext);
+
       // Try to call the Gemini API through the backend using GET
       try {
-        console.log('Calling backend API for code generation');
+        console.log("Calling backend API for code generation");
         // Convert suggestion title to category format
-        const category = suggestion.title.toLowerCase().replace(/\s+/g, '_');
-        
+        const category = suggestion.title.toLowerCase().replace(/\s+/g, "_");
+
         // Use GET request with query parameters
         const response = await fetch(
-          `http://localhost:8000/api/generate-code-example?framework=${requestContext.framework}&category=${category}`
+          `http://localhost:8000/api/generate-code-example?framework=${requestContext.framework}&category=${category}`,
         );
-        
+
         if (response.ok) {
           const result = await response.json();
-          console.log('Received code from API:', result);
-          
+          console.log("Received code from API:", result);
+
           // Update the suggestion with the generated code
           const updatedSuggestions = [...suggestions];
-          const index = updatedSuggestions.findIndex(s =>
-            s.title === suggestion.title && s.line === suggestion.line
+          const index = updatedSuggestions.findIndex(
+            (s) => s.title === suggestion.title && s.line === suggestion.line,
           );
-          
+
           if (index !== -1) {
-            console.log('Updating suggestion at index:', index);
+            console.log("Updating suggestion at index:", index);
             updatedSuggestions[index].autoFix = result.code;
             setSuggestions(updatedSuggestions);
             return; // Exit early if API call was successful
           }
         } else {
-          console.error('API call failed:', await response.text());
-          throw new Error('API call failed');
+          console.error("API call failed:", await response.text());
+          throw new Error("API call failed");
         }
       } catch (apiError) {
-        console.error('Error calling Bit API:', apiError);
-        console.log('Falling back to local code generation');
+        console.error("Error calling Bit API:", apiError);
+        console.log("Falling back to local code generation");
       }
-      
+
       // If we get here, the API call failed, so use fallback code
-      console.log('Using fallback code generation');
-      
+      console.log("Using fallback code generation");
+
       // Add specific case for "Unnecessary Gradient Computation"
       let fallbackCode;
       if (suggestion.title === "Unnecessary Gradient Computation") {
@@ -484,24 +503,27 @@ def inference(model, input_data):
 # Example usage:
 # test_predictions = inference(model, test_data)`;
       } else {
-        fallbackCode = generateFallbackCode(suggestion, modelInfo?.framework || 'pytorch');
+        fallbackCode = generateFallbackCode(
+          suggestion,
+          modelInfo?.framework || "pytorch",
+        );
       }
-      
+
       // Update the suggestion with fallback code
       const updatedSuggestions = [...suggestions];
-      const index = updatedSuggestions.findIndex(s =>
-        s.title === suggestion.title && s.line === suggestion.line
+      const index = updatedSuggestions.findIndex(
+        (s) => s.title === suggestion.title && s.line === suggestion.line,
       );
-      
+
       if (index !== -1) {
-        console.log('Updating suggestion at index:', index);
+        console.log("Updating suggestion at index:", index);
         updatedSuggestions[index].autoFix = fallbackCode;
         setSuggestions(updatedSuggestions);
       } else {
-        console.error('Could not find matching suggestion to update');
+        console.error("Could not find matching suggestion to update");
       }
     } catch (err) {
-      console.error('Error in code generation:', err);
+      console.error("Error in code generation:", err);
     } finally {
       setAnalyzing(false); // Reset loading state
     }
@@ -510,10 +532,10 @@ def inference(model, input_data):
   // Add a fallback code generator function
   const generateFallbackCode = (suggestion, framework) => {
     const { type, title } = suggestion;
-    
+
     // Generate different code based on suggestion type and framework
-    if (type === 'data_preprocessing' && title.includes('Data Normalization')) {
-      if (framework === 'pytorch') {
+    if (type === "data_preprocessing" && title.includes("Data Normalization")) {
+      if (framework === "pytorch") {
         return `# Add data normalization for better convergence
 from sklearn.preprocessing import StandardScaler
 import numpy as np
@@ -551,7 +573,7 @@ class NormalizedNeuralNetwork(nn.Module):
         out = self.relu(out)
         out = self.layer2(out)
         return F.log_softmax(out, dim=1)`;
-      } else if (framework === 'tensorflow') {
+      } else if (framework === "tensorflow") {
         return `# Add data normalization for better convergence
 from sklearn.preprocessing import StandardScaler
 import numpy as np
@@ -619,8 +641,8 @@ pipeline.fit(X_train, y_train)
 # Predict using the pipeline (scaling happens automatically)
 y_pred = pipeline.predict(X_test)`;
       }
-    } else if (type === 'performance' && title.includes('Accuracy')) {
-      if (framework === 'pytorch') {
+    } else if (type === "performance" && title.includes("Accuracy")) {
+      if (framework === "pytorch") {
         return `# Increase model complexity to improve accuracy
 class ImprovedNeuralNetwork(nn.Module):
     def __init__(self, input_size=10, hidden_size=64, num_classes=2):
@@ -644,7 +666,7 @@ class ImprovedNeuralNetwork(nn.Module):
         out = self.dropout(out)
         out = self.layer3(out)
         return F.log_softmax(out, dim=1)`;
-      } else if (framework === 'tensorflow') {
+      } else if (framework === "tensorflow") {
         return `# Increase model complexity to improve accuracy
 def create_improved_model(input_shape, num_classes=2):
     model = tf.keras.Sequential([
@@ -679,8 +701,8 @@ def create_improved_model():
     )
     return model`;
       }
-    } else if (type === 'overfitting' && title.includes('Regularization')) {
-      if (framework === 'pytorch') {
+    } else if (type === "overfitting" && title.includes("Regularization")) {
+      if (framework === "pytorch") {
         return `# Add dropout regularization to prevent overfitting
 class RegularizedNeuralNetwork(nn.Module):
     def __init__(self, input_size=10, hidden_size=20, num_classes=2):
@@ -696,7 +718,7 @@ class RegularizedNeuralNetwork(nn.Module):
         out = self.dropout1(out)  # Apply dropout
         out = self.layer2(out)
         return F.log_softmax(out, dim=1)`;
-      } else if (framework === 'tensorflow') {
+      } else if (framework === "tensorflow") {
         return `# Add dropout regularization to prevent overfitting
 def create_regularized_model(input_shape, num_classes=2):
     model = tf.keras.Sequential([
@@ -728,8 +750,8 @@ def create_regularized_model():
     )
     return model`;
       }
-    } else if (type === 'optimization' && title.includes('Learning Rate')) {
-      if (framework === 'pytorch') {
+    } else if (type === "optimization" && title.includes("Learning Rate")) {
+      if (framework === "pytorch") {
         return `# Use adaptive learning rate
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
@@ -753,7 +775,7 @@ for epoch in range(epochs):
     # Optional: print current learning rate
     current_lr = optimizer.param_groups[0]['lr']
     print(f'Epoch {epoch+1}, Current LR: {current_lr}')`;
-      } else if (framework === 'tensorflow') {
+      } else if (framework === "tensorflow") {
         return `# Use adaptive learning rate
 initial_learning_rate = 0.001
 
@@ -807,9 +829,9 @@ grid_search = GridSearchCV(
 grid_search.fit(X_train, y_train)
 best_model = grid_search.best_estimator_
 print(f"Best parameters: {grid_search.best_params_}")`;
-}
-    } else if (type === 'data' && title.includes('Class Imbalance')) {
-      if (framework === 'pytorch') {
+      }
+    } else if (type === "data" && title.includes("Class Imbalance")) {
+      if (framework === "pytorch") {
         return `# Handle class imbalance with weighted sampling
 from torch.utils.data import WeightedRandomSampler
 
@@ -832,7 +854,7 @@ train_loader = DataLoader(
     batch_size=32,
     sampler=sampler  # Use the weighted sampler
 )`;
-      } else if (framework === 'tensorflow') {
+      } else if (framework === "tensorflow") {
         return `# Handle class imbalance with class weights
 import numpy as np
 from sklearn.utils.class_weight import compute_class_weight
@@ -880,7 +902,7 @@ model = RandomForestClassifier(
 model.fit(X_train, y_train)`;
       }
     }
-    
+
     // Default fallback code
     return `# Generated code for: ${title}
 # Framework: ${framework}
@@ -898,14 +920,14 @@ def improve_model():
   // Helper function to get severity color
   const getSeverityColor = (severity) => {
     switch (severity) {
-      case 'high':
-        return '#e74c32'; // Red
-      case 'medium':
-        return '#f5d742'; // Amber
-      case 'low':
-        return '#89c261'; // Green
+      case "high":
+        return "#e74c32"; // Red
+      case "medium":
+        return "#f5d742"; // Amber
+      case "low":
+        return "#89c261"; // Green
       default:
-        return '#6b7280'; // Gray
+        return "#6b7280"; // Gray
     }
   };
 
@@ -917,26 +939,30 @@ def improve_model():
 
   if (loading) {
     return (
-      <div style={{
-        padding: '2rem',
-        textAlign: 'center',
-        backgroundColor: '#ffffff',
-        color: '#333333',
-        minHeight: '400px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          border: '3px solid #f3f3f3',
-          borderTop: '3px solid #e74c32',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          margin: '0 auto 1rem'
-        }}></div>
+      <div
+        style={{
+          padding: "2rem",
+          textAlign: "center",
+          backgroundColor: "#ffffff",
+          color: "#333333",
+          minHeight: "400px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            border: "3px solid #f3f3f3",
+            borderTop: "3px solid #e74c32",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 1rem",
+          }}
+        ></div>
         <p>Loading model code...</p>
         <style>
           {`
@@ -951,397 +977,532 @@ def improve_model():
   }
 
   return (
-    <div className="code-editor-wrapper" ref={containerRef} style={{ 
-      backgroundColor: '#f8fafc', 
-      color: '#333333', 
-      minHeight: '100vh', 
-      display: 'flex',
-      position: 'relative',
-      overflow: 'hidden' // Prevent scrolling when panel is very wide
-    }}>
+    <div
+      className="code-editor-wrapper"
+      ref={containerRef}
+      style={{
+        backgroundColor: "#f8fafc",
+        color: "#333333",
+        minHeight: "100vh",
+        display: "flex",
+        position: "relative",
+        overflow: "hidden", // Prevent scrolling when panel is very wide
+      }}
+    >
       {/* Main Code Viewer - make sure it can shrink */}
-      <div style={{ 
-        flex: '1 1 auto', // Allow shrinking
-        minWidth: '300px', // Ensure minimum width
-        display: 'flex', 
-        flexDirection: 'column' 
-      }}>
+      <div
+        style={{
+          flex: "1 1 auto", // Allow shrinking
+          minWidth: "300px", // Ensure minimum width
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '1rem 1.5rem',
-          backgroundColor: '#ffffff',
-          borderBottom: '1px solid #e1e1e1',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-          flexWrap: 'wrap',
-          gap: '1rem'
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "1rem 1.5rem",
+            backgroundColor: "#ffffff",
+            borderBottom: "1px solid #e1e1e1",
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
           <div>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#333333' }}>
-            Bit's Hyperparameter Tuning Recommendations
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "1.1rem",
+                fontWeight: "600",
+                color: "#333333",
+              }}
+            >
+              Bit's Hyperparameter Tuning Recommendations
               {analyzing && (
-                <span style={{
-                  marginLeft: '1rem',
-                  padding: '0.2rem 0.5rem',
-                  backgroundColor: '#e74c32',
-                  borderRadius: '0.25rem',
-                  fontSize: '0.7rem',
-                  fontWeight: '500',
-                  color: 'white'
-                }}>
+                <span
+                  style={{
+                    marginLeft: "1rem",
+                    padding: "0.2rem 0.5rem",
+                    backgroundColor: "#e74c32",
+                    borderRadius: "0.25rem",
+                    fontSize: "0.7rem",
+                    fontWeight: "500",
+                    color: "white",
+                  }}
+                >
                   Analyzing
                 </span>
               )}
             </h3>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: '#666666' }}>
+            <p
+              style={{
+                margin: "0.25rem 0 0 0",
+                fontSize: "0.8rem",
+                color: "#666666",
+              }}
+            >
               Machine Learning Model Analysis
               {modelInfo?.framework && (
-                <span style={{
-                  marginLeft: '0.5rem',
-                  padding: '0.2rem 0.5rem',
-                  backgroundColor: '#e74c32',
-                  borderRadius: '0.25rem',
-                  fontSize: '0.7rem',
-                  fontWeight: '500',
-                  color: 'white'
-                }}>
+                <span
+                  style={{
+                    marginLeft: "0.5rem",
+                    padding: "0.2rem 0.5rem",
+                    backgroundColor: "#e74c32",
+                    borderRadius: "0.25rem",
+                    fontSize: "0.7rem",
+                    fontWeight: "500",
+                    color: "white",
+                  }}
+                >
                   {modelInfo.framework}
                 </span>
               )}
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               onClick={analyzeCodeWithGemini}
               disabled={analyzing}
               style={{
-                padding: '0.5rem 1rem',
-                fontSize: '0.8rem',
-                backgroundColor: '#e74c32',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.25rem',
-                cursor: analyzing ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontWeight: '500'
+                padding: "0.5rem 1rem",
+                fontSize: "0.8rem",
+                backgroundColor: "#e74c32",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: analyzing ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontWeight: "500",
               }}
             >
-              {analyzing ? 'Analyzing...' : 'Bit Analyze'}
+              {analyzing ? "Analyzing..." : "Bit Analyze"}
             </button>
           </div>
         </div>
 
         {/* Status Bar */}
-        <div style={{
-          padding: '0.4rem 1.5rem',
-          backgroundColor: '#1e293b',
-          color: 'white',
-          fontSize: '0.75rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
+        <div
+          style={{
+            padding: "0.4rem 1.5rem",
+            backgroundColor: "#1e293b",
+            color: "white",
+            fontSize: "0.75rem",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <span>model_code.py</span>
           <span>
-            {code.split('\n').length} lines |
+            {code.split("\n").length} lines |
             {suggestions.length > 0 && ` ${suggestions.length} suggestions`}
           </span>
         </div>
 
         {/* Code Viewer (Read-only) */}
-        <div style={{
-        height: 'calc(100vh - 137px)',
-        overflow: 'auto',
-        position: 'relative',
-        flex: 1
-        }}>
-        <SyntaxHighlighter
+        <div
+          style={{
+            height: "calc(100vh - 137px)",
+            overflow: "auto",
+            position: "relative",
+            flex: 1,
+          }}
+        >
+          <SyntaxHighlighter
             language="python"
             style={vs}
             showLineNumbers={true}
             lineNumberStyle={{
-            minWidth: '3em',
-            paddingRight: '1em',
-            textAlign: 'right',
-            color: '#999999',
-            borderRight: '1px solid #e1e1e1',
-            marginRight: '1em',
-            userSelect: 'none'
+              minWidth: "3em",
+              paddingRight: "1em",
+              textAlign: "right",
+              color: "#999999",
+              borderRight: "1px solid #e1e1e1",
+              marginRight: "1em",
+              userSelect: "none",
             }}
             customStyle={{
-            margin: 0,
-            padding: '1rem',
-            backgroundColor: '#ffffff',
-            fontSize: '0.85rem',
-            lineHeight: '1.5',
-            fontFamily: 'Consolas, "Courier New", monospace',
-            overflow: 'visible' // Make sure this isn't adding its own scrollbar
+              margin: 0,
+              padding: "1rem",
+              backgroundColor: "#ffffff",
+              fontSize: "0.85rem",
+              lineHeight: "1.5",
+              fontFamily: 'Consolas, "Courier New", monospace',
+              overflow: "visible", // Make sure this isn't adding its own scrollbar
             }}
             codeTagProps={{
-            style: {
-                fontFamily: 'Consolas, "Courier New", monospace'
-            }
+              style: {
+                fontFamily: 'Consolas, "Courier New", monospace',
+              },
             }}
             wrapLines={true}
-            lineProps={lineNumber => {
-            // Highlight lines that have suggestions
-            const highlightLine = suggestions.some(s => s.line === lineNumber);
-            return {
+            lineProps={(lineNumber) => {
+              // Highlight lines that have suggestions
+              const highlightLine = suggestions.some(
+                (s) => s.line === lineNumber,
+              );
+              return {
                 style: {
-                display: 'block',
-                backgroundColor: highlightLine ? 'rgba(231, 76, 50, 0.1)' : undefined,
-                borderLeft: highlightLine ? '3px solid #e74c32' : undefined,
-                paddingLeft: highlightLine ? '1rem' : undefined,
-                }
-            };
+                  display: "block",
+                  backgroundColor: highlightLine
+                    ? "rgba(231, 76, 50, 0.1)"
+                    : undefined,
+                  borderLeft: highlightLine ? "3px solid #e74c32" : undefined,
+                  paddingLeft: highlightLine ? "1rem" : undefined,
+                },
+              };
             }}
-        >
+          >
             {code}
-        </SyntaxHighlighter>
+          </SyntaxHighlighter>
         </div>
       </div>
 
       {/* Suggestions Panel */}
       {showSuggestions && (
-        <div className="suggestions-panel" style={{ 
-          width: `${panelWidth}px`,
-          backgroundColor: '#fff', 
-          borderLeft: '1px solid #e1e1e1',
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100vh',
-          overflow: 'hidden',
-          color: '#333',
-          position: 'relative',
-          boxShadow: '-2px 0 10px rgba(0, 0, 0, 0.05)'
-        }}>
+        <div
+          className="suggestions-panel"
+          style={{
+            width: `${panelWidth}px`,
+            backgroundColor: "#fff",
+            borderLeft: "1px solid #e1e1e1",
+            display: "flex",
+            flexDirection: "column",
+            height: "100vh",
+            overflow: "hidden",
+            color: "#333",
+            position: "relative",
+            boxShadow: "-2px 0 10px rgba(0, 0, 0, 0.05)",
+          }}
+        >
           {/* Resize Handle */}
           <div
             style={{
-              position: 'absolute',
-              left: '-5px', // Position it slightly outside the panel for easier grabbing
+              position: "absolute",
+              left: "-5px", // Position it slightly outside the panel for easier grabbing
               top: 0,
-              width: '10px', // Make it wider for easier grabbing
-              height: '100%',
-              cursor: 'col-resize',
+              width: "10px", // Make it wider for easier grabbing
+              height: "100%",
+              cursor: "col-resize",
               zIndex: 10,
-              backgroundColor: isResizing ? 'rgba(231, 76, 50, 0.3)' : 'transparent',
-              transition: 'background-color 0.2s',
+              backgroundColor: isResizing
+                ? "rgba(231, 76, 50, 0.3)"
+                : "transparent",
+              transition: "background-color 0.2s",
               // Add a visible indicator
-              '&::after': {
+              "&::after": {
                 content: '""',
-                position: 'absolute',
-                left: '5px',
+                position: "absolute",
+                left: "5px",
                 top: 0,
-                width: '2px',
-                height: '100%',
-                backgroundColor: '#e1e1e1'
-              }
+                width: "2px",
+                height: "100%",
+                backgroundColor: "#e1e1e1",
+              },
             }}
             onMouseDown={startResize}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(231, 76, 50, 0.1)'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            onMouseOver={(e) =>
+              (e.currentTarget.style.backgroundColor = "rgba(231, 76, 50, 0.1)")
+            }
+            onMouseOut={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
           />
-            
-          {/* Suggestions Header */}
-            <div style={{
-            padding: '0.75rem 1.25rem',
-            marginTop: '1rem',
-            marginLeft: '1rem',
-            marginRight: '1rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '9999px', // Fully rounded corners for pill shape
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
-            }}>
-            {/* Add a small colored dot indicator like in Image 2 */}
-            <div style={{
-                width: '0.75rem',
-                height: '0.75rem',
-                backgroundColor: '#e74c32', // Using your brand color instead of green
-                borderRadius: '50%'
-            }}></div>
-            
-            <h4 style={{ 
-                margin: 0, 
-                fontSize: '1rem', 
-                fontWeight: '400', 
-                color: '#333',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-            }}>
-                Bit's Suggestions
-            </h4>
-            </div>
 
-{/* Suggestions count as a separate element */}
-<div style={{
-  padding: '0.5rem 1.25rem',
-  display: 'flex',
-  alignItems: 'center'
-}}>
-  <p style={{
-    margin: 0,
-    fontSize: '0.9rem',
-    color: '#666',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-  }}>
-    {analyzing ? 'Analyzing your code...' :
-      suggestions.length > 0 ? `${suggestions.length} suggestions found` :
-      ''}
-  </p>
-</div>
+          {/* Suggestions Header */}
+          <div
+            style={{
+              padding: "0.75rem 1.25rem",
+              marginTop: "1rem",
+              marginLeft: "1rem",
+              marginRight: "1rem",
+              backgroundColor: "#f8f9fa",
+              borderRadius: "9999px", // Fully rounded corners for pill shape
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+            }}
+          >
+            {/* Add a small colored dot indicator like in Image 2 */}
+            <div
+              style={{
+                width: "0.75rem",
+                height: "0.75rem",
+                backgroundColor: "#e74c32", // Using your brand color instead of green
+                borderRadius: "50%",
+              }}
+            ></div>
+
+            <h4
+              style={{
+                margin: 0,
+                fontSize: "1rem",
+                fontWeight: "400",
+                color: "#333",
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+              }}
+            >
+              Bit's Suggestions
+            </h4>
+          </div>
+
+          {/* Suggestions count as a separate element */}
+          <div
+            style={{
+              padding: "0.5rem 1.25rem",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.9rem",
+                color: "#666",
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+              }}
+            >
+              {analyzing
+                ? "Analyzing your code..."
+                : suggestions.length > 0
+                  ? `${suggestions.length} suggestions found`
+                  : ""}
+            </p>
+          </div>
 
           {/* Model Performance Context */}
-{modelInfo && (
-  <div style={{
-    margin: '1rem',
-    backgroundColor: '#ffffff',
-    borderRadius: '0.75rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-    overflow: 'hidden',
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-  }}>
-    {/* Section Header */}
-    <div style={{
-      padding: '0.75rem 1.25rem',
-      backgroundColor: '#f8f9fa',
-      borderBottom: '1px solid #f0f0f0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.75rem',
-    }}>
-      <h5 style={{ 
-        margin: 0, 
-        fontSize: '1rem', 
-        fontWeight: '300', 
-        color: '#333'
-      }}>
-        Current Model Performance
-      </h5>
-    </div>
-    
-    {/* Section Content */}
-    <div style={{ 
-      padding: '1rem 1.25rem',
-      fontSize: '0.9rem', 
-      color: '#666' 
-    }}>
-      {/* Metrics displayed in a clean, modern style */}
-      <div style={{ 
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '1rem',
-      }}>
-        {/* Accuracy */}
-        <div style={{
-          padding: '0.75rem',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '0.5rem',
-        }}>
-          <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-            Accuracy
-          </div>
-          <div style={{ fontSize: '1.25rem', fontWeight: '500', color: '#333' }}>
-            {((modelInfo.accuracy || 0) * 100).toFixed(1)}%
-          </div>
-        </div>
-        
-        {/* Precision */}
-        {modelInfo.precision && (
-          <div style={{
-            padding: '0.75rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '0.5rem',
-          }}>
-            <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-              Precision
+          {modelInfo && (
+            <div
+              style={{
+                margin: "1rem",
+                backgroundColor: "#ffffff",
+                borderRadius: "0.75rem",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                overflow: "hidden",
+                fontFamily:
+                  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+              }}
+            >
+              {/* Section Header */}
+              <div
+                style={{
+                  padding: "0.75rem 1.25rem",
+                  backgroundColor: "#f8f9fa",
+                  borderBottom: "1px solid #f0f0f0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                }}
+              >
+                <h5
+                  style={{
+                    margin: 0,
+                    fontSize: "1rem",
+                    fontWeight: "300",
+                    color: "#333",
+                  }}
+                >
+                  Current Model Performance
+                </h5>
+              </div>
+
+              {/* Section Content */}
+              <div
+                style={{
+                  padding: "1rem 1.25rem",
+                  fontSize: "0.9rem",
+                  color: "#666",
+                }}
+              >
+                {/* Metrics displayed in a clean, modern style */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "1rem",
+                  }}
+                >
+                  {/* Accuracy */}
+                  <div
+                    style={{
+                      padding: "0.75rem",
+                      backgroundColor: "#f8f9fa",
+                      borderRadius: "0.5rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "#666",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      Accuracy
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "1.25rem",
+                        fontWeight: "500",
+                        color: "#333",
+                      }}
+                    >
+                      {((modelInfo.accuracy || 0) * 100).toFixed(1)}%
+                    </div>
+                  </div>
+
+                  {/* Precision */}
+                  {modelInfo.precision && (
+                    <div
+                      style={{
+                        padding: "0.75rem",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "0.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "#666",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Precision
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "1.25rem",
+                          fontWeight: "500",
+                          color: "#333",
+                        }}
+                      >
+                        {(modelInfo.precision * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recall */}
+                  {modelInfo.recall && (
+                    <div
+                      style={{
+                        padding: "0.75rem",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "0.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "#666",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Recall
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "1.25rem",
+                          fontWeight: "500",
+                          color: "#333",
+                        }}
+                      >
+                        {(modelInfo.recall * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Framework */}
+                  <div
+                    style={{
+                      padding: "0.75rem",
+                      backgroundColor: "#f8f9fa",
+                      borderRadius: "0.5rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "#666",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      Framework
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "1.25rem",
+                        fontWeight: "300",
+                        color: "#333",
+                      }}
+                    >
+                      {modelInfo.framework || "Unknown"}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '1.25rem', fontWeight: '500', color: '#333' }}>
-              {(modelInfo.precision * 100).toFixed(1)}%
-            </div>
-          </div>
-        )}
-        
-        {/* Recall */}
-        {modelInfo.recall && (
-          <div style={{
-            padding: '0.75rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '0.5rem',
-          }}>
-            <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-              Recall
-            </div>
-            <div style={{ fontSize: '1.25rem', fontWeight: '500', color: '#333' }}>
-              {(modelInfo.recall * 100).toFixed(1)}%
-            </div>
-          </div>
-        )}
-        
-        {/* Framework */}
-        <div style={{
-          padding: '0.75rem',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '0.5rem',
-        }}>
-          <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-            Framework
-          </div>
-          <div style={{ fontSize: '1.25rem', fontWeight: '300', color: '#333' }}>
-            {modelInfo.framework || 'Unknown'}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+          )}
 
           {/* Suggestions List */}
-          <div style={{ 
-            flex: 1, 
-            overflow: 'auto', 
-            padding: '0.75rem', 
-          }}>
+          <div
+            style={{
+              flex: 1,
+              overflow: "auto",
+              padding: "0.75rem",
+            }}
+          >
             {analyzing && (
-              <div style={{
-                padding: '2rem',
-                textAlign: 'center',
-                color: '#666'
-              }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  border: '3px solid #f3f3f3',
-                  borderTop: '3px solid #e74c32',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  margin: '0 auto 1rem'
-                }}></div>
-                <p style={{ fontSize: '1rem' }}>Bit is analyzing your code...</p>
+              <div
+                style={{
+                  padding: "2rem",
+                  textAlign: "center",
+                  color: "#666",
+                }}
+              >
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    border: "3px solid #f3f3f3",
+                    borderTop: "3px solid #e74c32",
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                    margin: "0 auto 1rem",
+                  }}
+                ></div>
+                <p style={{ fontSize: "1rem" }}>
+                  Bit is analyzing your code...
+                </p>
               </div>
             )}
 
             {!analyzing && suggestions.length === 0 && (
-              <div style={{
-                padding: '3rem',
-                textAlign: 'center',
-                color: '#666'
-              }}>
-                <div style={{ 
-                  fontSize: '3rem', 
-                  marginBottom: '1.5rem', 
-                  color: '#e74c32' 
-                }}>._.</div>
-                <p style={{ fontSize: '1rem', lineHeight: '1.5' }}>
-                </p>
-                Bit Analyze
+              <div
+                style={{
+                  padding: "3rem",
+                  textAlign: "center",
+                  color: "#666",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "7.5rem",
+                    marginBottom: "1.5rem",
+                    color: "#e74c32",
+                  }}
+                >
+                  ._.
+                </div>
+                <p style={{ fontSize: "1rem", lineHeight: "1.5" }}></p>
               </div>
             )}
 
@@ -1349,141 +1510,194 @@ def improve_model():
               <div
                 key={index}
                 style={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #e1e1e1',
-                  borderRadius: '0.5rem',
-                  margin: '0 0 1rem 0',
-                  overflow: 'hidden',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                  borderLeft: `4px solid ${getSeverityColor(suggestion.severity)}`
+                  backgroundColor: "#fff",
+                  border: "1px solid #e1e1e1",
+                  borderRadius: "0.5rem",
+                  margin: "0 0 1rem 0",
+                  overflow: "hidden",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  borderLeft: `4px solid ${getSeverityColor(suggestion.severity)}`,
                 }}
               >
                 {/* Suggestion Header */}
                 <div
-                  onClick={() => setSelectedSuggestion(selectedSuggestion === index ? null : index)}
+                  onClick={() =>
+                    setSelectedSuggestion(
+                      selectedSuggestion === index ? null : index,
+                    )
+                  }
                   style={{
-                    padding: '1rem',
-                    borderBottom: selectedSuggestion === index ? '1px solid #e1e1e1' : 'none',
-                    cursor: 'pointer',
-                    backgroundColor: selectedSuggestion === index ? '#f9fafb' : '#fff'
+                    padding: "1rem",
+                    borderBottom:
+                      selectedSuggestion === index
+                        ? "1px solid #e1e1e1"
+                        : "none",
+                    cursor: "pointer",
+                    backgroundColor:
+                      selectedSuggestion === index ? "#f9fafb" : "#fff",
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{
-                        width: '0.75rem',
-                        height: '0.75rem',
-                        borderRadius: '50%',
-                        backgroundColor: getSeverityColor(suggestion.severity)
-                      }}></span>
-                      <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: '500', color: '#333' }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "0.75rem",
+                          height: "0.75rem",
+                          borderRadius: "50%",
+                          backgroundColor: getSeverityColor(
+                            suggestion.severity,
+                          ),
+                        }}
+                      ></span>
+                      <h5
+                        style={{
+                          margin: 0,
+                          fontSize: "1rem",
+                          fontWeight: "500",
+                          color: "#333",
+                        }}
+                      >
                         {suggestion.title}
                       </h5>
                     </div>
-                    <span style={{
-                      fontSize: '0.8rem',
-                      padding: '0.2rem 0.5rem',
-                      backgroundColor: '#f1f5f9',
-                      borderRadius: '0.25rem',
-                      color: '#64748b'
-                    }}>
+                    <span
+                      style={{
+                        fontSize: "0.8rem",
+                        padding: "0.2rem 0.5rem",
+                        backgroundColor: "#f1f5f9",
+                        borderRadius: "0.25rem",
+                        color: "#64748b",
+                      }}
+                    >
                       Line {suggestion.line}
                     </span>
                   </div>
-                  <p style={{
-                    margin: '0.75rem 0 0 0',
-                    fontSize: '0.9rem',
-                    color: '#666',
-                    lineHeight: 1.5
-                  }}>
+                  <p
+                    style={{
+                      margin: "0.75rem 0 0 0",
+                      fontSize: "0.9rem",
+                      color: "#666",
+                      lineHeight: 1.5,
+                    }}
+                  >
                     {suggestion.message}
                   </p>
                 </div>
 
                 {/* Expanded Content */}
                 {selectedSuggestion === index && (
-                  <div style={{ padding: '1rem', backgroundColor: '#f9fafb' }}>
+                  <div style={{ padding: "1rem", backgroundColor: "#f9fafb" }}>
                     {/* Suggestion Details */}
-                    <div style={{ marginBottom: '1rem' }}>
-                      <h6 style={{
-                        margin: '0 0 0.75rem 0',
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        color: '#333'
-                      }}>
+                    <div style={{ marginBottom: "1rem" }}>
+                      <h6
+                        style={{
+                          margin: "0 0 0.75rem 0",
+                          fontSize: "0.9rem",
+                          fontWeight: "600",
+                          color: "#333",
+                        }}
+                      >
                         Recommended Solution
                       </h6>
-                      <p style={{
-                        margin: 0,
-                        fontSize: '0.9rem',
-                        color: '#4b5563',
-                        lineHeight: 1.5
-                      }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.9rem",
+                          color: "#4b5563",
+                          lineHeight: 1.5,
+                        }}
+                      >
                         {suggestion.suggestion}
                       </p>
                     </div>
 
                     {/* Auto-fix Code */}
                     {suggestion.autoFix && (
-                      <div style={{ marginBottom: '1rem' }}>
-                        <h6 style={{
-                          margin: '0 0 0.75rem 0',
-                          fontSize: '0.9rem',
-                          fontWeight: '600',
-                          color: '#333'
-                        }}>
+                      <div style={{ marginBottom: "1rem" }}>
+                        <h6
+                          style={{
+                            margin: "0 0 0.75rem 0",
+                            fontSize: "0.9rem",
+                            fontWeight: "600",
+                            color: "#333",
+                          }}
+                        >
                           Suggested Code
                         </h6>
-                        <div style={{
-                          backgroundColor: '#1e1e1e',
-                          borderRadius: '0.25rem',
-                          overflow: 'hidden'
-                        }}>
+                        <div
+                          style={{
+                            backgroundColor: "#1e1e1e",
+                            borderRadius: "0.25rem",
+                            overflow: "hidden",
+                          }}
+                        >
                           <SyntaxHighlighter
                             language="python"
                             style={vscDarkPlus}
                             customStyle={{
                               margin: 0,
-                              fontSize: '0.85rem',
-                              backgroundColor: '#1e1e1e',
-                              padding: '1rem'
+                              fontSize: "0.85rem",
+                              backgroundColor: "#1e1e1e",
+                              padding: "1rem",
                             }}
                           >
                             {suggestion.autoFix}
                           </SyntaxHighlighter>
-                          
+
                           {/* Code footer with copy button */}
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '0.5rem 1rem',
-                            backgroundColor: '#252526',
-                            borderTop: '1px solid #333'
-                          }}>
-                            <span style={{ 
-                              color: '#aaa', 
-                              fontSize: '0.75rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.5rem'
-                            }}>
-                              <span style={{ color: '#e74c32', fontWeight: 'bold' }}>G</span>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "0.5rem 1rem",
+                              backgroundColor: "#252526",
+                              borderTop: "1px solid #333",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color: "#aaa",
+                                fontSize: "0.75rem",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                              }}
+                            >
+                              <span
+                                style={{ color: "#e74c32", fontWeight: "bold" }}
+                              >
+                                B
+                              </span>
                               Created by Bit
                             </span>
                             <button
-                              onClick={() => copyToClipboard(suggestion.autoFix, index)}
+                              onClick={() =>
+                                copyToClipboard(suggestion.autoFix, index)
+                              }
                               style={{
-                                background: 'none',
-                                border: '1px solid #555',
-                                borderRadius: '0.25rem',
-                                padding: '0.25rem 0.5rem',
-                                color: '#eee',
-                                fontSize: '0.75rem',
-                                cursor: 'pointer'
+                                background: "none",
+                                border: "1px solid #555",
+                                borderRadius: "0.25rem",
+                                padding: "0.25rem 0.5rem",
+                                color: "#eee",
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
                               }}
                             >
-                              {copiedCode === index ? 'Copied!' : 'Copy Code'}
+                              {copiedCode === index ? "Copied!" : "Copy Code"}
                             </button>
                           </div>
                         </div>
@@ -1491,22 +1705,31 @@ def improve_model():
                     )}
 
                     {/* Action Buttons */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                      }}
+                    >
                       <button
                         onClick={() => {
-                          console.log('Generate button clicked for suggestion:', suggestion);
+                          console.log(
+                            "Generate button clicked for suggestion:",
+                            suggestion,
+                          );
                           // Generate code with Gemini for this specific suggestion
                           generateCodeForSuggestion(suggestion);
                         }}
                         style={{
-                          padding: '0.5rem 1rem',
-                          fontSize: '0.85rem',
-                          backgroundColor: '#e74c32',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer',
-                          flex: 1
+                          padding: "0.5rem 1rem",
+                          fontSize: "0.85rem",
+                          backgroundColor: "#e74c32",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          flex: 1,
                         }}
                       >
                         Solve with Bit
@@ -1514,20 +1737,28 @@ def improve_model():
                       <button
                         onClick={() => {
                           // Scroll to the line in the code view
-                          const lineElements = document.querySelectorAll('.react-syntax-highlighter-line-number');
-                          if (lineElements && lineElements[suggestion.line - 1]) {
-                            lineElements[suggestion.line - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          const lineElements = document.querySelectorAll(
+                            ".react-syntax-highlighter-line-number",
+                          );
+                          if (
+                            lineElements &&
+                            lineElements[suggestion.line - 1]
+                          ) {
+                            lineElements[suggestion.line - 1].scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
                           }
                         }}
                         style={{
-                          padding: '0.5rem 1rem',
-                          fontSize: '0.85rem',
-                          backgroundColor: '#fff',
-                          color: '#333',
-                          border: '1px solid #e1e1e1',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer',
-                          flex: 1
+                          padding: "0.5rem 1rem",
+                          fontSize: "0.85rem",
+                          backgroundColor: "#fff",
+                          color: "#333",
+                          border: "1px solid #e1e1e1",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          flex: 1,
                         }}
                       >
                         Go to Line

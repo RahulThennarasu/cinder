@@ -1,25 +1,39 @@
-import React, { useState } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Cell, ReferenceLine, LineChart, Line
-} from 'recharts';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import React, { useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+  LineChart,
+  Line,
+} from "recharts";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
-const EnhancedPredictionDistribution = ({ 
-  predictionDistribution, 
-  errorAnalysis, 
+const EnhancedPredictionDistribution = ({
+  predictionDistribution,
+  errorAnalysis,
   modelInfo,
   confidenceAnalysis,
   featureImportance,
-  trainingHistory
+  trainingHistory,
 }) => {
   const [selectedClass, setSelectedClass] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
-  const [activeChartTab, setActiveChartTab] = useState('distribution');
+  const [activeChartTab, setActiveChartTab] = useState("distribution");
 
   // Add proper null checks
-  if (!predictionDistribution || !Array.isArray(predictionDistribution) || predictionDistribution.length === 0) {
+  if (
+    !predictionDistribution ||
+    !Array.isArray(predictionDistribution) ||
+    predictionDistribution.length === 0
+  ) {
     return (
       <div className="enhanced-chart-container">
         <h3 className="chart-title">Model Analysis</h3>
@@ -30,31 +44,39 @@ const EnhancedPredictionDistribution = ({
 
   // Get framework for code examples
   const getFramework = () => {
-    return modelInfo && modelInfo.framework ? modelInfo.framework.toLowerCase() : 'sklearn';
+    return modelInfo && modelInfo.framework
+      ? modelInfo.framework.toLowerCase()
+      : "sklearn";
   };
-  
+
   const framework = getFramework();
-  
+
   // Handle bar click
   const handleBarClick = (data) => {
-    setSelectedClass(selectedClass === data.class_name ? null : data.class_name);
+    setSelectedClass(
+      selectedClass === data.class_name ? null : data.class_name,
+    );
     setExpandedSection(null);
   };
 
   // Calculate expected distribution (ideally uniform)
   const calculateExpectedDistribution = () => {
-    if (!predictionDistribution || predictionDistribution.length === 0) return 0;
-    
-    const totalPredictions = predictionDistribution.reduce((sum, item) => sum + item.count, 0);
+    if (!predictionDistribution || predictionDistribution.length === 0)
+      return 0;
+
+    const totalPredictions = predictionDistribution.reduce(
+      (sum, item) => sum + item.count,
+      0,
+    );
     return totalPredictions / predictionDistribution.length;
   };
 
   const calculateImbalanceThreshold = () => {
     // If you have many classes, a smaller deviation might be significant
     if (predictionDistribution && predictionDistribution.length > 5) {
-        return 0.2; // 20% deviation threshold for many classes
+      return 0.2; // 20% deviation threshold for many classes
     } else {
-        return 0.3; // 30% deviation threshold for few classes
+      return 0.3; // 30% deviation threshold for few classes
     }
   };
 
@@ -64,61 +86,74 @@ const EnhancedPredictionDistribution = ({
   // Get class-specific error info
   const getClassErrors = (className) => {
     if (!errorAnalysis || !errorAnalysis.error_types) return null;
-    
-    const classId = parseInt(className.replace('Class ', ''));
-    
+
+    const classId = parseInt(className.replace("Class ", ""));
+
     // Find errors related to this class
-    const relevantErrors = errorAnalysis.error_types.filter(error => 
-      error.true_class === classId || error.predicted_class === classId
+    const relevantErrors = errorAnalysis.error_types.filter(
+      (error) =>
+        error.true_class === classId || error.predicted_class === classId,
     );
-    
+
     // Add confidence values from confidence analysis if available
     if (confidenceAnalysis && confidenceAnalysis.overconfident_examples) {
       // Find overconfident errors for this class
-      const overconfidentExamples = confidenceAnalysis.overconfident_examples.indices
-        .filter(idx => {
+      const overconfidentExamples =
+        confidenceAnalysis.overconfident_examples.indices.filter((idx) => {
           // Check if this index relates to the current class
           const errorSample = errorAnalysis.error_indices.includes(idx);
           return errorSample; // Add more conditions if needed
         });
-        
+
       // Add this info to your error analysis
       if (overconfidentExamples.length > 0) {
         relevantErrors.overconfident = overconfidentExamples;
       }
     }
-    
+
     return relevantErrors;
   };
-  
+
   // Determine if this class has imbalance issues
   const hasImbalanceIssue = (classData) => {
-    return Math.abs(classData.count - expectedCount) > (expectedCount * imbalanceThreshold);
+    return (
+      Math.abs(classData.count - expectedCount) >
+      expectedCount * imbalanceThreshold
+    );
   };
-  
+
   // Get code example for fixing class-specific issues
   const getCodeExample = (className, issue) => {
     // Extract class index from the class name
-    const classIdx = parseInt(className.replace('Class ', ''));
-    
+    const classIdx = parseInt(className.replace("Class ", ""));
+
     // Get model-specific parameters
-    const numClasses = predictionDistribution ? predictionDistribution.length : 2;
+    const numClasses = predictionDistribution
+      ? predictionDistribution.length
+      : 2;
     const batchSize = modelInfo?.batch_size || 32;
     const learningRate = 0.001; // Default value
-    
+
     // Class-specific data
-    const classData = predictionDistribution.find(d => d.class_name === className);
-    const totalSamples = predictionDistribution.reduce((sum, item) => sum + item.count, 0);
-    const classPercentage = classData ? (classData.count / totalSamples) * 100 : 0;
+    const classData = predictionDistribution.find(
+      (d) => d.class_name === className,
+    );
+    const totalSamples = predictionDistribution.reduce(
+      (sum, item) => sum + item.count,
+      0,
+    );
+    const classPercentage = classData
+      ? (classData.count / totalSamples) * 100
+      : 0;
     const expectedPercentage = 100 / numClasses;
     const weightMultiplier = expectedPercentage / classPercentage;
-    
+
     // Round to 2 decimal places for cleaner code
     const roundedWeight = Math.round(weightMultiplier * 100) / 100;
-    
-    if (issue === 'imbalance') {
+
+    if (issue === "imbalance") {
       // Generate framework-specific code with actual model parameters
-      if (framework === 'pytorch') {
+      if (framework === "pytorch") {
         return `# PyTorch: Fix class imbalance for ${className}
 # Current distribution: ${classPercentage.toFixed(1)}% (expected ${expectedPercentage.toFixed(1)}%)
 
@@ -152,7 +187,7 @@ train_loader = DataLoader(
     batch_size=${batchSize}, 
     sampler=sampler
 )`;
-      } else if (framework === 'tensorflow') {
+      } else if (framework === "tensorflow") {
         return `# TensorFlow: Fix class imbalance for ${className}
 # Current distribution: ${classPercentage.toFixed(1)}% (expected ${expectedPercentage.toFixed(1)}%)
 
@@ -232,16 +267,16 @@ model.fit(X_resampled, y_resampled)
 # Check new class distribution
 print(f"New distribution: {np.bincount(y_resampled)}")`;
       }
-    } else if (issue === 'errors') {
+    } else if (issue === "errors") {
       // Get class-specific error data if available
       const errorCount = errorAnalysis?.error_count || 0;
       const classErrors = getClassErrors(className);
       const errorTypes = classErrors ? classErrors.length : 0;
-      
+
       return `# Analyze errors for ${className}
 import numpy as np
 import matplotlib.pyplot as plt
-${framework === 'pytorch' ? 'import torch' : ''}
+${framework === "pytorch" ? "import torch" : ""}
 
 # Find ${className} error samples
 class_idx = ${classIdx}
@@ -251,7 +286,9 @@ class_idx = ${classIdx}
 # - Error types involving this class: ${errorTypes}
 
 # Get error indices
-${framework === 'pytorch' ? `
+${
+  framework === "pytorch"
+    ? `
 # PyTorch implementation
 model.eval()
 error_indices = []
@@ -267,9 +304,8 @@ with torch.no_grad():
         if class_errors.any():
             # Get the indices in the original dataset
             batch_error_indices = torch.where(class_errors)[0].cpu() + batch_idx * test_loader.batch_size
-            error_indices.extend(batch_error_indices.tolist())` 
-      : 
-      `# TensorFlow/sklearn implementation
+            error_indices.extend(batch_error_indices.tolist())`
+    : `# TensorFlow/sklearn implementation
 # Where true class is ${classIdx} but prediction is wrong
 true_class_errors = np.where((y_test == ${classIdx}) & (y_pred != ${classIdx}))[0]
 
@@ -277,7 +313,8 @@ true_class_errors = np.where((y_test == ${classIdx}) & (y_pred != ${classIdx}))[
 pred_class_errors = np.where((y_pred == ${classIdx}) & (y_test != ${classIdx}))[0]
 
 # Combine error indices
-error_indices = np.concatenate([true_class_errors, pred_class_errors])`}
+error_indices = np.concatenate([true_class_errors, pred_class_errors])`
+}
 
 # Visualize the errors
 if len(error_indices) > 0:
@@ -306,24 +343,29 @@ if len(error_indices) > 0:
     print(f"Found {len(error_indices)} errors involving {className}")
     print(f"Most common misclassification: {className} → Class {y_pred_errors[0]}")`;
     }
-    
-    return '';
+
+    return "";
   };
 
   // Render the details panel for a selected class
   const renderClassDetails = () => {
     if (!selectedClass) return null;
-    
-    const classData = predictionDistribution.find(d => d.class_name === selectedClass);
-    const totalPredictions = predictionDistribution.reduce((sum, item) => sum + item.count, 0);
+
+    const classData = predictionDistribution.find(
+      (d) => d.class_name === selectedClass,
+    );
+    const totalPredictions = predictionDistribution.reduce(
+      (sum, item) => sum + item.count,
+      0,
+    );
     const percentage = ((classData.count / totalPredictions) * 100).toFixed(1);
     const classErrors = getClassErrors(selectedClass);
     const hasImbalance = hasImbalanceIssue(classData);
-    
+
     return (
       <div className="class-details-panel">
         <h4 className="details-title">{selectedClass} Analysis</h4>
-        
+
         <div className="details-stats">
           <div className="stat-item">
             <span className="stat-label">Count</span>
@@ -339,60 +381,77 @@ if len(error_indices) > 0:
           </div>
           <div className="stat-item">
             <span className="stat-label">Deviation</span>
-            <span className={`stat-value ${Math.abs(classData.count - expectedCount) > (expectedCount * 0.2) ? 'warning' : ''}`}>
-              {((classData.count - expectedCount) / expectedCount * 100).toFixed(1)}%
+            <span
+              className={`stat-value ${Math.abs(classData.count - expectedCount) > expectedCount * 0.2 ? "warning" : ""}`}
+            >
+              {(
+                ((classData.count - expectedCount) / expectedCount) *
+                100
+              ).toFixed(1)}
+              %
             </span>
           </div>
         </div>
-        
+
         <div className="details-sections">
           {hasImbalance && (
             <div className="details-section">
-              <div 
+              <div
                 className="section-header"
-                onClick={() => setExpandedSection(expandedSection === 'imbalance' ? null : 'imbalance')}
+                onClick={() =>
+                  setExpandedSection(
+                    expandedSection === "imbalance" ? null : "imbalance",
+                  )
+                }
               >
-                <span className="section-icon warning">⚠️</span>
+                <span className="section-icon warning"></span>
                 <h5 className="section-title">Class Imbalance Detected</h5>
-                <span className="section-toggle">{expandedSection === 'imbalance' ? '−' : '+'}</span>
+                <span className="section-toggle">
+                  {expandedSection === "imbalance" ? "−" : "+"}
+                </span>
               </div>
-              
-              {expandedSection === 'imbalance' && (
+
+              {expandedSection === "imbalance" && (
                 <div className="section-content">
                   <p className="section-description">
-                    {classData.count > expectedCount 
-                      ? `This class is overrepresented (${percentage}% of predictions vs expected ${(expectedCount/totalPredictions*100).toFixed(1)}%).`
-                      : `This class is underrepresented (${percentage}% of predictions vs expected ${(expectedCount/totalPredictions*100).toFixed(1)}%).`
-                    }
+                    {classData.count > expectedCount
+                      ? `This class is overrepresented (${percentage}% of predictions vs expected ${((expectedCount / totalPredictions) * 100).toFixed(1)}%).`
+                      : `This class is underrepresented (${percentage}% of predictions vs expected ${((expectedCount / totalPredictions) * 100).toFixed(1)}%).`}
                   </p>
-                  
+
                   <div className="code-section">
                     <h6 className="code-title">Fix Class Imbalance</h6>
-                    <SyntaxHighlighter 
+                    <SyntaxHighlighter
                       language="python"
                       style={vscDarkPlus}
-                      customStyle={{ borderRadius: '6px' }}
+                      customStyle={{ borderRadius: "6px" }}
                     >
-                      {getCodeExample(selectedClass, 'imbalance')}
+                      {getCodeExample(selectedClass, "imbalance")}
                     </SyntaxHighlighter>
                   </div>
                 </div>
               )}
             </div>
           )}
-          
+
           {classErrors && classErrors.length > 0 && (
             <div className="details-section">
-              <div 
+              <div
                 className="section-header"
-                onClick={() => setExpandedSection(expandedSection === 'errors' ? null : 'errors')}
+                onClick={() =>
+                  setExpandedSection(
+                    expandedSection === "errors" ? null : "errors",
+                  )
+                }
               >
                 <span className="section-icon error"></span>
                 <h5 className="section-title">Error Analysis</h5>
-                <span className="section-toggle">{expandedSection === 'errors' ? '−' : '+'}</span>
+                <span className="section-toggle">
+                  {expandedSection === "errors" ? "−" : "+"}
+                </span>
               </div>
-              
-              {expandedSection === 'errors' && (
+
+              {expandedSection === "errors" && (
                 <div className="section-content">
                   <div className="error-table">
                     <div className="table-header">
@@ -406,15 +465,15 @@ if len(error_indices) > 0:
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="code-section">
                     <h6 className="code-title">Analyze Class Errors</h6>
-                    <SyntaxHighlighter 
+                    <SyntaxHighlighter
                       language="python"
                       style={vscDarkPlus}
-                      customStyle={{ borderRadius: '6px' }}
+                      customStyle={{ borderRadius: "6px" }}
                     >
-                      {getCodeExample(selectedClass, 'errors')}
+                      {getCodeExample(selectedClass, "errors")}
                     </SyntaxHighlighter>
                   </div>
                 </div>
@@ -429,44 +488,47 @@ if len(error_indices) > 0:
   // Render chart tabs
   const renderChartTabs = () => {
     const tabs = [
-      { id: 'distribution', label: 'Class Distribution' },
-      { id: 'training', label: 'Training History' },
-      { id: 'learning_rate', label: 'Learning Rate' }
+      { id: "distribution", label: "Class Distribution" },
+      { id: "training", label: "Training History" },
+      { id: "learning_rate", label: "Learning Rate" },
     ];
 
     return (
-      <div style={{ 
-        display: 'flex', 
-        gap: '8px', 
-        marginBottom: '20px', 
-        borderBottom: '2px solid #e5e7eb', 
-        paddingBottom: '8px' 
-      }}>
-        {tabs.map(tab => (
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "20px",
+          borderBottom: "2px solid #e5e7eb",
+          paddingBottom: "8px",
+        }}
+      >
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveChartTab(tab.id)}
             style={{
-              padding: '10px 16px',
-              border: 'none',
-              background: activeChartTab === tab.id ? '#e74c32' : 'none',
-              cursor: 'pointer',
-              borderRadius: activeChartTab === tab.id ? '8px 8px 0 0' : '8px',
-              fontWeight: '500',
-              transition: 'all 0.2s',
-              color: activeChartTab === tab.id ? 'white' : '#6b7280',
-              transform: activeChartTab === tab.id ? 'translateY(-2px)' : 'none'
+              padding: "10px 16px",
+              border: "none",
+              background: activeChartTab === tab.id ? "#e74c32" : "none",
+              cursor: "pointer",
+              borderRadius: activeChartTab === tab.id ? "8px 8px 0 0" : "8px",
+              fontWeight: "500",
+              transition: "all 0.2s",
+              color: activeChartTab === tab.id ? "white" : "#6b7280",
+              transform:
+                activeChartTab === tab.id ? "translateY(-2px)" : "none",
             }}
             onMouseOver={(e) => {
               if (activeChartTab !== tab.id) {
-                e.target.style.backgroundColor = '#f3f4f6';
-                e.target.style.color = '#374151';
+                e.target.style.backgroundColor = "#f3f4f6";
+                e.target.style.color = "#374151";
               }
             }}
             onMouseOut={(e) => {
               if (activeChartTab !== tab.id) {
-                e.target.style.backgroundColor = 'transparent';
-                e.target.style.color = '#6b7280';
+                e.target.style.backgroundColor = "transparent";
+                e.target.style.color = "#6b7280";
               }
             }}
           >
@@ -480,36 +542,47 @@ if len(error_indices) > 0:
   // Render chart content based on active tab
   const renderChartContent = () => {
     switch (activeChartTab) {
-      case 'distribution':
+      case "distribution":
         return (
           <div className="chart-wrapper">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart 
-                data={predictionDistribution} 
+              <BarChart
+                data={predictionDistribution}
                 margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="class_name" />
                 <YAxis />
-                <Tooltip 
-                  formatter={(value, name, props) => [`${value} samples`, `Count`]}
+                <Tooltip
+                  formatter={(value, name, props) => [
+                    `${value} samples`,
+                    `Count`,
+                  ]}
                   labelFormatter={(label) => `${label}`}
                 />
-                <ReferenceLine y={expectedCount} stroke="#666" strokeDasharray="3 3" />
+                <ReferenceLine
+                  y={expectedCount}
+                  stroke="#666"
+                  strokeDasharray="3 3"
+                />
                 <Bar dataKey="count" onClick={handleBarClick}>
                   {predictionDistribution.map((entry, index) => {
                     const isSelected = entry.class_name === selectedClass;
-                    const hasImbalance = Math.abs(entry.count - expectedCount) > (expectedCount * 0.3);
-                    
-                    let fillColor = '#e74c32';
-                    if (isSelected) fillColor = '#e74c32';
-                    else if (hasImbalance) fillColor = entry.count > expectedCount ? '#4e42f5' : '#ffba66';
-                    
+                    const hasImbalance =
+                      Math.abs(entry.count - expectedCount) >
+                      expectedCount * 0.3;
+
+                    let fillColor = "#e74c32";
+                    if (isSelected) fillColor = "#e74c32";
+                    else if (hasImbalance)
+                      fillColor =
+                        entry.count > expectedCount ? "#4e42f5" : "#ffba66";
+
                     return (
-                      <Cell 
-                        key={`cell-${index}`} 
+                      <Cell
+                        key={`cell-${index}`}
                         fill={fillColor}
-                        stroke={isSelected ? '#333' : 'none'}
+                        stroke={isSelected ? "#333" : "none"}
                         strokeWidth={isSelected ? 2 : 0}
                         cursor="pointer"
                       />
@@ -518,18 +591,27 @@ if len(error_indices) > 0:
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="chart-legend">
               <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: '#e74c32' }}></span>
+                <span
+                  className="legend-color"
+                  style={{ backgroundColor: "#e74c32" }}
+                ></span>
                 <span className="legend-label">Balanced Class</span>
               </div>
               <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: '#4e42f5' }}></span>
+                <span
+                  className="legend-color"
+                  style={{ backgroundColor: "#4e42f5" }}
+                ></span>
                 <span className="legend-label">Overrepresented</span>
               </div>
               <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: '#ffba66' }}></span>
+                <span
+                  className="legend-color"
+                  style={{ backgroundColor: "#ffba66" }}
+                ></span>
                 <span className="legend-label">Underrepresented</span>
               </div>
               <div className="legend-item">
@@ -540,7 +622,7 @@ if len(error_indices) > 0:
           </div>
         );
 
-      case 'training':
+      case "training":
         return (
           <div className="chart-wrapper">
             {trainingHistory && trainingHistory.length > 0 ? (
@@ -548,37 +630,97 @@ if len(error_indices) > 0:
                 <LineChart data={trainingHistory}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="iteration" />
-                  <YAxis yAxisId="left" label={{ value: 'Accuracy', angle: -90, position: 'insideLeft' }} />
-                  <YAxis yAxisId="right" orientation="right" label={{ value: 'Loss', angle: 90, position: 'insideRight' }} />
-                  <Tooltip formatter={(value, name) => [value.toFixed(4), name]} />
+                  <YAxis
+                    yAxisId="left"
+                    label={{
+                      value: "Accuracy",
+                      angle: -90,
+                      position: "insideLeft",
+                    }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    label={{
+                      value: "Loss",
+                      angle: 90,
+                      position: "insideRight",
+                    }}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [value.toFixed(4), name]}
+                  />
                   <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#e74c32" name="Accuracy" strokeWidth={2} />
-                  <Line yAxisId="right" type="monotone" dataKey="loss" stroke="#7dd3fc" name="Loss" strokeWidth={2} />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="accuracy"
+                    stroke="#e74c32"
+                    name="Accuracy"
+                    strokeWidth={2}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="loss"
+                    stroke="#7dd3fc"
+                    name="Loss"
+                    strokeWidth={2}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="empty-state" style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                className="empty-state"
+                style={{
+                  height: "300px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 No training history available
               </div>
             )}
           </div>
         );
 
-      case 'learning_rate':
+      case "learning_rate":
         return (
           <div className="chart-wrapper">
-            {trainingHistory && trainingHistory.length > 0 && trainingHistory[0].learning_rate ? (
+            {trainingHistory &&
+            trainingHistory.length > 0 &&
+            trainingHistory[0].learning_rate ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={trainingHistory}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="iteration" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [value.toExponential(4), 'Learning Rate']} />
-                  <Line type="monotone" dataKey="learning_rate" stroke="#e74c32" name="Learning Rate" strokeWidth={2} />
+                  <Tooltip
+                    formatter={(value) => [
+                      value.toExponential(4),
+                      "Learning Rate",
+                    ]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="learning_rate"
+                    stroke="#e74c32"
+                    name="Learning Rate"
+                    strokeWidth={2}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="empty-state" style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                className="empty-state"
+                style={{
+                  height: "300px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 No learning rate data available
               </div>
             )}
@@ -589,35 +731,42 @@ if len(error_indices) > 0:
         return null;
     }
   };
-  
+
   return (
     <div className="enhanced-chart-container">
       <h3 className="chart-title">Model Analysis Dashboard</h3>
-      
+
       {renderChartTabs()}
-      
+
       {renderChartContent()}
-      
-      {activeChartTab === 'distribution' && renderClassDetails()}
-      
-      {activeChartTab === 'distribution' && (
+
+      {activeChartTab === "distribution" && renderClassDetails()}
+
+      {activeChartTab === "distribution" && (
         <div className="chart-tips">
           <div className="tip-icon"></div>
-          <div className="tip-text">Click on any bar to see detailed analysis and code samples for that class</div>
+          <div className="tip-text">
+            Click on any bar to see detailed analysis and code samples for that
+            class
+          </div>
         </div>
       )}
 
-      {activeChartTab === 'training' && (
+      {activeChartTab === "training" && (
         <div className="chart-tips">
           <div className="tip-icon"></div>
-          <div className="tip-text">Track your model's learning progress over training iterations</div>
+          <div className="tip-text">
+            Track your model's learning progress over training iterations
+          </div>
         </div>
       )}
 
-      {activeChartTab === 'learning_rate' && (
+      {activeChartTab === "learning_rate" && (
         <div className="chart-tips">
           <div className="tip-icon"></div>
-          <div className="tip-text">Monitor how the learning rate changes during training</div>
+          <div className="tip-text">
+            Monitor how the learning rate changes during training
+          </div>
         </div>
       )}
     </div>
