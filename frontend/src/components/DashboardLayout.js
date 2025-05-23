@@ -26,34 +26,30 @@ const DashboardLayout = ({
   }
 
   // Render error state
-  if (error) {
-    return (
-      <div className="error-message">
-        <div className="error-header">
-          {/* Cinder logo in error state */}
-          <div className="error-logo">
-            <div className="cinder-circles">
-              <div className="cinder-circle-1"></div>
-              <div className="cinder-circle-2"></div>
-              <div className="cinder-circle-3"></div>
-            </div>
-            <span className="error-brand">Cinder</span>
-          </div>
+  // Render error state
+if (error) {
+  return (
+    <div className="minimalist-error-container">
+      {/* Big centered Cinder logo */}
+      <div className="error-logo-large">
+        <div className="cinder-circles">
+          <div className="cinder-circle-1"></div>
+          <div className="cinder-circle-2"></div>
+          <div className="cinder-circle-3"></div>
         </div>
-        <div className="error-title">Connection Error</div>
-        <div className="error-details">{error}</div>
-        <div className="card">
-          <h2 className="card-title">Troubleshooting Steps:</h2>
-          <ol style={{ paddingLeft: '1.5rem' }}>
-            <li>Make sure the API server is running on port 8000</li>
-            <li>Check if CORS is properly enabled on the server</li>
-            <li>Try running one of the example scripts like examples/mnist_demo.py</li>
-            <li>Check for any error messages in the server console</li>
-          </ol>
-        </div>
+        <span className="logo-text">Cinder</span>
       </div>
-    );
-  }
+      
+      {/* Pill-style error message with code format and red dot */}
+      <div className="error-pill">
+        <div className="status-dot"></div>
+        <code className="error-code">
+          Could not connect to the API server. Make sure it's running on http://localhost:8000
+        </code>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="dashboard">

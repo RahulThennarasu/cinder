@@ -690,20 +690,49 @@
   gap: 16px;
 }
 
-.model-suggestions-generate-button {
-  padding: 8px 16px;
-  background-color: #D5451B;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
+.bit-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.model-suggestions-generate-button:hover:not(:disabled) {
-  background-color: #D5451B;
+.bit-offset {
+  position: relative;
+  width: 14px;
+  height: 14px;
+}
+
+.offset-back {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 2px;
+}
+
+.offset-front {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border-radius: 2px;
+}
+
+.bit-text {
+  font-weight: 500;
+}
+
+.model-suggestions-generate-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  background-color: #f9fafb;
 }
 
 .model-suggestions-generate-button:disabled {

@@ -2040,7 +2040,7 @@ def improve_model():
             ))}
             {/* Diff View Information Banner (only when showing diffs) */}
 {showDiff && lastChanges.added.length > 0 && (
-  <div style={{ margin: "1rem", padding: "1rem", backgroundColor: "rgba(16, 185, 129, 0.1)", borderRadius: "0.5rem", border: "1px solid #10b981", fontSize: "0.9rem", color: "#064e3b" }}>
+  <div style={{ margin: "1rem", padding: "1rem", backgroundColor: "#f9fafb", borderRadius: "0.5rem", border: "1px solid #f9fafb", fontSize: "0.9rem", color: "black"}}>
     <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>Code Changes Applied</div>
     <div>
       <p style={{ margin: "0 0 0.5rem 0" }}>Added {lastChanges.added.length} new lines to the code</p>

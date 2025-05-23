@@ -166,11 +166,19 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
               onClick={() => generateCode(nodeId, framework)}
               disabled={isGenerating}
             >
-              {isGenerating 
-                ? 'Generating...' 
-                : hasGeneratedCode 
-                  ? 'Regenerate Code' 
-                  : 'Generate with Bit'}
+              <div className="bit-indicator">
+                <div className="bit-offset">
+                  <div className="offset-back"></div>
+                  <div className="offset-front"></div>
+                </div>
+                <span className="bit-text">
+                  {isGenerating 
+                    ? 'Generating...' 
+                    : hasGeneratedCode 
+                      ? 'Regenerate' 
+                      : 'Bit'}
+                </span>
+              </div>
             </button>
             
             {hasGeneratedCode && (
@@ -481,7 +489,7 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
         }
         
         .flowchart-generate-button {
-          background-color: #D5451B;
+          background-color: #f9f8fb;
           color: white;
           border: none;
           padding: 6px 12px;
@@ -489,10 +497,6 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
           font-size: 13px;
           cursor: pointer;
           transition: background-color 0.2s;
-        }
-        
-        .flowchart-generate-button:hover:not(:disabled) {
-          background-color: #d03a22;
         }
         
         .flowchart-generate-button:disabled {
@@ -505,7 +509,7 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
           color: #374151;
           border: 1px solid #e5e7eb;
           padding: 6px 12px;
-          border-radius: 4px;
+          border-radius: 12px;
           font-size: 13px;
           cursor: pointer;
           transition: all 0.2s;
@@ -526,6 +530,48 @@ const ModelImprovementFlowchart = ({ modelInfo, errorAnalysis, confidenceAnalysi
           color: #6b7280;
           background-color: #f9fafb;
           border-top: 1px solid #e5e7eb;
+        }
+        .bit-indicator {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .bit-offset {
+          position: relative;
+          width: 14px;
+          height: 14px;
+        }
+
+        .offset-back {
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 10px;
+          height: 10px;
+          background-color: rgba(255, 255, 255, 0.7);
+          border-radius: 2px;
+        }
+
+        .offset-front {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 10px;
+          height: 10px;
+          background-color: white;
+          border-radius: 2px;
+        }
+
+        .bit-text {
+          font-weight: 500;
+        }
+
+        .flowchart-generate-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
       `}</style>
     </div>

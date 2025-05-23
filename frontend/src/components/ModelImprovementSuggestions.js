@@ -348,14 +348,22 @@ const ModelImprovementSuggestions = () => {
                             onClick={() => generateCode(activeSection, activeTab)}
                             disabled={generatingCode}
                             className="model-suggestions-generate-button"
-                          >
-                            {generatingCode 
-                              ? 'Bit is thinking...' 
-                              : generatedCode[activeSection] && generatedCode[activeSection][activeTab]
-                                ? 'Regenerate'
-                                : 'Bit Code '
-                            }
-                          </button>
+                            >
+                            <div className="bit-indicator">
+                                <div className="bit-offset">
+                                <div className="offset-back"></div>
+                                <div className="offset-front"></div>
+                                </div>
+                                <span className="bit-text">
+                                {generatingCode 
+                                    ? 'Thinking...' 
+                                    : generatedCode[activeSection] && generatedCode[activeSection][activeTab]
+                                    ? 'Regenerate'
+                                    : 'Bit'
+                                }
+                                </span>
+                            </div>
+                            </button>
                           <div className="model-suggestions-code-framework">
                             <span className="model-suggestions-code-framework-label">Framework:</span>
                             <span className="model-suggestions-code-framework-value">{activeTab}</span>

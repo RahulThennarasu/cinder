@@ -542,164 +542,21 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
           </div>
         );
 
-      case "errors":
-        return (
-          <div className="grid grid-cols-2">
-            {/* Error Analysis */}
-            <div className="card">
-              <h3 className="card-title">Error Analysis</h3>
-              {errorAnalysis ? (
-                <div>
-                  <div className="stats-grid">
-                    <div className="stat-box">
-                      <div className="stat-label">Error Count</div>
-                      <div className="stat-value">
-                        {errorAnalysis.error_count}
-                      </div>
-                    </div>
-                    <div className="stat-box">
-                      <div className="stat-label">Error Rate</div>
-                      <div className="stat-value">
-                        {(errorAnalysis.error_rate * 100).toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="chart-section">
-                    <div className="metric-header">
-                      <span className="metric-label">Correct vs. Errors</span>
-                    </div>
-                    <div className="chart-container">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              {
-                                name: "Correct",
-                                value: errorAnalysis.correct_count,
-                              },
-                              {
-                                name: "Errors",
-                                value: errorAnalysis.error_count,
-                              },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={80}
-                            fill="#D5451B"
-                            dataKey="value"
-                            label={({ name, percent }) =>
-                              `${name} ${(percent * 100).toFixed(0)}%`
-                            }
-                          >
-                            <Cell fill="#7dd3fc" />
-                            <Cell fill="#D5451B" />
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="empty-state">Error analysis unavailable</div>
-              )}
-            </div>
-
-            {/* Error Types */}
-            <div className="card">
-              <h3 className="card-title">Error Types</h3>
-              {errorAnalysis && errorAnalysis.error_types ? (
-                <div className="scrollable">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Error Type</th>
-                        <th>Count</th>
-                        <th>Percentage</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {errorAnalysis.error_types.map((type, idx) => (
-                        <tr key={idx}>
-                          <td>
-                            <div className="table-label">
-                              {`Class ${type.true_class} → ${type.predicted_class}`}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="table-value">{type.count}</div>
-                          </td>
-                          <td>
-                            <div className="table-value">
-                              {(
-                                (type.count / errorAnalysis.error_count) *
-                                100
-                              ).toFixed(2)}
-                              %
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="empty-state">
-                  Error type analysis unavailable
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
-      case "features":
-        return (
-          <div className="grid">
-            {/* Feature Importance */}
-            <div className="card">
-              <h3 className="card-title">Feature Importance</h3>
-              {featureImportance ? (
-                <div>
-                  <div className="method-info">
-                    <span className="method-label">Method: </span>
-                    <span className="method-value">
-                      {featureImportance.importance_method}
-                    </span>
-                  </div>
-                  <div className="chart-container-tall">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={prepareFeatureImportanceData()}
-                        layout="vertical"
-                        margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" domain={[0, "dataMax"]} />
-                        <YAxis dataKey="name" type="category" width={100} />
-                        <Tooltip
-                          formatter={(value) => [
-                            (value * 100).toFixed(2) + "%",
-                            "Importance",
-                          ]}
-                        />
-                        <Bar dataKey="importance" fill="#D5451B" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ) : (
-                <div className="empty-state">
-                  Feature importance unavailable
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
       case "code":
-        return <CodeEditor modelInfo={modelInfo} />;
-
+        return (
+          <div className="code-editor-wrapper">
+            <div className="development-banner">
+              <div className="bit-indicator">
+                <div className="bit-offset">
+                  <div className="offset-back"></div>
+                  <div className="offset-front"></div>
+                </div>
+                <span className="bit-text">Under Development</span>
+              </div>
+            </div>
+            <CodeEditor modelInfo={modelInfo} />
+          </div>
+        );
       default:
         return <div>Select a tab to view data</div>;
     }
