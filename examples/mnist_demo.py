@@ -29,7 +29,7 @@ parent_dir = os.path.dirname(script_dir)
 sys.path.append(parent_dir)
 
 # Import CompileML components
-from cinder.cinder.model_interface.connector import ModelDebugger
+from cinder.model_interface.connector import ModelDebugger
 
 # Set random seed for reproducibility
 torch.manual_seed(42)
