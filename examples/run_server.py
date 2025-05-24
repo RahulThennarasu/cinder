@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 
-from cinder.model_interface.connector import ModelDebugger
+from cinder.cinder.model_interface.connector import ModelDebugger
 
 # Define a more complex model than the original simple example
 class NeuralNetwork(nn.Module):

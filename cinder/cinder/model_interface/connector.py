@@ -15,14 +15,14 @@ import torch
 import tensorflow as tf
 
 try:
-    from cinder.ml_analysis.improvement_advisor import ModelImprovementAdvisor
+    from cinder.cinder.ml_analysis.improvement_advisor import ModelImprovementAdvisor
 
     HAS_IMPROVEMENT_ADVISOR = True
 except ImportError:
     HAS_IMPROVEMENT_ADVISOR = False
 
 try:
-    from cinder.ml_analysis.code_generator import SimpleCodeGenerator
+    from cinder.cinder.ml_analysis.code_generator import SimpleCodeGenerator
 
     HAS_CODE_GENERATOR = True
 except ImportError:
@@ -1160,7 +1160,7 @@ class ModelDebugger:
     def launch_dashboard(self, port: int = 8000) -> None:
         """Launch the debugging dashboard server."""
         import threading
-        from cinder.app.server import start_server
+        from cinder.cinder.app.server import start_server
 
         # Analyze if not already done
         if self.predictions is None:

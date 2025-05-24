@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 
-from cinder.model_interface.connector import ModelDebugger
+from cinder.cinder.model_interface.connector import ModelDebugger
 
 # Define an overly complex model to cause overfitting
 class ComplexNeuralNetwork(nn.Module):
