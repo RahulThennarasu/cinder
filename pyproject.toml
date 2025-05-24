@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cinder-ml-dashboard"
+name = "ml-dashboard"
 version = "0.1.0"
 authors = [
   { name = "Rahul Thennarasu", email = "rahulthennarasu07@gmail.com" },
@@ -36,19 +36,19 @@ all = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/RahulThennarasu/cinder"
-"Bug Tracker" = "https://github.com/RahulThennarasu/cinder/issues"
+"Homepage" = "https://github.com/RahulThennarasu/ml-dashboard"
+"Bug Tracker" = "https://github.com/RahulThennarasu/ml-dashboard/issues"
 
 [project.scripts]
-cinder = "cinder.app.cli:main"
+ml-dashboard = "backend.app.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["cinder"]
+packages = ["backend"]
 only-packages = true
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "cinder",
+    "backend",
     "LICENSE",
     "README.md",
     "MANIFEST.in",

@@ -34,6 +34,10 @@ app = FastAPI(title="CompileML API")
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+else:
+    print(f"Warning: Static directory not found at {static_dir}")
+    print("The dashboard UI will not be available.")
+
 
 # Enable CORS - this is critical for connecting your React frontend
 app.add_middleware(
@@ -946,3 +950,221 @@ def start_server(model_debugger, port: int = 8000):
     uvicorn.run(app, host="0.0.0.0", port=port)
 
     return app
+
+def create_mock_debugger():
+    """Create a mock debugger for standalone testing."""
+    
+    class MockDebugger:
+        def __init__(self):
+            self.name = "Mock Model"
+            self.framework = "sklearn"
+            
+            # Generate some mock data
+            np.random.seed(42)
+            self.ground_truth = np.random.randint(0, 2, 100)
+            self.predictions = np.random.randint(0, 2, 100)
+            
+            # Make some predictions wrong to simulate errors
+            error_indices = np.random.choice(100, 20, replace=False)
+            self.predictions[error_indices] = 1 - self.predictions[error_indices]
+            
+            self.probabilities = np.random.random((100, 2))
+            # Normalize probabilities
+            self.probabilities = self.probabilities / self.probabilities.sum(axis=1, keepdims=True)
+            
+        def analyze(self):
+            """Return mock analysis results."""
+            accuracy = np.mean(self.predictions == self.ground_truth)
+            error_indices = np.where(self.predictions != self.ground_truth)[0].tolist()
+            
+            return {
+                "accuracy": float(accuracy),
+                "precision": 0.75,
+                "recall": 0.80,
+                "f1": 0.77,
+                "roc_auc": 0.85,
+                "error_analysis": {
+                    "error_count": len(error_indices),
+                    "error_rate": 1 - accuracy,
+                    "error_indices": error_indices,
+                    "error_types": [
+                        {"name": "False Positive", "value": 10},
+                        {"name": "False Negative", "value": 10}
+                    ]
+                },
+                "confusion_matrix": {
+                    "matrix": [[40, 10], [10, 40]],
+                    "labels": ["Class 0", "Class 1"],
+                    "num_classes": 2
+                },
+                "roc_curve": {
+                    "fpr": [0.0, 0.2, 0.4, 1.0],
+                    "tpr": [0.0, 0.6, 0.8, 1.0],
+                    "thresholds": [1.0, 0.8, 0.5, 0.0]
+                }
+            }
+        
+        def analyze_confidence(self):
+            """Return mock confidence analysis."""
+            correct_mask = self.predictions == self.ground_truth
+            correct_confidences = np.max(self.probabilities[correct_mask], axis=1)
+            incorrect_confidences = np.max(self.probabilities[~correct_mask], axis=1)
+            
+            return {
+                "avg_confidence": float(np.mean(np.max(self.probabilities, axis=1))),
+                "avg_correct_confidence": float(np.mean(correct_confidences)),
+                "avg_incorrect_confidence": float(np.mean(incorrect_confidences)),
+                "calibration_error": 0.15,
+                "confidence_distribution": {
+                    "bins": [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+                    "counts": [5, 10, 15, 25, 30, 15]
+                },
+                "overconfident_examples": {
+                    "indices": [1, 5, 10],
+                    "confidences": [0.95, 0.92, 0.88]
+                },
+                "underconfident_examples": {
+                    "indices": [20, 25, 30],
+                    "confidences": [0.55, 0.58, 0.52]
+                }
+            }
+        
+        def analyze_feature_importance(self):
+            """Return mock feature importance."""
+            return {
+                "feature_names": [f"Feature_{i}" for i in range(10)],
+                "importance_values": np.random.random(10).tolist(),
+                "importance_method": "mock_importance"
+            }
+        
+        def generate_improvement_suggestions(self, detail_level="comprehensive"):
+            """Return mock improvement suggestions."""
+            return {
+                "suggestions": [
+                    {
+                        "category": "Model Architecture",
+                        "issue": "Low model complexity",
+                        "suggestion": "Consider increasing model depth or width",
+                        "severity": 0.7,
+                        "impact": 0.8,
+                        "code_example": "# Add more layers to your model\nmodel.add(Dense(128, activation='relu'))"
+                    }
+                ],
+                "summary": {
+                    "total_suggestions": 1,
+                    "high_priority": 1,
+                    "estimated_improvement": 0.15
+                }
+            }
+        
+        def get_improvement_suggestions(self, detail_level="comprehensive"):
+            """Alias for generate_improvement_suggestions."""
+            return self.generate_improvement_suggestions(detail_level)
+        
+        def perform_cross_validation(self, k_folds=5):
+            """Return mock cross-validation results."""
+            fold_accuracies = np.random.uniform(0.75, 0.85, k_folds)
+            return {
+                "fold_results": [
+                    {"fold": i+1, "accuracy": float(acc), "precision": float(acc + 0.02), "recall": float(acc - 0.01)}
+                    for i, acc in enumerate(fold_accuracies)
+                ],
+                "mean_accuracy": float(np.mean(fold_accuracies)),
+                "std_accuracy": float(np.std(fold_accuracies)),
+                "n_folds": k_folds
+            }
+        
+        def analyze_prediction_drift(self, threshold=0.1):
+            """Return mock drift analysis."""
+            return {
+                "class_distribution": {"0": 50, "1": 50},
+                "prediction_distribution": {"0": 45, "1": 55},
+                "drift_scores": {"0": 0.05, "1": 0.05},
+                "drifting_classes": [],
+                "overall_drift": 0.05
+            }
+        
+        def get_training_history(self):
+            """Return mock training history."""
+            return [
+                {
+                    "iteration": i+1,
+                    "accuracy": 0.5 + 0.3 * (1 - np.exp(-i/10)),
+                    "loss": 2.0 * np.exp(-i/10),
+                    "learning_rate": 0.001,
+                    "timestamp": (datetime.now() - timedelta(minutes=20-i)).isoformat()
+                }
+                for i in range(20)
+            ]
+        
+        def analyze_error_types(self):
+            """Return mock error types."""
+            return [
+                {"name": "False Positive", "value": 10, "class_id": 0},
+                {"name": "False Negative", "value": 10, "class_id": 1}
+            ]
+        
+        def get_sample_predictions(self, limit=10, offset=0, include_errors_only=False):
+            """Return mock sample predictions."""
+            if include_errors_only:
+                error_indices = np.where(self.predictions != self.ground_truth)[0]
+                indices = error_indices[offset:offset+limit]
+            else:
+                indices = range(offset, min(offset+limit, len(self.predictions)))
+            
+            samples = []
+            for idx in indices:
+                if idx < len(self.predictions):
+                    samples.append({
+                        "index": int(idx),
+                        "prediction": int(self.predictions[idx]),
+                        "true_label": int(self.ground_truth[idx]),
+                        "is_error": bool(self.predictions[idx] != self.ground_truth[idx]),
+                        "confidence": float(np.max(self.probabilities[idx])),
+                        "probabilities": self.probabilities[idx].tolist()
+                    })
+            
+            return {
+                "samples": samples,
+                "total": len(self.predictions),
+                "limit": limit,
+                "offset": offset,
+                "include_errors_only": include_errors_only
+            }
+    
+    return MockDebugger()
+
+
+def main():
+    """Main function to run the server standalone."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='CompileML API Server')
+    parser.add_argument('--port', type=int, default=8000, help='Port to run the server on')
+    parser.add_argument('--mock', action='store_true', default=True, 
+                       help='Use mock debugger for testing')
+    
+    args = parser.parse_args()
+    
+    global debugger
+    
+    if args.mock:
+        print("Starting server with mock debugger for testing...")
+        debugger = create_mock_debugger()
+    else:
+        print("Starting server without debugger (will need to be connected externally)...")
+        debugger = None
+    
+    print(f"Starting CompileML API server on port {args.port}")
+    print(f"Server will be available at: http://localhost:{args.port}")
+    print("API documentation available at: http://localhost:{args.port}/docs")
+    
+    # Cleanup old visualizations
+    cleanup_old_visualizations()
+    
+    # Start the server
+    uvicorn.run(app, host="0.0.0.0", port=args.port)
+
+
+if __name__ == "__main__":
+    main()
