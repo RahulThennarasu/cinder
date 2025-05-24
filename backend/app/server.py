@@ -29,16 +29,12 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-app = FastAPI(title="CompileML API")
+app = FastAPI(title="Cinder API")
 
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-if os.path.exists(static_dir):
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
-
-# Enable CORS - this is critical for connecting your React frontend
+# CORS Middleware - Make sure this is enabled
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development only - restrict in production
+    allow_origins=["*"],  # For development only
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -258,9 +254,9 @@ def cleanup_old_visualizations(max_age_seconds=3600):  # Default: 1 hour
 
 
 # Root endpoint
-@app.get("/")
-async def root():
-    return {"message": "CompileML API is running", "version": "1.0.0"}
+# @app.get("/")
+# async def root():
+#    return {"message": "Cinder API is running", "version": "1.0.0"}
 
 
 # Status endpoint
@@ -946,3 +942,21 @@ def start_server(model_debugger, port: int = 8000):
     uvicorn.run(app, host="0.0.0.0", port=port)
 
     return app
+
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    # First, define the root endpoint to serve index.html
+    @app.get("/", response_class=FileResponse)
+    async def serve_index():
+        index_path = os.path.join(static_dir, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"message": "Cinder API is running but frontend is not available"}
+    
+    # Then mount the nested static directory
+    nested_static = os.path.join(static_dir, "static")
+    if os.path.exists(nested_static):
+        app.mount("/static", StaticFiles(directory=nested_static), name="static_files")
+    
+    # Then mount the root static directory for other files
+    app.mount("/", StaticFiles(directory=static_dir), name="root_static")

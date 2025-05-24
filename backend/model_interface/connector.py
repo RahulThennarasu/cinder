@@ -1166,7 +1166,7 @@ class ModelDebugger:
         if self.predictions is None:
             self.analyze()
 
-        print(f"CompileML dashboard is running at http://localhost:{port}")
+        print(f"Cinder dashboard is running at http://localhost:{port}")
         print("Press Ctrl+C to stop the server")
 
         # Start the server in a separate thread
