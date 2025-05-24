@@ -12,6 +12,9 @@ from typing import List, Dict, Any
 import inspect
 from pathlib import Path
 
+from fastapi.staticfiles import StaticFiles
+import importlib.resources as pkg_resources
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +30,10 @@ import matplotlib
 matplotlib.use("Agg")
 
 app = FastAPI(title="CompileML API")
+
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 # Enable CORS - this is critical for connecting your React frontend
 app.add_middleware(
