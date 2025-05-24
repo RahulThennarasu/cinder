@@ -7,7 +7,7 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from cinder.cinder.model_interface.connector import ModelDebugger
+from backend.model_interface.connector import ModelDebugger
 
 # Define a simple model (same as before)
 class SimpleNN(nn.Module):

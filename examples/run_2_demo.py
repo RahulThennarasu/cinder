@@ -9,7 +9,11 @@ import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 
+<<<<<<< HEAD
 from cinder.model_interface.connector import ModelDebugger
+=======
+from backend.model_interface.connector import ModelDebugger
+>>>>>>> parent of 28e1e4f (commit)
 
 # Define a more complex model than the original simple example
 class NeuralNetwork(nn.Module):

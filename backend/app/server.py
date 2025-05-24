@@ -51,7 +51,7 @@ debugger = None
 os.makedirs("temp_visualizations", exist_ok=True)
 
 try:
-    from cinder.cinder.ml_analysis.code_generator import SimpleCodeGenerator
+    from backend.ml_analysis.code_generator import SimpleCodeGenerator
 
     HAS_CODE_GENERATOR = True
 except ImportError:
