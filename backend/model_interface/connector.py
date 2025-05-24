@@ -66,7 +66,7 @@ class ModelDebugger:
         logging.info(f"Initialized ModelDebugger for {self.framework} model: {name}")
         if self.source_file_path:
             logging.info(f"Source file captured: {self.source_file_path}")
-        
+
     def _capture_source_file_path(self):
         """Capture the file path of the script that created this ModelDebugger instance."""
         try:

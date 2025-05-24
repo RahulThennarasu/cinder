@@ -1,3 +1,3 @@
 include LICENSE
 include README.md
-recursive-include backend/app/static *
+recursive-include cinder/app/static *
