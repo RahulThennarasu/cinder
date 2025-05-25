@@ -1,5 +1,6 @@
 # Cinder
 
+<<<<<<< Updated upstream
 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="60" viewBox="0 0 200 100">
   <g transform="translate(10, 50)">
     <!-- Outer circle -->
@@ -11,6 +12,11 @@
   </g>
   <text x="50" y="64" font-family="Arial, sans-serif" font-size="24" font-weight="600" fill="#D5451B" letter-spacing="-0.8px">Cinder</text>
 </svg>
+=======
+<img src="./assets/cinder-logo.svg" width="200" alt="Cinder Logo">
+
+**Cinder** is a comprehensive machine learning model debugging and analysis tool designed to provide visual insights, performance metrics, and improvement suggestions for ML models. It supports multiple frameworks including PyTorch, TensorFlow, and scikit-learn.
+>>>>>>> Stashed changes
 
 Cinder is a comprehensive machine learning model debugging and analysis tool designed to provide visual insights, performance metrics, and improvement suggestions for ML models. It supports multiple frameworks including PyTorch, TensorFlow, and scikit-learn.
 
