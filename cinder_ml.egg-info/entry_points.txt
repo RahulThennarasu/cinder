@@ -1,0 +1,2 @@
+[console_scripts]
+cinder = cinder.cli:main

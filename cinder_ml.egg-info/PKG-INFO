@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: cinder-ml
+Version: 1.0.7
+Summary: ML model debugging and analysis dashboard
+Home-page: https://github.com/RahulThennarasu/cinder
+Author: Rahul Thennarasu
+Author-email: rahulthennarasu07@gmail.com
+Requires-Python: >=3.8
+Requires-Dist: fastapi>=0.95.0
+Requires-Dist: uvicorn>=0.21.0
+Requires-Dist: numpy>=1.23.0
+Requires-Dist: scikit-learn>=1.0.0
+Requires-Dist: matplotlib>=3.5.0
+Requires-Dist: python-dotenv>=1.0.0
+Provides-Extra: pytorch
+Requires-Dist: torch>=1.12.0; extra == "pytorch"
+Provides-Extra: tensorflow
+Requires-Dist: tensorflow>=2.8.0; extra == "tensorflow"
+Provides-Extra: all
+Requires-Dist: torch>=1.12.0; extra == "all"
+Requires-Dist: tensorflow>=2.8.0; extra == "all"
+Requires-Dist: google-generativeai>=0.3.0; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
