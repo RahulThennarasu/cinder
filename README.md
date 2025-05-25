@@ -1,5 +1,17 @@
 # Cinder
 
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60" viewBox="0 0 200 100">
+  <g transform="translate(10, 50)">
+    <!-- Outer circle -->
+    <circle cx="16" cy="16" r="16" fill="#FF9B45" fill-opacity="0.7" />
+    <!-- Middle circle -->
+    <circle cx="16" cy="16" r="11" fill="#D5451B" fill-opacity="0.8" />
+    <!-- Inner circle -->
+    <circle cx="16" cy="16" r="5" fill="#521C0D" />
+  </g>
+  <text x="50" y="64" font-family="Arial, sans-serif" font-size="24" font-weight="600" fill="#D5451B" letter-spacing="-0.8px">Cinder</text>
+</svg>
+
 Cinder is a comprehensive machine learning model debugging and analysis tool designed to provide visual insights, performance metrics, and improvement suggestions for ML models. It supports multiple frameworks including PyTorch, TensorFlow, and scikit-learn.
 
 ## Installation
