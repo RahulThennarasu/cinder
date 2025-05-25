@@ -1,7 +1,5 @@
 # Cinder
 
-## Machine Learning Model Analysis Dashboard
-
 **Cinder** is a comprehensive machine learning model debugging and analysis tool designed to provide visual insights, performance metrics, and improvement suggestions for ML models. It supports multiple frameworks including PyTorch, TensorFlow, and scikit-learn.
 
 ---
