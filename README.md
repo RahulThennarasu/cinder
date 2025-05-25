@@ -292,10 +292,6 @@ class YourDataset:
         return inputs_batch, targets_batch
 ```
 
-## License
-
-MIT
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
