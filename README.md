@@ -1,6 +1,7 @@
-# Cinder
-
-<img src="./assets/cinder-logo.svg" width="200" alt="Cinder Logo">
+<div align="center">
+  <img src="https://raw.githubusercontent.com/YourUsername/cinder/main/assets/cinder-logo.svg" width="80" height="80" alt="Cinder Logo">
+  <h1>Cinder</h1>
+</div>
 
 Cinder is a comprehensive machine learning model debugging and analysis tool designed to provide visual insights, performance metrics, and improvement suggestions for ML models. It supports multiple frameworks including PyTorch, TensorFlow, and scikit-learn.
 
