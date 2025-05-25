@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/YourUsername/cinder/main/assets/cinder-logo.svg" width="80" height="80" alt="Cinder Logo">
+  <img src="assets/cinder-logo.svg" width="80" height="80" alt="Cinder Logo">
   <h1>Cinder</h1>
 </div>
 
