@@ -13,11 +13,16 @@ backend/app/static/logo192.png
 backend/app/static/logo512.png
 backend/app/static/manifest.json
 backend/app/static/robots.txt
+backend/app/static/static/css/main.1b3d4f25.css
+backend/app/static/static/css/main.1b3d4f25.css.map
 backend/app/static/static/css/main.ea1cb791.css
 backend/app/static/static/css/main.ea1cb791.css.map
 backend/app/static/static/js/main.4c79c613.js
 backend/app/static/static/js/main.4c79c613.js.LICENSE.txt
 backend/app/static/static/js/main.4c79c613.js.map
+backend/app/static/static/js/main.ba801f60.js
+backend/app/static/static/js/main.ba801f60.js.LICENSE.txt
+backend/app/static/static/js/main.ba801f60.js.map
 backend/ml_analysis/__init__.py
 backend/ml_analysis/code_generator.py
 backend/ml_analysis/improvement_advisor.py
@@ -33,6 +38,7 @@ backend/model_interface/__pycache__/connector.cpython-313.pyc
 backend/model_interface/__pycache__/live_operations.cpython-312.pyc
 cinder/__init__.py
 cinder/cli.py
+cinder/__pycache__/__init__.cpython-312.pyc
 cinder/__pycache__/__init__.cpython-313.pyc
 cinder_ml.egg-info/PKG-INFO
 cinder_ml.egg-info/SOURCES.txt

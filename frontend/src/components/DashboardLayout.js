@@ -57,19 +57,13 @@ if (error) {
       <header className="header">
         <div className="header-content">
           <div className="logo-section">
-            {/* Main Cinder Logo */}
-            <div className="cinder-logo">
-              <div className="cinder-circles">
-                <div className="cinder-circle-1"></div>
-                <div className="cinder-circle-2"></div>
-                <div className="cinder-circle-3"></div>
-              </div>
-              <div className="logo-text">
-                <h1 className="title">Cinder</h1>
-              </div>
+          <div className="footer-logo" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div className="cinder-diamond">
+              <div className="diamond-inner"></div>
             </div>
+            <span className="logo-text" style={{ fontSize: '32px' }}>Cinder</span>
           </div>
-          
+        </div>
           <div className="header-center">
             {/* Model info with Bit branding */}
             {modelInfo && (
@@ -123,12 +117,14 @@ if (error) {
         <div className="footer-content">
           <div className="footer-left">
             <div className="footer-brand">
-              <div className="cinder-circles-small">
-                <div className="cinder-circle-1-small"></div>
-                <div className="cinder-circle-2-small"></div>
-                <div className="cinder-circle-3-small"></div>
-              </div>
-              <span className="footer-brand-text">Cinder v1.0.0</span>
+              <div className="logo-section">
+          <div className="footer-logo" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="cinder-diamond">
+              <div className="diamond-inner"></div>
+            </div>
+          </div>
+        </div>
+              <span className="footer-brand-text">Cinder v1.0.8</span>
             </div>
           </div>
           <div className="footer-right">

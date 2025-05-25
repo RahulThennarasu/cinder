@@ -1754,3 +1754,20 @@ pre {
   font-size: 14px;
   color: #4a5568;
 }
+
+/* Add to Logo.css */
+.cinder-diamond {
+  width: 32px;
+  height: 32px;
+  position: relative;
+  transform: rotate(45deg);
+}
+
+.diamond-inner {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #FF9B45 0%, #D5451B 100%);
+  position: absolute;
+  top: 4px;
+  left: 4px;
+}
