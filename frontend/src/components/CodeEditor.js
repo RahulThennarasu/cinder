@@ -175,53 +175,198 @@ const CodeEditor = ({ modelInfo }) => {
     return insertLine;
   };
 
-  // Apply suggested code to main code
-  const applySuggestion = (suggestion) => {
-    // Save current code to history for undo
-    setChangeHistory((prev) => [...prev, code]);
-
-    const codeLines = code.split("\n");
-    const insertLine = findInsertLocation(suggestion.line, suggestion.type);
-
-    // Parse the suggested code
-    const suggestionLines = suggestion.autoFix.split("\n");
-
-    // Remove comment lines for cleaner insertion
-    const codeToInsert = suggestionLines
-      .filter((line) => !line.trim().startsWith("#"))
-      .join("\n");
-
-    // Track what's being added for highlighting
-    const addedLines = [];
-
-    // Create new code with insertion
-    const newCodeLines = [...codeLines];
-    const insertPoint = insertLine;
-
-    // Insert the code and track added lines
-    newCodeLines.splice(insertPoint, 0, codeToInsert);
-
-    for (let i = 0; i < suggestionLines.length; i++) {
-      if (!suggestionLines[i].trim().startsWith("#")) {
-        addedLines.push(insertPoint + i);
+  // Helper: Find appropriate code sections to replace
+const findReplacementBoundaries = (suggestionType, suggestionLine) => {
+  const codeLines = code.split("\n");
+  
+  // Default: Just insert at the line without replacement
+  let startLine = Math.min(suggestionLine, codeLines.length);
+  let endLine = startLine;
+  
+  // For different suggestion types, find appropriate code sections to replace
+  switch (suggestionType.toLowerCase()) {
+    case "overfitting":
+      // Look for existing dropout layers or regularization code
+      return findMethodOrBlockBoundaries(codeLines, startLine, ["dropout", "regularization", "weight_decay"]);
+    
+    case "performance":
+      // For performance issues, look for existing optimization code
+      return findMethodOrBlockBoundaries(codeLines, startLine, ["optimizer", "learning_rate", "scheduler"]);
+    
+    case "data":
+      // For data preprocessing issues
+      return findMethodOrBlockBoundaries(codeLines, startLine, ["preprocess", "transform", "normalize", "sampler"]);
+      
+    case "optimization":
+      // For learning rate or optimizer suggestions
+      return findMethodOrBlockBoundaries(codeLines, startLine, ["optimizer", "adam", "sgd", "learning_rate"]);
+      
+    case "model_capacity":
+      // For model architecture improvements
+      if (code.includes("class ")) {
+        // If it's inside a class definition, try to find the relevant method
+        const methodBoundaries = findMethodBoundaries(codeLines, "forward");
+        if (methodBoundaries.startLine > 0) {
+          return methodBoundaries;
+        }
       }
+      return findMethodOrBlockBoundaries(codeLines, startLine, ["layer", "linear", "conv", "dense"]);
+      
+    default:
+      // Just use the insertion point without replacement
+      return { startLine, endLine };
+  }
+};
+
+// Helper: Find method boundaries by name
+const findMethodBoundaries = (codeLines, methodName) => {
+  const methodPattern = new RegExp(`\\s*def\\s+${methodName}\\s*\\(`);
+  let startLine = -1;
+  
+  // Find the method definition
+  for (let i = 0; i < codeLines.length; i++) {
+    if (methodPattern.test(codeLines[i])) {
+      startLine = i;
+      break;
     }
+  }
+  
+  if (startLine === -1) {
+    return { startLine: 0, endLine: 0 }; // Method not found
+  }
+  
+  // Find the end of the method (next method or end of indentation)
+  const indentMatch = codeLines[startLine].match(/^(\s*)/);
+  const baseIndent = indentMatch ? indentMatch[1].length : 0;
+  
+  let endLine = startLine + 1;
+  while (endLine < codeLines.length) {
+    // Check if we've reached a line with same or less indentation (excluding empty lines)
+    const line = codeLines[endLine];
+    if (line.trim() !== '' && !line.startsWith(' '.repeat(baseIndent + 4))) {
+      break;
+    }
+    endLine++;
+  }
+  
+  return { startLine, endLine };
+};
 
-    const newCode = newCodeLines.join("\n");
-    setCode(newCode);
+// Helper: Find boundaries for a code block containing any of the keywords
+const findMethodOrBlockBoundaries = (codeLines, nearLine, keywords) => {
+  // First, check nearby lines for any of the keywords
+  const searchRadius = 10; // Look 10 lines before and after
+  const startSearch = Math.max(0, nearLine - searchRadius);
+  const endSearch = Math.min(codeLines.length, nearLine + searchRadius);
+  
+  let keywordLine = -1;
+  
+  // Find the first line with a keyword
+  for (let i = startSearch; i < endSearch; i++) {
+    const line = codeLines[i].toLowerCase();
+    if (keywords.some(keyword => line.includes(keyword.toLowerCase()))) {
+      keywordLine = i;
+      break;
+    }
+  }
+  
+  // If we found a keyword line, find the boundaries of its block
+  if (keywordLine >= 0) {
+    // Find the start of the statement (could be a multi-line statement)
+    let startLine = keywordLine;
+    while (startLine > 0) {
+      // Go back until we find a line that doesn't end with a continuation character
+      // or has less indentation
+      const prevLine = codeLines[startLine - 1];
+      if (!prevLine.trim().endsWith('\\') && 
+          (prevLine.trim() === '' || getIndentation(prevLine) < getIndentation(codeLines[keywordLine]))) {
+        break;
+      }
+      startLine--;
+    }
+    
+    // Find the end of the statement or block
+    let endLine = keywordLine;
+    const baseIndent = getIndentation(codeLines[keywordLine]);
+    
+    while (endLine < codeLines.length - 1) {
+      const nextLine = codeLines[endLine + 1];
+      // If we find a line with same or less indentation, we've reached the end of the block
+      if (nextLine.trim() !== '' && getIndentation(nextLine) <= baseIndent && !codeLines[endLine].trim().endsWith('\\')) {
+        break;
+      }
+      endLine++;
+    }
+    
+    return { startLine, endLine: endLine + 1 }; // +1 because we want to include the end line
+  }
+  
+  // If no relevant code found, just return the original line for insertion
+  return { startLine: nearLine, endLine: nearLine };
+};
 
-    // Track changes for highlighting
-    setLastChanges({
-      added: addedLines,
-      removed: [],
-    });
+// Helper: Get indentation level
+const getIndentation = (line) => {
+  const match = line.match(/^(\s*)/);
+  return match ? match[1].length : 0;
+};
 
-    // Show diff view
-    setShowDiff(true);
+  // Apply suggested code to main code
+  // IMPROVED: Apply suggested code to main code
+const applySuggestion = (suggestion) => {
+  // Save current code to history for undo
+  setChangeHistory((prev) => [...prev, code]);
 
-    // Update suggestions list
-    setSuggestions((prev) => prev.filter((s) => s.title !== suggestion.title));
-  };
+  const codeLines = code.split("\n");
+  
+  // Find where to replace code
+  const { startLine, endLine } = findReplacementBoundaries(suggestion.type, suggestion.line);
+  
+  // Parse the suggested code
+  const suggestionLines = suggestion.autoFix.split("\n");
+
+  // Remove comment lines for cleaner insertion
+  const codeToInsert = suggestionLines
+    .filter((line) => !line.trim().startsWith("#"))
+    .join("\n");
+
+  // Track what's being added and removed for highlighting
+  const addedLines = [];
+  const removedLines = [];
+
+  // Create new code with replacement
+  const newCodeLines = [...codeLines];
+  
+  // Record removed lines
+  for (let i = startLine; i < endLine; i++) {
+    removedLines.push(i);
+  }
+  
+  // Replace lines
+  newCodeLines.splice(startLine, endLine - startLine, codeToInsert);
+  
+  // Track added lines
+  for (let i = 0; i < suggestionLines.length; i++) {
+    if (!suggestionLines[i].trim().startsWith("#")) {
+      addedLines.push(startLine + i);
+    }
+  }
+
+  const newCode = newCodeLines.join("\n");
+  setCode(newCode);
+
+  // Track changes for highlighting
+  setLastChanges({
+    added: addedLines,
+    removed: removedLines,
+  });
+
+  // Show diff view
+  setShowDiff(true);
+
+  // Update suggestions list
+  setSuggestions((prev) => prev.filter((s) => s.title !== suggestion.title));
+};
 
   // Undo last code change
   const undoChange = () => {
@@ -1285,35 +1430,41 @@ def improve_model():
         </div>
 
         {/* Status Bar */}
-        <div
-          style={{
-            padding: "0.4rem 1.5rem",
-            backgroundColor: "#f8f9fa",
-            color: "black",
-            fontFamily: 'Consolas, "Courier New", monospace',
-            fontSize: "0.75rem",
-            fontWeight: "500",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>model_code.py</span>
-          <div>
-            <span>{code.split("\n").length} lines</span>
-            {showDiff && (
-              <span style={{ marginLeft: "1rem", color: "#10b981" }}>
-                {lastChanges.added.length > 0 &&
-                  `+${lastChanges.added.length} lines added`}
-              </span>
-            )}
-            {suggestions.length > 0 && (
-              <span style={{ marginLeft: "1rem" }}>
-                {suggestions.length} suggestions
-              </span>
-            )}
-          </div>
-        </div>
+<div
+  style={{
+    padding: "0.4rem 1.5rem",
+    backgroundColor: "#f8f9fa",
+    color: "black",
+    fontFamily: 'Consolas, "Courier New", monospace',
+    fontSize: "0.75rem",
+    fontWeight: "500",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  }}
+>
+  <span>model_code.py</span>
+  <div>
+    <span>{code.split("\n").length} lines</span>
+    {showDiff && (
+      <>
+        <span style={{ marginLeft: "1rem", color: "#10b981" }}>
+          {lastChanges.added.length > 0 &&
+            `+${lastChanges.added.length} lines added`}
+        </span>
+        <span style={{ marginLeft: "1rem", color: "#ef4444" }}>
+          {lastChanges.removed.length > 0 &&
+            `-${lastChanges.removed.length} lines removed`}
+        </span>
+      </>
+    )}
+    {suggestions.length > 0 && (
+      <span style={{ marginLeft: "1rem" }}>
+        {suggestions.length} suggestions
+      </span>
+    )}
+  </div>
+</div>
 
         {/* Code Viewer (Read-only) */}
         <div
@@ -1353,29 +1504,38 @@ def improve_model():
             }}
             wrapLines={true}
             lineProps={(lineNumber) => {
-              // Highlight lines with suggestions
-              const hasSuggestion = suggestions.some(
-                (s) => s.line === lineNumber,
-              );
+  // Highlight lines with suggestions
+  const hasSuggestion = suggestions.some(
+    (s) => s.line === lineNumber,
+  );
 
-              // Highlight added lines
-              const isAdded = lastChanges.added.includes(lineNumber);
+  // Highlight added lines
+  const isAdded = lastChanges.added.includes(lineNumber);
+  
+  // Highlight removed lines
+  const isRemoved = lastChanges.removed.includes(lineNumber);
 
-              // Decide on style based on highlights
-              let style = { display: "block" };
+  // Decide on style based on highlights
+  let style = { display: "block" };
 
-              if (isAdded) {
-                style.backgroundColor = "rgba(16, 185, 129, 0.1)"; // Light green for added
-                style.borderLeft = "3px solid #10b981";
-                style.paddingLeft = "1rem";
-              } else if (hasSuggestion) {
-                style.backgroundColor = "rgba(231, 76, 50, 0.1)"; // Light red for suggestions
-                style.borderLeft = "3px solid #D5451B";
-                style.paddingLeft = "1rem";
-              }
+  if (isAdded) {
+    style.backgroundColor = "rgba(16, 185, 129, 0.1)"; // Light green for added
+    style.borderLeft = "3px solid #10b981";
+    style.paddingLeft = "1rem";
+  } else if (isRemoved && showDiff) {
+    style.backgroundColor = "rgba(239, 68, 68, 0.05)"; // Very light red for removed
+    style.borderLeft = "3px solid #ef4444";
+    style.paddingLeft = "1rem";
+    style.textDecoration = "line-through";
+    style.opacity = "0.6";
+  } else if (hasSuggestion) {
+    style.backgroundColor = "rgba(231, 76, 50, 0.1)"; // Light red for suggestions
+    style.borderLeft = "3px solid #D5451B";
+    style.paddingLeft = "1rem";
+  }
 
-              return { style };
-            }}
+  return { style };
+}}
           >
             {code}
           </SyntaxHighlighter>

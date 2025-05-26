@@ -1,3 +1,4 @@
+LICENSE.txt
 MANIFEST.in
 README.md
 setup.py
@@ -20,10 +21,14 @@ backend/app/static/static/css/main.ea1cb791.css.map
 backend/app/static/static/js/main.4c79c613.js
 backend/app/static/static/js/main.4c79c613.js.LICENSE.txt
 backend/app/static/static/js/main.4c79c613.js.map
+backend/app/static/static/js/main.6a2e61b5.js
+backend/app/static/static/js/main.6a2e61b5.js.LICENSE.txt
+backend/app/static/static/js/main.6a2e61b5.js.map
 backend/app/static/static/js/main.ba801f60.js
 backend/app/static/static/js/main.ba801f60.js.LICENSE.txt
 backend/app/static/static/js/main.ba801f60.js.map
 backend/ml_analysis/__init__.py
+backend/ml_analysis/bit_assistant.py
 backend/ml_analysis/code_generator.py
 backend/ml_analysis/improvement_advisor.py
 backend/ml_analysis/__pycache__/__init__.cpython-312.pyc

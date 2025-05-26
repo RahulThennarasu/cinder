@@ -3,6 +3,8 @@ import numpy as np
 import time
 from typing import Dict, Any, Optional, Union, Tuple, List
 from datetime import datetime
+from backend.ml_analysis.bit_assistant import BitAssistant
+
 from sklearn.metrics import (
     precision_recall_fscore_support,
     roc_auc_score,
@@ -66,6 +68,15 @@ class ModelDebugger:
         logging.info(f"Initialized ModelDebugger for {self.framework} model: {name}")
         if self.source_file_path:
             logging.info(f"Source file captured: {self.source_file_path}")
+
+    def get_bit_assistant(self):
+        """
+        Get a BitAssistant instance initialized with this model's analysis.
+        
+        Returns:
+            BitAssistant instance
+        """
+        return BitAssistant(model_debugger=self)
 
     def _capture_source_file_path(self):
         """Capture the file path of the script that created this ModelDebugger instance."""

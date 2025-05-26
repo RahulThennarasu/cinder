@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: cinder-ml
-Version: 1.0.8
+Version: 1.0.9
 Summary: ML model debugging and analysis dashboard
 Home-page: https://github.com/RahulThennarasu/cinder
 Author: Rahul Thennarasu
 Author-email: rahulthennarasu07@gmail.com
 Requires-Python: >=3.8
+License-File: LICENSE.txt
 Requires-Dist: fastapi>=0.95.0
 Requires-Dist: uvicorn>=0.21.0
 Requires-Dist: numpy>=1.23.0
@@ -23,6 +24,7 @@ Requires-Dist: google-generativeai>=0.3.0; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
