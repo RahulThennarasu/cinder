@@ -9,7 +9,8 @@ backend_packages = [
     'backend',
     'backend.app',
     'backend.ml_analysis',
-    'backend.model_interface'
+    'backend.model_interface',
+    'backend.auth',
 ]
 
 # Add backend packages only if they exist
@@ -22,7 +23,7 @@ for pkg in backend_packages:
 
 setup(
     name="cinder-ml",
-    version="1.0.10",  # Increment version number
+    version="1.1.0",  # Increment version number
     description="ML model debugging and analysis dashboard",
     author="Rahul Thennarasu",
     author_email="rahulthennarasu07@gmail.com",

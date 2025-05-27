@@ -16,6 +16,17 @@ pip install "cinder-ml[tensorflow]" # TensorFlow support
 pip install "cinder-ml[all]"        # All frameworks
 ```
 
+## API Key Authentication
+
+Starting from version 1.1.0, Cinder requires an API key for authentication.
+
+### Getting an API Key
+
+You can generate an API key using the CLI:
+
+```bash
+cinder generate-key --user-id your_username
+
 ## Features
 
 - Interactive visual dashboard for model analysis

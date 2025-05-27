@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import time
+import os
 from typing import Dict, Any, Optional, Union, Tuple, List
 from datetime import datetime
 from backend.ml_analysis.bit_assistant import BitAssistant
@@ -15,7 +16,13 @@ from sklearn.model_selection import KFold
 
 import torch
 import tensorflow as tf
-
+try:
+    from backend.auth.auth import validate_api_key
+    HAS_AUTH = True
+except ImportError:
+    HAS_AUTH = False
+    logging.warning("Authentication module not found. API key validation disabled.")
+    
 try:
     from backend.ml_analysis.improvement_advisor import ModelImprovementAdvisor
 
@@ -34,7 +41,7 @@ except ImportError:
 class ModelDebugger:
     """Enhanced interface for connecting ML models to CompileML."""
 
-    def __init__(self, model, dataset, name: str = "My Model"):
+    def __init__(self, model, dataset, name: str = "My Model", api_key: Optional[str] = None):
         """
         Initialize the debugger with a model and dataset.
 
@@ -42,7 +49,21 @@ class ModelDebugger:
             model: A PyTorch or TensorFlow model
             dataset: Dataset for evaluation (various formats supported)
             name: Name for this debugging session
+            api_key: API key for authentication
+        
+        Raises:
+            ValueError: If the API key is invalid or not provided
         """
+        # Validate API key - THIS IS THE IMPORTANT PART
+        self.api_key = api_key or os.environ.get("CINDER_API_KEY")
+        
+        # Key validation during initialization
+        if HAS_AUTH and not self._validate_auth():
+            raise ValueError(
+                "Invalid or missing API key. Please provide a valid API key "
+                "using the api_key parameter or set the CINDER_API_KEY environment variable."
+            )
+        
         self.model = model
         self.dataset = dataset
         self.name = name
@@ -68,6 +89,18 @@ class ModelDebugger:
         logging.info(f"Initialized ModelDebugger for {self.framework} model: {name}")
         if self.source_file_path:
             logging.info(f"Source file captured: {self.source_file_path}")
+
+    def _validate_auth(self) -> bool:
+        """Validate the API key."""
+        if not HAS_AUTH:
+            # If auth module is not available, skip validation
+            return True
+            
+        if self.api_key is None:
+            return False
+            
+        # This checks if the API key is in the list of valid keys
+        return validate_api_key(self.api_key)
 
     def get_bit_assistant(self):
         """

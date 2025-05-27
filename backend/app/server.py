@@ -9,6 +9,10 @@ from datetime import datetime, timedelta
 import re
 from typing import List, Dict, Any
 
+import json
+from starlette.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+
 import inspect
 from pathlib import Path
 
@@ -19,10 +23,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+
+api_key = None
 
 # Set matplotlib to use a non-interactive backend
 import matplotlib
@@ -45,6 +52,13 @@ debugger = None
 
 # Create a directory for storing visualization images
 os.makedirs("temp_visualizations", exist_ok=True)
+
+try:
+    from backend.auth.auth import validate_api_key
+    HAS_AUTH = True
+except ImportError:
+    HAS_AUTH = False
+    logging.warning("Authentication module not found. API key validation disabled.")
 
 try:
     from backend.ml_analysis.code_generator import SimpleCodeGenerator
@@ -235,10 +249,95 @@ class ImprovementSuggestion(BaseModel):
     severity: float = Field(..., description="How severe the issue is (0-1)")
     impact: float = Field(..., description="Estimated impact of fix (0-1)")
     code_example: str = Field(..., description="Example code for implementation")
+# Create a middleware that includes the API key in API responses
+class ApiKeyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        
+        # Only modify responses for the frontend, not for API calls
+        if request.url.path == "/" or request.url.path.startswith("/static"):
+            return response
+            
+        # Add API key information for the dashboard
+        if isinstance(response, JSONResponse):
+            try:
+                # Get content and modify it
+                content = json.loads(bytes(response.body).decode())
 
+                
+                # If debugger is available, get its API key
+                if debugger and hasattr(debugger, "api_key") and debugger.api_key:
+                    content["_api_key"] = debugger.api_key
+                
+                # Update response with modified content
+                return JSONResponse(
+                    content=content,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.media_type,
+                    background=response.background
+                )
+            except Exception as e:
+                logging.error(f"Error adding API key to response: {e}")
+                
+        return response
+
+# Add the middleware to your app
+app.add_middleware(ApiKeyMiddleware)
+
+async def get_api_key(request: Request, x_api_key: str = Header(None)):
+    """
+    Dependency to extract and validate the API key.
+    
+    For dashboard requests, bypass authentication.
+    For programmatic API access, enforce authentication.
+    """
+    global debugger
+    
+    if not HAS_AUTH:
+        # Skip validation if auth module not available
+        return "no_auth"
+    
+    # If it's a dashboard request, bypass authentication
+    if is_dashboard_request(request):
+        # For dashboard requests, use the debugger's API key if available
+        if debugger and hasattr(debugger, "api_key") and debugger.api_key:
+            return debugger.api_key
+        return "dashboard_access"
+    
+    # For all other API requests, require valid authentication
+    api_key = x_api_key
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Please provide an API key in the X-API-Key header."
+        )
+    
+    if not validate_api_key(api_key):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key"
+        )
+    
+    return api_key
 
 # Track server start time
 server_start_time = datetime.now()
+
+def is_dashboard_request(request: Request) -> bool:
+    """Check if a request is coming from the dashboard frontend."""
+    # Check if it's a browser request via User-Agent
+    user_agent = request.headers.get("user-agent", "")
+    is_browser = any(browser in user_agent for browser in ["Mozilla", "Chrome", "Safari", "Edge"])
+    
+    # Check if it's from our own origin
+    referer = request.headers.get("referer", "")
+    is_local = any(local in referer for local in ["localhost:8000", "0.0.0.0:8000", "127.0.0.1:8000"])
+    
+    # Consider it a dashboard request if it's a browser and from our local server
+    return is_browser and (is_local or request.url.path == "/" or 
+                          request.url.path.startswith("/static"))
 
 # Function to clean up old visualization files
 def cleanup_old_visualizations(max_age_seconds=3600):  # Default: 1 hour
@@ -258,10 +357,11 @@ def cleanup_old_visualizations(max_age_seconds=3600):  # Default: 1 hour
 # async def root():
 #    return {"message": "Cinder API is running", "version": "1.0.0"}
 
+# Add this dependency function
 
 # Status endpoint
 @app.get("/api/status", response_model=ServerStatusResponse)
-async def get_status():
+async def get_status(api_key: str = Depends(get_api_key)):
     global debugger, server_start_time
 
     # Calculate uptime
@@ -279,7 +379,7 @@ async def get_status():
 
 
 @app.get("/api/model-code", response_model=ModelCodeResponse)
-async def get_model_code():
+async def get_model_code(api_key: str = Depends(get_api_key)):
     """Get the source code of the current model from the executing script."""
     global debugger
     if debugger is None:
@@ -642,7 +742,7 @@ if __name__ == "__main__":
 
 # Model info endpoint
 @app.get("/api/model", response_model=ModelInfoResponse)
-async def get_model_info():
+async def get_model_info(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -665,7 +765,7 @@ async def get_model_info():
 
 
 @app.get("/api/model-improvements", response_model=Dict[str, Any])
-async def get_model_improvements(
+async def get_model_improvements(api_key: str = Depends(get_api_key),
     detail_level: str = Query("comprehensive", regex="^(basic|comprehensive|code)$")
 ):
     """
@@ -689,7 +789,7 @@ async def get_model_improvements(
 
 
 @app.get("/api/generate-code-example", response_model=Dict[str, str])
-async def generate_code_example(
+async def generate_code_example(api_key: str = Depends(get_api_key),
     framework: str = Query(..., regex="^(pytorch|tensorflow|sklearn)$"),
     category: str = Query(...),
 ):
@@ -730,7 +830,7 @@ async def generate_code_example(
 
 # Error analysis endpoint
 @app.get("/api/errors", response_model=ErrorAnalysisResponse)
-async def get_errors():
+async def get_errors(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -751,7 +851,7 @@ async def get_errors():
 
 # Confidence analysis endpoint
 @app.get("/api/confidence-analysis", response_model=ConfidenceAnalysisResponse)
-async def get_confidence_analysis():
+async def get_confidence_analysis(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -766,7 +866,7 @@ async def get_confidence_analysis():
 
 # Feature importance endpoint
 @app.get("/api/feature-importance", response_model=FeatureImportanceResponse)
-async def get_feature_importance():
+async def get_feature_importance(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -780,7 +880,7 @@ async def get_feature_importance():
 
 
 @app.get("/api/improvement-suggestions", response_model=List[ImprovementSuggestion])
-async def get_improvement_suggestions():
+async def get_improvement_suggestions(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -790,7 +890,8 @@ async def get_improvement_suggestions():
 
 # Cross-validation endpoint
 @app.get("/api/cross-validation", response_model=CrossValidationResponse)
-async def get_cross_validation(k_folds: int = Query(5, ge=2, le=10)):
+async def get_cross_validation(api_key: str = Depends(get_api_key),
+    k_folds: int = Query(5, ge=2, le=10)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -805,7 +906,8 @@ async def get_cross_validation(k_folds: int = Query(5, ge=2, le=10)):
 
 # Prediction drift analysis endpoint
 @app.get("/api/prediction-drift", response_model=PredictionDriftResponse)
-async def get_prediction_drift(threshold: float = Query(0.1, ge=0.01, le=0.5)):
+async def get_prediction_drift(api_key: str = Depends(get_api_key),
+    threshold: float = Query(0.1, ge=0.01, le=0.5)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -820,7 +922,7 @@ async def get_prediction_drift(threshold: float = Query(0.1, ge=0.01, le=0.5)):
 
 # ROC curve endpoint (for binary classification)
 @app.get("/api/roc-curve", response_model=ROCCurveResponse)
-async def get_roc_curve():
+async def get_roc_curve(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -838,7 +940,7 @@ async def get_roc_curve():
 
 # Training History endpoint
 @app.get("/api/training-history", response_model=List[TrainingHistoryItem])
-async def get_training_history():
+async def get_training_history(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -847,7 +949,7 @@ async def get_training_history():
 
 
 @app.get("/api/model-improvement-suggestions", response_model=Dict[str, Any])
-async def get_model_improvement_suggestions(
+async def get_model_improvement_suggestions(api_key: str = Depends(get_api_key),
     detail_level: str = Query("comprehensive", regex="^(basic|comprehensive|code)$")
 ):
     """
@@ -872,7 +974,7 @@ async def get_model_improvement_suggestions(
 
 # Error Types endpoint
 @app.get("/api/error-types", response_model=List[ErrorType])
-async def get_error_types():
+async def get_error_types(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -882,7 +984,7 @@ async def get_error_types():
 
 # Confusion Matrix endpoint
 @app.get("/api/confusion-matrix", response_model=ConfusionMatrixResponse)
-async def get_confusion_matrix():
+async def get_confusion_matrix(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -895,7 +997,7 @@ async def get_confusion_matrix():
 @app.get(
     "/api/prediction-distribution", response_model=List[PredictionDistributionItem]
 )
-async def get_prediction_distribution():
+async def get_prediction_distribution(api_key: str = Depends(get_api_key)):
     global debugger
     if debugger is None:
         raise HTTPException(status_code=404, detail="No model connected")
@@ -916,7 +1018,7 @@ async def get_prediction_distribution():
 
 # Sample Predictions endpoint
 @app.get("/api/sample-predictions", response_model=SamplePredictionsResponse)
-async def get_sample_predictions(
+async def get_sample_predictions(api_key: str = Depends(get_api_key),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     errors_only: bool = Query(False),
@@ -932,8 +1034,11 @@ async def get_sample_predictions(
 
 def start_server(model_debugger, port: int = 8000):
     """Start the FastAPI server with the given ModelDebugger instance."""
-    global debugger
+    global debugger, api_key
     debugger = model_debugger
+    
+    # Capture the API key from the debugger
+    api_key = getattr(model_debugger, "api_key", None)
 
     # Cleanup old visualizations
     cleanup_old_visualizations()
@@ -946,11 +1051,42 @@ def start_server(model_debugger, port: int = 8000):
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     # First, define the root endpoint to serve index.html
-    @app.get("/", response_class=FileResponse)
+    @app.get("/", response_class=HTMLResponse)
     async def serve_index():
+        global api_key
+        
         index_path = os.path.join(static_dir, "index.html")
         if os.path.exists(index_path):
+            # Read the HTML content
+            with open(index_path, "r") as f:
+                html_content = f.read()
+                
+            # If we have an API key, inject JavaScript to fetch it
+            if api_key:
+                # Add a script to automatically set the API key for all requests
+                api_key_script = f"""
+                <script>
+                    // Function to add API key to all fetch requests
+                    const originalFetch = window.fetch;
+                    window.fetch = function(url, options) {{
+                        options = options || {{}};
+                        options.headers = options.headers || {{}};
+                        options.headers['X-API-Key'] = '{api_key}';
+                        return originalFetch(url, options);
+                    }};
+                    console.log('API key interceptor enabled');
+                </script>
+                """
+                
+                # Insert the script before the closing </head> tag
+                html_content = html_content.replace('</head>', f'{api_key_script}</head>')
+                
+                # Return the modified HTML
+                return HTMLResponse(content=html_content)
+                
+            # If no API key, just return the original HTML
             return FileResponse(index_path)
+        
         return {"message": "Cinder API is running but frontend is not available"}
     
     # Then mount the nested static directory

@@ -1,0 +1,10 @@
+{
+  "cinder_1748314186_095d56139ce307e2af66ad200360c4e7": {
+    "user_id": "test_user",
+    "created_at": 1748314186.8006139,
+    "expires_at": 1779850186.8006139,
+    "permissions": [
+      "basic"
+    ]
+  }
+}
