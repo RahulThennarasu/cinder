@@ -24,6 +24,9 @@ backend/app/static/static/js/main.4c79c613.js.map
 backend/app/static/static/js/main.6a2e61b5.js
 backend/app/static/static/js/main.6a2e61b5.js.LICENSE.txt
 backend/app/static/static/js/main.6a2e61b5.js.map
+backend/app/static/static/js/main.8a549c05.js
+backend/app/static/static/js/main.8a549c05.js.LICENSE.txt
+backend/app/static/static/js/main.8a549c05.js.map
 backend/app/static/static/js/main.ba801f60.js
 backend/app/static/static/js/main.ba801f60.js.LICENSE.txt
 backend/app/static/static/js/main.ba801f60.js.map
