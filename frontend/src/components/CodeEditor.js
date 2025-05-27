@@ -26,8 +26,15 @@ const CodeEditor = ({ modelInfo }) => {
   const [lastChanges, setLastChanges] = useState({ added: [], removed: [] }); // Track last changes
   const [showDiff, setShowDiff] = useState(false); // Toggle diff view
 
+  const [searchText, setSearchText] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchIndex, setSearchIndex] = useState(0);
+  const [showSearch, setShowSearch] = useState(false);
+
   // Reference to the container
   const containerRef = useRef(null);
+  const codeEditorRef = useRef(null);
+
 
   useEffect(() => {
     // Load model code when component mounts
@@ -56,6 +63,140 @@ const CodeEditor = ({ modelInfo }) => {
     // Get the initial mouse position
     setStartX(mouseDownEvent.clientX);
   };
+  
+
+  const cinderTheme = {
+  ...vscDarkPlus,
+  'pre[class*="language-"]': {
+    ...vscDarkPlus['pre[class*="language-"]'],
+    background: '#1E1E1E',
+    padding: '1.5rem',
+    margin: '0',
+    overflow: 'auto',
+    borderRadius: '0',
+  },
+  'code[class*="language-"]': {
+    ...vscDarkPlus['code[class*="language-"]'],
+    fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+    fontSize: '14px',
+    lineHeight: '1.5',
+  },
+  // Customize colors for specific tokens
+  comment: {
+    ...vscDarkPlus.comment,
+    color: '#6A9955'
+  },
+  string: {
+    ...vscDarkPlus.string,
+    color: '#FF9B45' // Cinder primary-light
+  },
+  keyword: {
+    ...vscDarkPlus.keyword,
+    color: '#D5451B' // Cinder primary
+  },
+  function: {
+    ...vscDarkPlus.function,
+    color: '#DCDCAA'
+  },
+  boolean: {
+    ...vscDarkPlus.boolean,
+    color: '#D5451B' // Cinder primary
+  },
+  number: {
+    ...vscDarkPlus.number,
+    color: '#FF9B45' // Cinder primary-light
+  },
+  operator: {
+    ...vscDarkPlus.operator,
+    color: '#D4D4D4'
+  },
+  punctuation: {
+    ...vscDarkPlus.punctuation,
+    color: '#D4D4D4'
+  },
+  property: {
+    ...vscDarkPlus.property,
+    color: '#9CDCFE'
+  },
+  'class-name': {
+    ...vscDarkPlus['class-name'],
+    color: '#4EC9B0'
+  },
+  variable: {
+    ...vscDarkPlus.variable,
+    color: '#9CDCFE'
+  },
+};
+
+  const scrollToLine = (lineNumber) => {
+  if (!codeEditorRef.current) return;
+  
+  // Get all line elements in the editor
+  const lineElements = codeEditorRef.current.querySelectorAll(
+    '.react-syntax-highlighter-line-number'
+  );
+  
+  // If we found the line element, scroll to it
+  if (lineElements && lineElements[lineNumber]) {
+    lineElements[lineNumber].scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  }
+};
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    if (e.ctrlKey && e.key === 'f') {
+      e.preventDefault();
+      setShowSearch(true);
+    }
+  };
+  
+  document.addEventListener('keydown', handleKeyDown);
+  return () => document.removeEventListener('keydown', handleKeyDown);
+}, []);
+
+// Add search function
+const searchInCode = () => {
+  if (!searchText) return;
+  
+  const codeLines = code.split('\n');
+  const results = [];
+  
+  codeLines.forEach((line, lineIndex) => {
+    let index = line.toLowerCase().indexOf(searchText.toLowerCase());
+    while (index !== -1) {
+      results.push({ lineIndex, charIndex: index });
+      index = line.toLowerCase().indexOf(searchText.toLowerCase(), index + 1);
+    }
+  });
+  
+  setSearchResults(results);
+  setSearchIndex(0);
+  
+  if (results.length > 0) {
+    scrollToLine(results[0].lineIndex);
+  }
+};
+
+// Function to navigate to the next search result
+const findNext = () => {
+  if (searchResults.length === 0) return;
+  
+  const nextIndex = (searchIndex + 1) % searchResults.length;
+  setSearchIndex(nextIndex);
+  scrollToLine(searchResults[nextIndex].lineIndex);
+};
+
+// Function to navigate to the previous search result
+const findPrev = () => {
+  if (searchResults.length === 0) return;
+  
+  const prevIndex = (searchIndex - 1 + searchResults.length) % searchResults.length;
+  setSearchIndex(prevIndex);
+  scrollToLine(searchResults[prevIndex].lineIndex);
+};
+
 
   const handleResize = (e) => {
     if (!isResizing) return;
@@ -1192,18 +1333,116 @@ def improve_model():
   };
 
   // Helper function to get severity color
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case "high":
-        return "#521C0D"; // Red
-      case "medium":
-        return "#D5451B"; // Amber
-      case "low":
-        return "#FF9B45"; // Green
-      default:
-        return "#F4E7E1"; // Gray
-    }
-  };
+// Severity color function
+const getSeverityColor = (severity) => {
+  switch (severity) {
+    case "high":
+      return "#D5451B"; // Cinder primary
+    case "medium":
+      return "#FF9B45"; // Cinder primary-light
+    case "low":
+      return "#6A9955"; // Green
+    default:
+      return "#858585"; // Gray
+  }
+};
+
+{showSearch && (
+  <div style={{
+    padding: "8px 16px",
+    backgroundColor: "#2D2D2D",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    borderBottom: "1px solid #333"
+  }}>
+    <input
+      type="text"
+      value={searchText}
+      onChange={(e) => setSearchText(e.target.value)}
+      placeholder="Search in code..."
+      style={{
+        backgroundColor: "#1E1E1E",
+        color: "#D4D4D4",
+        border: "1px solid #555",
+        borderRadius: "4px",
+        padding: "4px 8px",
+        flex: 1
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          if (e.shiftKey) {
+            findPrev();
+          } else {
+            searchResults.length > 0 ? findNext() : searchInCode();
+          }
+        }
+        if (e.key === 'Escape') {
+          setShowSearch(false);
+        }
+      }}
+    />
+    <button 
+      onClick={searchInCode}
+      style={{
+        backgroundColor: "#D5451B",
+        color: "white",
+        border: "none",
+        borderRadius: "4px",
+        padding: "4px 8px",
+        cursor: "pointer"
+      }}
+    >
+      Find
+    </button>
+    {searchResults.length > 0 && (
+      <>
+        <button 
+          onClick={findPrev}
+          style={{
+            backgroundColor: "#2D2D2D",
+            color: "#D4D4D4",
+            border: "1px solid #555",
+            borderRadius: "4px",
+            padding: "4px 8px",
+            cursor: "pointer"
+          }}
+        >
+          Previous
+        </button>
+        <button 
+          onClick={findNext}
+          style={{
+            backgroundColor: "#2D2D2D",
+            color: "#D4D4D4",
+            border: "1px solid #555",
+            borderRadius: "4px",
+            padding: "4px 8px",
+            cursor: "pointer"
+          }}
+        >
+          Next
+        </button>
+        <span style={{ color: "#D4D4D4", fontSize: "12px" }}>
+          {searchIndex + 1} of {searchResults.length}
+        </span>
+      </>
+    )}
+    <button 
+      onClick={() => setShowSearch(false)}
+      style={{
+        backgroundColor: "#2D2D2D",
+        color: "#D4D4D4",
+        border: "1px solid #555",
+        borderRadius: "4px",
+        padding: "4px 8px",
+        cursor: "pointer"
+      }}
+    >
+      Close
+    </button>
+  </div>
+)}
 
   // Function to copy code to clipboard
   const copyToClipboard = (code, suggestionIndex) => {
@@ -1212,57 +1451,116 @@ def improve_model():
   };
 
   if (loading) {
-    return (
-      <div
-        style={{
-          padding: "2rem",
-          textAlign: "center",
-          backgroundColor: "#ffffff",
-          color: "#333333",
-          minHeight: "400px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <div
-          style={{
-            width: "40px",
-            height: "40px",
-            border: "3px solid #f3f3f3",
-            borderTop: "3px solid #D5451B",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto 1rem",
-          }}
-        ></div>
-        <p>Loading model code...</p>
-        <style>
-          {`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}
-        </style>
+  return (
+    <div
+      style={{
+        padding: "2rem",
+        textAlign: "center",
+        backgroundColor: "#1E1E1E",
+        color: "#D4D4D4",
+        minHeight: "400px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        gap: "12px", 
+        padding: "12px", 
+        background: "#2D2D2D", 
+        borderRadius: "8px",
+        margin: "0 auto",
+        width: "fit-content"
+      }}>
+        <div className="bit-offset" style={{ 
+          width: "20px", 
+          height: "20px", 
+          position: "relative"
+        }}>
+          <div className="offset-back" style={{ 
+            width: "18px", 
+            height: "18px", 
+            borderRadius: "4px",
+            background: "#FF9B45", // Cinder primary-light
+            position: "absolute",
+            bottom: "0",
+            right: "0",
+            opacity: "0.6"
+          }}></div>
+          <div className="offset-front" style={{ 
+            width: "18px", 
+            height: "18px", 
+            borderRadius: "4px",
+            background: "#D5451B", // Cinder primary
+            position: "absolute",
+            top: "0",
+            left: "0"
+          }}></div>
+        </div>
+        <span style={{ fontSize: "14px", color: "#D4D4D4" }}>
+          Loading model code...
+        </span>
       </div>
-    );
-  }
+      // Add this to your component, typically near the end
+<style>
+  {`
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .bit-offset {
+      animation: pulse 2s infinite;
+    }
+    
+    .pulse-animation {
+      animation: pulse 2s infinite;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #555;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #777;
+    }
+    .suggestions-panel {
+      transition: width 0.3s ease;
+    }
+    .resize-handle-visible {
+      background-color: rgba(231, 76, 50, 0.1);
+    }
+  `}
+</style>
+    </div>
+  );
+}
 
   return (
     <div
-      className="code-editor-wrapper"
-      ref={containerRef}
-      style={{
-        backgroundColor: "#f8fafc",
-        color: "#333333",
-        minHeight: "100vh",
-        display: "flex",
-        position: "relative",
-        overflow: "hidden", // Prevent scrolling when panel is very wide
-      }}
-    >
+  className="code-editor-wrapper"
+  ref={containerRef}
+  style={{
+    backgroundColor: "#1E1E1E", // Dark background
+    color: "#D4D4D4", // Light text
+    minHeight: "100vh",
+    display: "flex",
+    position: "relative",
+    overflow: "hidden",
+  }}
+
+  
+>
       {/* Main Code Viewer - make sure it can shrink */}
       <div
         style={{
@@ -1274,25 +1572,25 @@ def improve_model():
       >
         {/* Header */}
         <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "1rem 1.5rem",
-            backgroundColor: "#ffffff",
-            borderBottom: "1px solid #e1e1e1",
-            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-            flexWrap: "wrap",
-            gap: "1rem",
-          }}
-        >
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "1rem 1.5rem",
+    backgroundColor: "#252526", // Darker background
+    borderBottom: "1px solid #333333",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
+    flexWrap: "wrap",
+    gap: "1rem",
+  }}
+>
           <div>
             <h3
               style={{
                 margin: 0,
                 fontSize: "1.1rem",
                 fontWeight: "600",
-                color: "#333333",
+                color: "white",
               }}
             >
               Bit's Hyperparameter Tuning Recommendations
@@ -1316,7 +1614,7 @@ def improve_model():
               style={{
                 margin: "0.25rem 0 0 0",
                 fontSize: "0.8rem",
-                color: "#666666",
+                color: "white",
               }}
             >
               Machine Learning Model Analysis
@@ -1345,7 +1643,7 @@ def improve_model():
               style={{
                 padding: "0.5rem 1rem",
                 fontSize: "0.8rem",
-                backgroundColor: "#D5451B",
+                backgroundColor: "#D5451B", // Cinder primary
                 color: "white",
                 border: "none",
                 borderRadius: "0.25rem",
@@ -1429,13 +1727,13 @@ def improve_model():
           </div>
         </div>
 
-        {/* Status Bar */}
+{/* Status Bar */}
 <div
   style={{
     padding: "0.4rem 1.5rem",
-    backgroundColor: "#f8f9fa",
-    color: "black",
-    fontFamily: 'Consolas, "Courier New", monospace',
+    backgroundColor: "#252526", // Darker background
+    color: "#D4D4D4", // Light text
+    fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
     fontSize: "0.75rem",
     fontWeight: "500",
     display: "flex",
@@ -1473,92 +1771,103 @@ def improve_model():
             overflow: "auto",
             position: "relative",
             flex: 1,
+            backgroundColor: "#1e1e1e",  // Dark background
           }}
         >
           <SyntaxHighlighter
             language="python"
-            style={vs}
+            style={cinderTheme}
             showLineNumbers={true}
             lineNumberStyle={{
               minWidth: "3em",
               paddingRight: "1em",
               textAlign: "right",
-              color: "#999999",
-              borderRight: "1px solid #e1e1e1",
+              color: "#858585", // Lighter grey for line numbers
+              borderRight: "1px solid #333333",
               marginRight: "1em",
               userSelect: "none",
             }}
             customStyle={{
               margin: 0,
               padding: "1rem",
-              backgroundColor: "#ffffff",
-              fontSize: "0.85rem",
+              backgroundColor: "#1E1E1E", // Dark background
+              fontSize: "14px",
               lineHeight: "1.5",
-              fontFamily: 'Consolas, "Courier New", monospace',
-              overflow: "visible", // Make sure this isn't adding its own scrollbar
+              fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+              overflow: "visible",
             }}
             codeTagProps={{
               style: {
-                fontFamily: 'Consolas, "Courier New", monospace',
+                fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
               },
             }}
             wrapLines={true}
             lineProps={(lineNumber) => {
-  // Highlight lines with suggestions
-  const hasSuggestion = suggestions.some(
-    (s) => s.line === lineNumber,
-  );
+              // Highlight lines with suggestions
+              const hasSuggestion = suggestions.some(
+                (s) => s.line === lineNumber,
+              );
 
-  // Highlight added lines
-  const isAdded = lastChanges.added.includes(lineNumber);
-  
-  // Highlight removed lines
-  const isRemoved = lastChanges.removed.includes(lineNumber);
+              const hasSearchResults = searchResults.some(result => result.lineIndex === lineNumber - 1);
 
-  // Decide on style based on highlights
-  let style = { display: "block" };
 
-  if (isAdded) {
-    style.backgroundColor = "rgba(16, 185, 129, 0.1)"; // Light green for added
-    style.borderLeft = "3px solid #10b981";
-    style.paddingLeft = "1rem";
-  } else if (isRemoved && showDiff) {
-    style.backgroundColor = "rgba(239, 68, 68, 0.05)"; // Very light red for removed
-    style.borderLeft = "3px solid #ef4444";
-    style.paddingLeft = "1rem";
-    style.textDecoration = "line-through";
-    style.opacity = "0.6";
-  } else if (hasSuggestion) {
-    style.backgroundColor = "rgba(231, 76, 50, 0.1)"; // Light red for suggestions
-    style.borderLeft = "3px solid #D5451B";
-    style.paddingLeft = "1rem";
-  }
+              // Highlight added lines
+              const isAdded = lastChanges.added.includes(lineNumber);
+              
+              // Highlight removed lines
+              const isRemoved = lastChanges.removed.includes(lineNumber);
 
-  return { style };
-}}
+              // Decide on style based on highlights
+              let style = { display: "block" };
+              if (hasSearchResults && showSearch) {
+                style.backgroundColor = style.backgroundColor || "rgba(213, 69, 27, 0.1)";
+                // Add an indicator
+                style.position = "relative";
+              }
+              if (isAdded) {
+                style.backgroundColor = "rgba(16, 185, 129, 0.2)"; // Darker green for added
+                style.borderLeft = "3px solid #10b981";
+                style.paddingLeft = "1rem";
+              } else if (isRemoved && showDiff) {
+                style.backgroundColor = "rgba(239, 68, 68, 0.2)"; // Darker red for removed
+                style.borderLeft = "3px solid #ef4444";
+                style.paddingLeft = "1rem";
+                style.textDecoration = "line-through";
+                style.opacity = "0.6";
+              } else if (hasSuggestion) {
+                style.backgroundColor = "rgba(213, 69, 27, 0.2)"; // Darker Cinder primary for suggestions
+                style.borderLeft = "3px solid #D5451B";
+                style.paddingLeft = "1rem";
+              }
+
+              return { style };
+            }}
           >
             {code}
           </SyntaxHighlighter>
         </div>
       </div>
 
+      
+      
+
       {/* Suggestions Panel */}
       {showSuggestions && (
         <div
-          className="suggestions-panel"
-          style={{
-            width: `${panelWidth}px`,
-            backgroundColor: "#fff",
-            borderLeft: "1px solid #e1e1e1",
-            display: "flex",
-            flexDirection: "column",
-            height: "100vh",
-            overflow: "hidden",
-            color: "#333",
-            position: "relative",
-            boxShadow: "-2px 0 10px rgba(0, 0, 0, 0.05)",
-          }}
-        >
+  className="suggestions-panel"
+  style={{
+    width: `${panelWidth}px`,
+    backgroundColor: "white", // Darker background for panel
+    borderLeft: "1px solid #333333",
+    display: "flex",
+    flexDirection: "column",
+    height: "100vh",
+    overflow: "hidden",
+    color: "#D4D4D4", // Light text
+    position: "relative",
+    boxShadow: "-2px 0 10px rgba(0, 0, 0, 0.2)",
+  }}
+>
           {/* Resize Handle */}
           <div
             style={{
@@ -1600,20 +1909,19 @@ def improve_model():
               marginTop: "1rem",
               marginLeft: "1rem",
               marginRight: "1rem",
-              backgroundColor: "#f8f9fa",
-              borderRadius: "9999px", // Fully rounded corners for pill shape
+              backgroundColor: "#fafafb", // Slightly lighter dark background
+              borderRadius: "9999px",
               display: "flex",
               alignItems: "center",
               gap: "0.75rem",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
             }}
           >
-            {/* Add a small colored dot indicator like in Image 2 */}
             <div
               style={{
                 width: "0.75rem",
                 height: "0.75rem",
-                backgroundColor: "#D5451B", // Using your brand color instead of green
+                backgroundColor: "#D5451B", // Cinder primary
                 borderRadius: "50%",
               }}
             ></div>
@@ -1623,7 +1931,7 @@ def improve_model():
                 margin: 0,
                 fontSize: "1rem",
                 fontWeight: "400",
-                color: "#333",
+                color: "black",
                 fontFamily:
                   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
               }}
@@ -1838,29 +2146,54 @@ def improve_model():
             }}
           >
             {analyzing && (
-              <div
-                style={{
-                  padding: "2rem",
-                  textAlign: "center",
-                  color: "#666",
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    border: "3px solid #f3f3f3",
-                    borderTop: "3px solid #D5451B",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
-                    margin: "0 auto 1rem",
-                  }}
-                ></div>
-                <p style={{ fontSize: "1rem" }}>
-                  Bit is analyzing your code...
-                </p>
-              </div>
-            )}
+  <div
+    style={{
+      padding: "2rem",
+      textAlign: "center",
+      color: "#D4D4D4",
+    }}
+  >
+    <div style={{ 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "12px", 
+      padding: "12px", 
+      background: "#fafafb", 
+      borderRadius: "8px",
+      margin: "0 auto",
+      width: "fit-content"
+    }}>
+      <div className="bit-offset" style={{ 
+        width: "20px", 
+        height: "20px", 
+        position: "relative"
+      }}>
+        <div className="offset-back" style={{ 
+          width: "18px", 
+          height: "18px", 
+          borderRadius: "4px",
+          background: "#FF9B45", // Cinder primary-light
+          position: "absolute",
+          bottom: "0",
+          right: "0",
+          opacity: "0.6"
+        }}></div>
+        <div className="offset-front" style={{ 
+          width: "18px", 
+          height: "18px", 
+          borderRadius: "4px",
+          background: "#D5451B", // Cinder primary
+          position: "absolute",
+          top: "0",
+          left: "0"
+        }}></div>
+      </div>
+      <span style={{ fontSize: "14px", color: "black" }}>
+        Bit is analyzing your code...
+      </span>
+    </div>
+  </div>
+)}
 
             {!analyzing && suggestions.length === 0 && (
               <div
