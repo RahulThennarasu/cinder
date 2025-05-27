@@ -35,7 +35,6 @@ const CodeEditor = ({ modelInfo }) => {
   const containerRef = useRef(null);
   const codeEditorRef = useRef(null);
 
-
   useEffect(() => {
     // Load model code when component mounts
     loadModelCode();
@@ -63,140 +62,139 @@ const CodeEditor = ({ modelInfo }) => {
     // Get the initial mouse position
     setStartX(mouseDownEvent.clientX);
   };
-  
 
   const cinderTheme = {
-  ...vscDarkPlus,
-  'pre[class*="language-"]': {
-    ...vscDarkPlus['pre[class*="language-"]'],
-    background: '#1E1E1E',
-    padding: '1.5rem',
-    margin: '0',
-    overflow: 'auto',
-    borderRadius: '0',
-  },
-  'code[class*="language-"]': {
-    ...vscDarkPlus['code[class*="language-"]'],
-    fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
-    fontSize: '14px',
-    lineHeight: '1.5',
-  },
-  // Customize colors for specific tokens
-  comment: {
-    ...vscDarkPlus.comment,
-    color: '#6A9955'
-  },
-  string: {
-    ...vscDarkPlus.string,
-    color: '#FF9B45' // Cinder primary-light
-  },
-  keyword: {
-    ...vscDarkPlus.keyword,
-    color: '#D5451B' // Cinder primary
-  },
-  function: {
-    ...vscDarkPlus.function,
-    color: '#DCDCAA'
-  },
-  boolean: {
-    ...vscDarkPlus.boolean,
-    color: '#D5451B' // Cinder primary
-  },
-  number: {
-    ...vscDarkPlus.number,
-    color: '#FF9B45' // Cinder primary-light
-  },
-  operator: {
-    ...vscDarkPlus.operator,
-    color: '#D4D4D4'
-  },
-  punctuation: {
-    ...vscDarkPlus.punctuation,
-    color: '#D4D4D4'
-  },
-  property: {
-    ...vscDarkPlus.property,
-    color: '#9CDCFE'
-  },
-  'class-name': {
-    ...vscDarkPlus['class-name'],
-    color: '#4EC9B0'
-  },
-  variable: {
-    ...vscDarkPlus.variable,
-    color: '#9CDCFE'
-  },
-};
+    ...vscDarkPlus,
+    'pre[class*="language-"]': {
+      ...vscDarkPlus['pre[class*="language-"]'],
+      background: "#1E1E1E",
+      padding: "1.5rem",
+      margin: "0",
+      overflow: "auto",
+      borderRadius: "0",
+    },
+    'code[class*="language-"]': {
+      ...vscDarkPlus['code[class*="language-"]'],
+      fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+      fontSize: "14px",
+      lineHeight: "1.5",
+    },
+    // Customize colors for specific tokens
+    comment: {
+      ...vscDarkPlus.comment,
+      color: "#6A9955",
+    },
+    string: {
+      ...vscDarkPlus.string,
+      color: "#FF9B45", // Cinder primary-light
+    },
+    keyword: {
+      ...vscDarkPlus.keyword,
+      color: "#D5451B", // Cinder primary
+    },
+    function: {
+      ...vscDarkPlus.function,
+      color: "#DCDCAA",
+    },
+    boolean: {
+      ...vscDarkPlus.boolean,
+      color: "#D5451B", // Cinder primary
+    },
+    number: {
+      ...vscDarkPlus.number,
+      color: "#FF9B45", // Cinder primary-light
+    },
+    operator: {
+      ...vscDarkPlus.operator,
+      color: "#D4D4D4",
+    },
+    punctuation: {
+      ...vscDarkPlus.punctuation,
+      color: "#D4D4D4",
+    },
+    property: {
+      ...vscDarkPlus.property,
+      color: "#9CDCFE",
+    },
+    "class-name": {
+      ...vscDarkPlus["class-name"],
+      color: "#4EC9B0",
+    },
+    variable: {
+      ...vscDarkPlus.variable,
+      color: "#9CDCFE",
+    },
+  };
 
   const scrollToLine = (lineNumber) => {
-  if (!codeEditorRef.current) return;
-  
-  // Get all line elements in the editor
-  const lineElements = codeEditorRef.current.querySelectorAll(
-    '.react-syntax-highlighter-line-number'
-  );
-  
-  // If we found the line element, scroll to it
-  if (lineElements && lineElements[lineNumber]) {
-    lineElements[lineNumber].scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
-  }
-};
-useEffect(() => {
-  const handleKeyDown = (e) => {
-    if (e.ctrlKey && e.key === 'f') {
-      e.preventDefault();
-      setShowSearch(true);
+    if (!codeEditorRef.current) return;
+
+    // Get all line elements in the editor
+    const lineElements = codeEditorRef.current.querySelectorAll(
+      ".react-syntax-highlighter-line-number",
+    );
+
+    // If we found the line element, scroll to it
+    if (lineElements && lineElements[lineNumber]) {
+      lineElements[lineNumber].scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   };
-  
-  document.addEventListener('keydown', handleKeyDown);
-  return () => document.removeEventListener('keydown', handleKeyDown);
-}, []);
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.key === "f") {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
 
-// Add search function
-const searchInCode = () => {
-  if (!searchText) return;
-  
-  const codeLines = code.split('\n');
-  const results = [];
-  
-  codeLines.forEach((line, lineIndex) => {
-    let index = line.toLowerCase().indexOf(searchText.toLowerCase());
-    while (index !== -1) {
-      results.push({ lineIndex, charIndex: index });
-      index = line.toLowerCase().indexOf(searchText.toLowerCase(), index + 1);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Add search function
+  const searchInCode = () => {
+    if (!searchText) return;
+
+    const codeLines = code.split("\n");
+    const results = [];
+
+    codeLines.forEach((line, lineIndex) => {
+      let index = line.toLowerCase().indexOf(searchText.toLowerCase());
+      while (index !== -1) {
+        results.push({ lineIndex, charIndex: index });
+        index = line.toLowerCase().indexOf(searchText.toLowerCase(), index + 1);
+      }
+    });
+
+    setSearchResults(results);
+    setSearchIndex(0);
+
+    if (results.length > 0) {
+      scrollToLine(results[0].lineIndex);
     }
-  });
-  
-  setSearchResults(results);
-  setSearchIndex(0);
-  
-  if (results.length > 0) {
-    scrollToLine(results[0].lineIndex);
-  }
-};
+  };
 
-// Function to navigate to the next search result
-const findNext = () => {
-  if (searchResults.length === 0) return;
-  
-  const nextIndex = (searchIndex + 1) % searchResults.length;
-  setSearchIndex(nextIndex);
-  scrollToLine(searchResults[nextIndex].lineIndex);
-};
+  // Function to navigate to the next search result
+  const findNext = () => {
+    if (searchResults.length === 0) return;
 
-// Function to navigate to the previous search result
-const findPrev = () => {
-  if (searchResults.length === 0) return;
-  
-  const prevIndex = (searchIndex - 1 + searchResults.length) % searchResults.length;
-  setSearchIndex(prevIndex);
-  scrollToLine(searchResults[prevIndex].lineIndex);
-};
+    const nextIndex = (searchIndex + 1) % searchResults.length;
+    setSearchIndex(nextIndex);
+    scrollToLine(searchResults[nextIndex].lineIndex);
+  };
 
+  // Function to navigate to the previous search result
+  const findPrev = () => {
+    if (searchResults.length === 0) return;
+
+    const prevIndex =
+      (searchIndex - 1 + searchResults.length) % searchResults.length;
+    setSearchIndex(prevIndex);
+    scrollToLine(searchResults[prevIndex].lineIndex);
+  };
 
   const handleResize = (e) => {
     if (!isResizing) return;
@@ -317,197 +315,230 @@ const findPrev = () => {
   };
 
   // Helper: Find appropriate code sections to replace
-const findReplacementBoundaries = (suggestionType, suggestionLine) => {
-  const codeLines = code.split("\n");
-  
-  // Default: Just insert at the line without replacement
-  let startLine = Math.min(suggestionLine, codeLines.length);
-  let endLine = startLine;
-  
-  // For different suggestion types, find appropriate code sections to replace
-  switch (suggestionType.toLowerCase()) {
-    case "overfitting":
-      // Look for existing dropout layers or regularization code
-      return findMethodOrBlockBoundaries(codeLines, startLine, ["dropout", "regularization", "weight_decay"]);
-    
-    case "performance":
-      // For performance issues, look for existing optimization code
-      return findMethodOrBlockBoundaries(codeLines, startLine, ["optimizer", "learning_rate", "scheduler"]);
-    
-    case "data":
-      // For data preprocessing issues
-      return findMethodOrBlockBoundaries(codeLines, startLine, ["preprocess", "transform", "normalize", "sampler"]);
-      
-    case "optimization":
-      // For learning rate or optimizer suggestions
-      return findMethodOrBlockBoundaries(codeLines, startLine, ["optimizer", "adam", "sgd", "learning_rate"]);
-      
-    case "model_capacity":
-      // For model architecture improvements
-      if (code.includes("class ")) {
-        // If it's inside a class definition, try to find the relevant method
-        const methodBoundaries = findMethodBoundaries(codeLines, "forward");
-        if (methodBoundaries.startLine > 0) {
-          return methodBoundaries;
+  const findReplacementBoundaries = (suggestionType, suggestionLine) => {
+    const codeLines = code.split("\n");
+
+    // Default: Just insert at the line without replacement
+    let startLine = Math.min(suggestionLine, codeLines.length);
+    let endLine = startLine;
+
+    // For different suggestion types, find appropriate code sections to replace
+    switch (suggestionType.toLowerCase()) {
+      case "overfitting":
+        // Look for existing dropout layers or regularization code
+        return findMethodOrBlockBoundaries(codeLines, startLine, [
+          "dropout",
+          "regularization",
+          "weight_decay",
+        ]);
+
+      case "performance":
+        // For performance issues, look for existing optimization code
+        return findMethodOrBlockBoundaries(codeLines, startLine, [
+          "optimizer",
+          "learning_rate",
+          "scheduler",
+        ]);
+
+      case "data":
+        // For data preprocessing issues
+        return findMethodOrBlockBoundaries(codeLines, startLine, [
+          "preprocess",
+          "transform",
+          "normalize",
+          "sampler",
+        ]);
+
+      case "optimization":
+        // For learning rate or optimizer suggestions
+        return findMethodOrBlockBoundaries(codeLines, startLine, [
+          "optimizer",
+          "adam",
+          "sgd",
+          "learning_rate",
+        ]);
+
+      case "model_capacity":
+        // For model architecture improvements
+        if (code.includes("class ")) {
+          // If it's inside a class definition, try to find the relevant method
+          const methodBoundaries = findMethodBoundaries(codeLines, "forward");
+          if (methodBoundaries.startLine > 0) {
+            return methodBoundaries;
+          }
         }
-      }
-      return findMethodOrBlockBoundaries(codeLines, startLine, ["layer", "linear", "conv", "dense"]);
-      
-    default:
-      // Just use the insertion point without replacement
-      return { startLine, endLine };
-  }
-};
+        return findMethodOrBlockBoundaries(codeLines, startLine, [
+          "layer",
+          "linear",
+          "conv",
+          "dense",
+        ]);
 
-// Helper: Find method boundaries by name
-const findMethodBoundaries = (codeLines, methodName) => {
-  const methodPattern = new RegExp(`\\s*def\\s+${methodName}\\s*\\(`);
-  let startLine = -1;
-  
-  // Find the method definition
-  for (let i = 0; i < codeLines.length; i++) {
-    if (methodPattern.test(codeLines[i])) {
-      startLine = i;
-      break;
+      default:
+        // Just use the insertion point without replacement
+        return { startLine, endLine };
     }
-  }
-  
-  if (startLine === -1) {
-    return { startLine: 0, endLine: 0 }; // Method not found
-  }
-  
-  // Find the end of the method (next method or end of indentation)
-  const indentMatch = codeLines[startLine].match(/^(\s*)/);
-  const baseIndent = indentMatch ? indentMatch[1].length : 0;
-  
-  let endLine = startLine + 1;
-  while (endLine < codeLines.length) {
-    // Check if we've reached a line with same or less indentation (excluding empty lines)
-    const line = codeLines[endLine];
-    if (line.trim() !== '' && !line.startsWith(' '.repeat(baseIndent + 4))) {
-      break;
-    }
-    endLine++;
-  }
-  
-  return { startLine, endLine };
-};
+  };
 
-// Helper: Find boundaries for a code block containing any of the keywords
-const findMethodOrBlockBoundaries = (codeLines, nearLine, keywords) => {
-  // First, check nearby lines for any of the keywords
-  const searchRadius = 10; // Look 10 lines before and after
-  const startSearch = Math.max(0, nearLine - searchRadius);
-  const endSearch = Math.min(codeLines.length, nearLine + searchRadius);
-  
-  let keywordLine = -1;
-  
-  // Find the first line with a keyword
-  for (let i = startSearch; i < endSearch; i++) {
-    const line = codeLines[i].toLowerCase();
-    if (keywords.some(keyword => line.includes(keyword.toLowerCase()))) {
-      keywordLine = i;
-      break;
-    }
-  }
-  
-  // If we found a keyword line, find the boundaries of its block
-  if (keywordLine >= 0) {
-    // Find the start of the statement (could be a multi-line statement)
-    let startLine = keywordLine;
-    while (startLine > 0) {
-      // Go back until we find a line that doesn't end with a continuation character
-      // or has less indentation
-      const prevLine = codeLines[startLine - 1];
-      if (!prevLine.trim().endsWith('\\') && 
-          (prevLine.trim() === '' || getIndentation(prevLine) < getIndentation(codeLines[keywordLine]))) {
+  // Helper: Find method boundaries by name
+  const findMethodBoundaries = (codeLines, methodName) => {
+    const methodPattern = new RegExp(`\\s*def\\s+${methodName}\\s*\\(`);
+    let startLine = -1;
+
+    // Find the method definition
+    for (let i = 0; i < codeLines.length; i++) {
+      if (methodPattern.test(codeLines[i])) {
+        startLine = i;
         break;
       }
-      startLine--;
     }
-    
-    // Find the end of the statement or block
-    let endLine = keywordLine;
-    const baseIndent = getIndentation(codeLines[keywordLine]);
-    
-    while (endLine < codeLines.length - 1) {
-      const nextLine = codeLines[endLine + 1];
-      // If we find a line with same or less indentation, we've reached the end of the block
-      if (nextLine.trim() !== '' && getIndentation(nextLine) <= baseIndent && !codeLines[endLine].trim().endsWith('\\')) {
+
+    if (startLine === -1) {
+      return { startLine: 0, endLine: 0 }; // Method not found
+    }
+
+    // Find the end of the method (next method or end of indentation)
+    const indentMatch = codeLines[startLine].match(/^(\s*)/);
+    const baseIndent = indentMatch ? indentMatch[1].length : 0;
+
+    let endLine = startLine + 1;
+    while (endLine < codeLines.length) {
+      // Check if we've reached a line with same or less indentation (excluding empty lines)
+      const line = codeLines[endLine];
+      if (line.trim() !== "" && !line.startsWith(" ".repeat(baseIndent + 4))) {
         break;
       }
       endLine++;
     }
-    
-    return { startLine, endLine: endLine + 1 }; // +1 because we want to include the end line
-  }
-  
-  // If no relevant code found, just return the original line for insertion
-  return { startLine: nearLine, endLine: nearLine };
-};
 
-// Helper: Get indentation level
-const getIndentation = (line) => {
-  const match = line.match(/^(\s*)/);
-  return match ? match[1].length : 0;
-};
+    return { startLine, endLine };
+  };
+
+  // Helper: Find boundaries for a code block containing any of the keywords
+  const findMethodOrBlockBoundaries = (codeLines, nearLine, keywords) => {
+    // First, check nearby lines for any of the keywords
+    const searchRadius = 10; // Look 10 lines before and after
+    const startSearch = Math.max(0, nearLine - searchRadius);
+    const endSearch = Math.min(codeLines.length, nearLine + searchRadius);
+
+    let keywordLine = -1;
+
+    // Find the first line with a keyword
+    for (let i = startSearch; i < endSearch; i++) {
+      const line = codeLines[i].toLowerCase();
+      if (keywords.some((keyword) => line.includes(keyword.toLowerCase()))) {
+        keywordLine = i;
+        break;
+      }
+    }
+
+    // If we found a keyword line, find the boundaries of its block
+    if (keywordLine >= 0) {
+      // Find the start of the statement (could be a multi-line statement)
+      let startLine = keywordLine;
+      while (startLine > 0) {
+        // Go back until we find a line that doesn't end with a continuation character
+        // or has less indentation
+        const prevLine = codeLines[startLine - 1];
+        if (
+          !prevLine.trim().endsWith("\\") &&
+          (prevLine.trim() === "" ||
+            getIndentation(prevLine) < getIndentation(codeLines[keywordLine]))
+        ) {
+          break;
+        }
+        startLine--;
+      }
+
+      // Find the end of the statement or block
+      let endLine = keywordLine;
+      const baseIndent = getIndentation(codeLines[keywordLine]);
+
+      while (endLine < codeLines.length - 1) {
+        const nextLine = codeLines[endLine + 1];
+        // If we find a line with same or less indentation, we've reached the end of the block
+        if (
+          nextLine.trim() !== "" &&
+          getIndentation(nextLine) <= baseIndent &&
+          !codeLines[endLine].trim().endsWith("\\")
+        ) {
+          break;
+        }
+        endLine++;
+      }
+
+      return { startLine, endLine: endLine + 1 }; // +1 because we want to include the end line
+    }
+
+    // If no relevant code found, just return the original line for insertion
+    return { startLine: nearLine, endLine: nearLine };
+  };
+
+  // Helper: Get indentation level
+  const getIndentation = (line) => {
+    const match = line.match(/^(\s*)/);
+    return match ? match[1].length : 0;
+  };
 
   // Apply suggested code to main code
   // IMPROVED: Apply suggested code to main code
-const applySuggestion = (suggestion) => {
-  // Save current code to history for undo
-  setChangeHistory((prev) => [...prev, code]);
+  const applySuggestion = (suggestion) => {
+    // Save current code to history for undo
+    setChangeHistory((prev) => [...prev, code]);
 
-  const codeLines = code.split("\n");
-  
-  // Find where to replace code
-  const { startLine, endLine } = findReplacementBoundaries(suggestion.type, suggestion.line);
-  
-  // Parse the suggested code
-  const suggestionLines = suggestion.autoFix.split("\n");
+    const codeLines = code.split("\n");
 
-  // Remove comment lines for cleaner insertion
-  const codeToInsert = suggestionLines
-    .filter((line) => !line.trim().startsWith("#"))
-    .join("\n");
+    // Find where to replace code
+    const { startLine, endLine } = findReplacementBoundaries(
+      suggestion.type,
+      suggestion.line,
+    );
 
-  // Track what's being added and removed for highlighting
-  const addedLines = [];
-  const removedLines = [];
+    // Parse the suggested code
+    const suggestionLines = suggestion.autoFix.split("\n");
 
-  // Create new code with replacement
-  const newCodeLines = [...codeLines];
-  
-  // Record removed lines
-  for (let i = startLine; i < endLine; i++) {
-    removedLines.push(i);
-  }
-  
-  // Replace lines
-  newCodeLines.splice(startLine, endLine - startLine, codeToInsert);
-  
-  // Track added lines
-  for (let i = 0; i < suggestionLines.length; i++) {
-    if (!suggestionLines[i].trim().startsWith("#")) {
-      addedLines.push(startLine + i);
+    // Remove comment lines for cleaner insertion
+    const codeToInsert = suggestionLines
+      .filter((line) => !line.trim().startsWith("#"))
+      .join("\n");
+
+    // Track what's being added and removed for highlighting
+    const addedLines = [];
+    const removedLines = [];
+
+    // Create new code with replacement
+    const newCodeLines = [...codeLines];
+
+    // Record removed lines
+    for (let i = startLine; i < endLine; i++) {
+      removedLines.push(i);
     }
-  }
 
-  const newCode = newCodeLines.join("\n");
-  setCode(newCode);
+    // Replace lines
+    newCodeLines.splice(startLine, endLine - startLine, codeToInsert);
 
-  // Track changes for highlighting
-  setLastChanges({
-    added: addedLines,
-    removed: removedLines,
-  });
+    // Track added lines
+    for (let i = 0; i < suggestionLines.length; i++) {
+      if (!suggestionLines[i].trim().startsWith("#")) {
+        addedLines.push(startLine + i);
+      }
+    }
 
-  // Show diff view
-  setShowDiff(true);
+    const newCode = newCodeLines.join("\n");
+    setCode(newCode);
 
-  // Update suggestions list
-  setSuggestions((prev) => prev.filter((s) => s.title !== suggestion.title));
-};
+    // Track changes for highlighting
+    setLastChanges({
+      added: addedLines,
+      removed: removedLines,
+    });
+
+    // Show diff view
+    setShowDiff(true);
+
+    // Update suggestions list
+    setSuggestions((prev) => prev.filter((s) => s.title !== suggestion.title));
+  };
 
   // Undo last code change
   const undoChange = () => {
@@ -1333,116 +1364,120 @@ def improve_model():
   };
 
   // Helper function to get severity color
-// Severity color function
-const getSeverityColor = (severity) => {
-  switch (severity) {
-    case "high":
-      return "#D5451B"; // Cinder primary
-    case "medium":
-      return "#FF9B45"; // Cinder primary-light
-    case "low":
-      return "#6A9955"; // Green
-    default:
-      return "#858585"; // Gray
-  }
-};
+  // Severity color function
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case "high":
+        return "#D5451B"; // Cinder primary
+      case "medium":
+        return "#FF9B45"; // Cinder primary-light
+      case "low":
+        return "#6A9955"; // Green
+      default:
+        return "#858585"; // Gray
+    }
+  };
 
-{showSearch && (
-  <div style={{
-    padding: "8px 16px",
-    backgroundColor: "#2D2D2D",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    borderBottom: "1px solid #333"
-  }}>
-    <input
-      type="text"
-      value={searchText}
-      onChange={(e) => setSearchText(e.target.value)}
-      placeholder="Search in code..."
-      style={{
-        backgroundColor: "#1E1E1E",
-        color: "#D4D4D4",
-        border: "1px solid #555",
-        borderRadius: "4px",
-        padding: "4px 8px",
-        flex: 1
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          if (e.shiftKey) {
-            findPrev();
-          } else {
-            searchResults.length > 0 ? findNext() : searchInCode();
-          }
-        }
-        if (e.key === 'Escape') {
-          setShowSearch(false);
-        }
-      }}
-    />
-    <button 
-      onClick={searchInCode}
-      style={{
-        backgroundColor: "#D5451B",
-        color: "white",
-        border: "none",
-        borderRadius: "4px",
-        padding: "4px 8px",
-        cursor: "pointer"
-      }}
-    >
-      Find
-    </button>
-    {searchResults.length > 0 && (
-      <>
-        <button 
-          onClick={findPrev}
+  {
+    showSearch && (
+      <div
+        style={{
+          padding: "8px 16px",
+          backgroundColor: "#2D2D2D",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          borderBottom: "1px solid #333",
+        }}
+      >
+        <input
+          type="text"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          placeholder="Search in code..."
+          style={{
+            backgroundColor: "#1E1E1E",
+            color: "#D4D4D4",
+            border: "1px solid #555",
+            borderRadius: "4px",
+            padding: "4px 8px",
+            flex: 1,
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              if (e.shiftKey) {
+                findPrev();
+              } else {
+                searchResults.length > 0 ? findNext() : searchInCode();
+              }
+            }
+            if (e.key === "Escape") {
+              setShowSearch(false);
+            }
+          }}
+        />
+        <button
+          onClick={searchInCode}
+          style={{
+            backgroundColor: "#D5451B",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            padding: "4px 8px",
+            cursor: "pointer",
+          }}
+        >
+          Find
+        </button>
+        {searchResults.length > 0 && (
+          <>
+            <button
+              onClick={findPrev}
+              style={{
+                backgroundColor: "#2D2D2D",
+                color: "#D4D4D4",
+                border: "1px solid #555",
+                borderRadius: "4px",
+                padding: "4px 8px",
+                cursor: "pointer",
+              }}
+            >
+              Previous
+            </button>
+            <button
+              onClick={findNext}
+              style={{
+                backgroundColor: "#2D2D2D",
+                color: "#D4D4D4",
+                border: "1px solid #555",
+                borderRadius: "4px",
+                padding: "4px 8px",
+                cursor: "pointer",
+              }}
+            >
+              Next
+            </button>
+            <span style={{ color: "#D4D4D4", fontSize: "12px" }}>
+              {searchIndex + 1} of {searchResults.length}
+            </span>
+          </>
+        )}
+        <button
+          onClick={() => setShowSearch(false)}
           style={{
             backgroundColor: "#2D2D2D",
             color: "#D4D4D4",
             border: "1px solid #555",
             borderRadius: "4px",
             padding: "4px 8px",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
-          Previous
+          Close
         </button>
-        <button 
-          onClick={findNext}
-          style={{
-            backgroundColor: "#2D2D2D",
-            color: "#D4D4D4",
-            border: "1px solid #555",
-            borderRadius: "4px",
-            padding: "4px 8px",
-            cursor: "pointer"
-          }}
-        >
-          Next
-        </button>
-        <span style={{ color: "#D4D4D4", fontSize: "12px" }}>
-          {searchIndex + 1} of {searchResults.length}
-        </span>
-      </>
-    )}
-    <button 
-      onClick={() => setShowSearch(false)}
-      style={{
-        backgroundColor: "#2D2D2D",
-        color: "#D4D4D4",
-        border: "1px solid #555",
-        borderRadius: "4px",
-        padding: "4px 8px",
-        cursor: "pointer"
-      }}
-    >
-      Close
-    </button>
-  </div>
-)}
+      </div>
+    );
+  }
 
   // Function to copy code to clipboard
   const copyToClipboard = (code, suggestionIndex) => {
@@ -1451,62 +1486,73 @@ const getSeverityColor = (severity) => {
   };
 
   if (loading) {
-  return (
-    <div
-      style={{
-        padding: "2rem",
-        textAlign: "center",
-        backgroundColor: "#1E1E1E",
-        color: "#D4D4D4",
-        minHeight: "400px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
-        gap: "12px", 
-        padding: "12px", 
-        background: "#2D2D2D", 
-        borderRadius: "8px",
-        margin: "0 auto",
-        width: "fit-content"
-      }}>
-        <div className="bit-offset" style={{ 
-          width: "20px", 
-          height: "20px", 
-          position: "relative"
-        }}>
-          <div className="offset-back" style={{ 
-            width: "18px", 
-            height: "18px", 
-            borderRadius: "4px",
-            background: "#FF9B45", // Cinder primary-light
-            position: "absolute",
-            bottom: "0",
-            right: "0",
-            opacity: "0.6"
-          }}></div>
-          <div className="offset-front" style={{ 
-            width: "18px", 
-            height: "18px", 
-            borderRadius: "4px",
-            background: "#D5451B", // Cinder primary
-            position: "absolute",
-            top: "0",
-            left: "0"
-          }}></div>
+    return (
+      <div
+        style={{
+          padding: "2rem",
+          textAlign: "center",
+          backgroundColor: "#1E1E1E",
+          color: "#D4D4D4",
+          minHeight: "400px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            padding: "12px",
+            background: "#2D2D2D",
+            borderRadius: "8px",
+            margin: "0 auto",
+            width: "fit-content",
+          }}
+        >
+          <div
+            className="bit-offset"
+            style={{
+              width: "20px",
+              height: "20px",
+              position: "relative",
+            }}
+          >
+            <div
+              className="offset-back"
+              style={{
+                width: "18px",
+                height: "18px",
+                borderRadius: "4px",
+                background: "#FF9B45", // Cinder primary-light
+                position: "absolute",
+                bottom: "0",
+                right: "0",
+                opacity: "0.6",
+              }}
+            ></div>
+            <div
+              className="offset-front"
+              style={{
+                width: "18px",
+                height: "18px",
+                borderRadius: "4px",
+                background: "#D5451B", // Cinder primary
+                position: "absolute",
+                top: "0",
+                left: "0",
+              }}
+            ></div>
+          </div>
+          <span style={{ fontSize: "14px", color: "#D4D4D4" }}>
+            Loading model code...
+          </span>
         </div>
-        <span style={{ fontSize: "14px", color: "#D4D4D4" }}>
-          Loading model code...
-        </span>
-      </div>
-      // Add this to your component, typically near the end
-<style>
-  {`
+        // Add this to your component, typically near the end
+        <style>
+          {`
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
@@ -1541,26 +1587,24 @@ const getSeverityColor = (severity) => {
       background-color: rgba(231, 76, 50, 0.1);
     }
   `}
-</style>
-    </div>
-  );
-}
+        </style>
+      </div>
+    );
+  }
 
   return (
     <div
-  className="code-editor-wrapper"
-  ref={containerRef}
-  style={{
-    backgroundColor: "#1E1E1E", // Dark background
-    color: "#D4D4D4", // Light text
-    minHeight: "100vh",
-    display: "flex",
-    position: "relative",
-    overflow: "hidden",
-  }}
-
-  
->
+      className="code-editor-wrapper"
+      ref={containerRef}
+      style={{
+        backgroundColor: "#1E1E1E", // Dark background
+        color: "#D4D4D4", // Light text
+        minHeight: "100vh",
+        display: "flex",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
       {/* Main Code Viewer - make sure it can shrink */}
       <div
         style={{
@@ -1572,18 +1616,18 @@ const getSeverityColor = (severity) => {
       >
         {/* Header */}
         <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "1rem 1.5rem",
-    backgroundColor: "#252526", // Darker background
-    borderBottom: "1px solid #333333",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
-    flexWrap: "wrap",
-    gap: "1rem",
-  }}
->
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "1rem 1.5rem",
+            backgroundColor: "#252526", // Darker background
+            borderBottom: "1px solid #333333",
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
           <div>
             <h3
               style={{
@@ -1654,30 +1698,36 @@ const getSeverityColor = (severity) => {
                 fontWeight: "500",
               }}
             >
-              <div style={{ 
-                width: "16px", 
-                height: "16px", 
-                position: "relative",
-                flexShrink: 0
-              }}>
-                <div style={{ 
-                  width: "14px", 
-                  height: "14px", 
-                  background: "rgba(255,255,255,0.3)", 
-                  borderRadius: "3px", 
-                  position: "absolute", 
-                  bottom: "0", 
-                  right: "0"
-                }}></div>
-                <div style={{ 
-                  width: "14px", 
-                  height: "14px", 
-                  background: "rgba(255,255,255,0.9)", 
-                  borderRadius: "3px", 
-                  position: "absolute", 
-                  top: "0", 
-                  left: "0" 
-                }}></div>
+              <div
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  position: "relative",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: "14px",
+                    height: "14px",
+                    background: "rgba(255,255,255,0.3)",
+                    borderRadius: "3px",
+                    position: "absolute",
+                    bottom: "0",
+                    right: "0",
+                  }}
+                ></div>
+                <div
+                  style={{
+                    width: "14px",
+                    height: "14px",
+                    background: "rgba(255,255,255,0.9)",
+                    borderRadius: "3px",
+                    position: "absolute",
+                    top: "0",
+                    left: "0",
+                  }}
+                ></div>
               </div>
               {analyzing ? "Analyzing..." : "Bit Analyze"}
             </button>
@@ -1727,42 +1777,42 @@ const getSeverityColor = (severity) => {
           </div>
         </div>
 
-{/* Status Bar */}
-<div
-  style={{
-    padding: "0.4rem 1.5rem",
-    backgroundColor: "#252526", // Darker background
-    color: "#D4D4D4", // Light text
-    fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
-    fontSize: "0.75rem",
-    fontWeight: "500",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  }}
->
-  <span>model_code.py</span>
-  <div>
-    <span>{code.split("\n").length} lines</span>
-    {showDiff && (
-      <>
-        <span style={{ marginLeft: "1rem", color: "#10b981" }}>
-          {lastChanges.added.length > 0 &&
-            `+${lastChanges.added.length} lines added`}
-        </span>
-        <span style={{ marginLeft: "1rem", color: "#ef4444" }}>
-          {lastChanges.removed.length > 0 &&
-            `-${lastChanges.removed.length} lines removed`}
-        </span>
-      </>
-    )}
-    {suggestions.length > 0 && (
-      <span style={{ marginLeft: "1rem" }}>
-        {suggestions.length} suggestions
-      </span>
-    )}
-  </div>
-</div>
+        {/* Status Bar */}
+        <div
+          style={{
+            padding: "0.4rem 1.5rem",
+            backgroundColor: "#252526", // Darker background
+            color: "#D4D4D4", // Light text
+            fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+            fontSize: "0.75rem",
+            fontWeight: "500",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>model_code.py</span>
+          <div>
+            <span>{code.split("\n").length} lines</span>
+            {showDiff && (
+              <>
+                <span style={{ marginLeft: "1rem", color: "#10b981" }}>
+                  {lastChanges.added.length > 0 &&
+                    `+${lastChanges.added.length} lines added`}
+                </span>
+                <span style={{ marginLeft: "1rem", color: "#ef4444" }}>
+                  {lastChanges.removed.length > 0 &&
+                    `-${lastChanges.removed.length} lines removed`}
+                </span>
+              </>
+            )}
+            {suggestions.length > 0 && (
+              <span style={{ marginLeft: "1rem" }}>
+                {suggestions.length} suggestions
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* Code Viewer (Read-only) */}
         <div
@@ -1771,7 +1821,7 @@ const getSeverityColor = (severity) => {
             overflow: "auto",
             position: "relative",
             flex: 1,
-            backgroundColor: "#1e1e1e",  // Dark background
+            backgroundColor: "#1e1e1e", // Dark background
           }}
         >
           <SyntaxHighlighter
@@ -1808,19 +1858,21 @@ const getSeverityColor = (severity) => {
                 (s) => s.line === lineNumber,
               );
 
-              const hasSearchResults = searchResults.some(result => result.lineIndex === lineNumber - 1);
-
+              const hasSearchResults = searchResults.some(
+                (result) => result.lineIndex === lineNumber - 1,
+              );
 
               // Highlight added lines
               const isAdded = lastChanges.added.includes(lineNumber);
-              
+
               // Highlight removed lines
               const isRemoved = lastChanges.removed.includes(lineNumber);
 
               // Decide on style based on highlights
               let style = { display: "block" };
               if (hasSearchResults && showSearch) {
-                style.backgroundColor = style.backgroundColor || "rgba(213, 69, 27, 0.1)";
+                style.backgroundColor =
+                  style.backgroundColor || "rgba(213, 69, 27, 0.1)";
                 // Add an indicator
                 style.position = "relative";
               }
@@ -1848,26 +1900,23 @@ const getSeverityColor = (severity) => {
         </div>
       </div>
 
-      
-      
-
       {/* Suggestions Panel */}
       {showSuggestions && (
         <div
-  className="suggestions-panel"
-  style={{
-    width: `${panelWidth}px`,
-    backgroundColor: "white", // Darker background for panel
-    borderLeft: "1px solid #333333",
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    overflow: "hidden",
-    color: "#D4D4D4", // Light text
-    position: "relative",
-    boxShadow: "-2px 0 10px rgba(0, 0, 0, 0.2)",
-  }}
->
+          className="suggestions-panel"
+          style={{
+            width: `${panelWidth}px`,
+            backgroundColor: "white", // Darker background for panel
+            borderLeft: "1px solid #333333",
+            display: "flex",
+            flexDirection: "column",
+            height: "100vh",
+            overflow: "hidden",
+            color: "#D4D4D4", // Light text
+            position: "relative",
+            boxShadow: "-2px 0 10px rgba(0, 0, 0, 0.2)",
+          }}
+        >
           {/* Resize Handle */}
           <div
             style={{
@@ -2146,54 +2195,65 @@ const getSeverityColor = (severity) => {
             }}
           >
             {analyzing && (
-  <div
-    style={{
-      padding: "2rem",
-      textAlign: "center",
-      color: "#D4D4D4",
-    }}
-  >
-    <div style={{ 
-      display: "flex", 
-      alignItems: "center", 
-      gap: "12px", 
-      padding: "12px", 
-      background: "#fafafb", 
-      borderRadius: "8px",
-      margin: "0 auto",
-      width: "fit-content"
-    }}>
-      <div className="bit-offset" style={{ 
-        width: "20px", 
-        height: "20px", 
-        position: "relative"
-      }}>
-        <div className="offset-back" style={{ 
-          width: "18px", 
-          height: "18px", 
-          borderRadius: "4px",
-          background: "#FF9B45", // Cinder primary-light
-          position: "absolute",
-          bottom: "0",
-          right: "0",
-          opacity: "0.6"
-        }}></div>
-        <div className="offset-front" style={{ 
-          width: "18px", 
-          height: "18px", 
-          borderRadius: "4px",
-          background: "#D5451B", // Cinder primary
-          position: "absolute",
-          top: "0",
-          left: "0"
-        }}></div>
-      </div>
-      <span style={{ fontSize: "14px", color: "black" }}>
-        Bit is analyzing your code...
-      </span>
-    </div>
-  </div>
-)}
+              <div
+                style={{
+                  padding: "2rem",
+                  textAlign: "center",
+                  color: "#D4D4D4",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "12px",
+                    background: "#fafafb",
+                    borderRadius: "8px",
+                    margin: "0 auto",
+                    width: "fit-content",
+                  }}
+                >
+                  <div
+                    className="bit-offset"
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      position: "relative",
+                    }}
+                  >
+                    <div
+                      className="offset-back"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        borderRadius: "4px",
+                        background: "#FF9B45", // Cinder primary-light
+                        position: "absolute",
+                        bottom: "0",
+                        right: "0",
+                        opacity: "0.6",
+                      }}
+                    ></div>
+                    <div
+                      className="offset-front"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        borderRadius: "4px",
+                        background: "#D5451B", // Cinder primary
+                        position: "absolute",
+                        top: "0",
+                        left: "0",
+                      }}
+                    ></div>
+                  </div>
+                  <span style={{ fontSize: "14px", color: "black" }}>
+                    Bit is analyzing your code...
+                  </span>
+                </div>
+              </div>
+            )}
 
             {!analyzing && suggestions.length === 0 && (
               <div
@@ -2209,8 +2269,7 @@ const getSeverityColor = (severity) => {
                     marginBottom: "1.5rem",
                     color: "#D5451B",
                   }}
-                >
-                </div>
+                ></div>
                 <p style={{ fontSize: "1rem", lineHeight: "1.5" }}></p>
               </div>
             )}
@@ -2432,9 +2491,9 @@ const getSeverityColor = (severity) => {
                         }}
                         style={{
                           padding: "0.5rem 1rem",
-                          fontSize: "0.85rem", 
+                          fontSize: "0.85rem",
                           backgroundColor: "#f0f0f0",
-                          fontWeight: '300',
+                          fontWeight: "300",
                           fontFamily: 'Consolas, "Courier New", monospace',
                           color: "black",
                           border: "none",
@@ -2444,34 +2503,40 @@ const getSeverityColor = (severity) => {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          gap: "8px"
+                          gap: "8px",
                         }}
                       >
-                        <div style={{ 
-                          width: "16px", 
-                          height: "16px", 
-                          position: "relative",
-                          flexShrink: 0
-                        }}>
-                          <div style={{ 
-                            width: "14px", 
-                            height: "14px", 
-                            background: "#FF9B45", 
-                            borderRadius: "3px", 
-                            position: "absolute", 
-                            bottom: "0", 
-                            right: "0", 
-                            opacity: "0.6" 
-                          }}></div>
-                          <div style={{ 
-                            width: "14px", 
-                            height: "14px", 
-                            background: "#D5451B", 
-                            borderRadius: "3px", 
-                            position: "absolute", 
-                            top: "0", 
-                            left: "0" 
-                          }}></div>
+                        <div
+                          style={{
+                            width: "16px",
+                            height: "16px",
+                            position: "relative",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: "14px",
+                              height: "14px",
+                              background: "#FF9B45",
+                              borderRadius: "3px",
+                              position: "absolute",
+                              bottom: "0",
+                              right: "0",
+                              opacity: "0.6",
+                            }}
+                          ></div>
+                          <div
+                            style={{
+                              width: "14px",
+                              height: "14px",
+                              background: "#D5451B",
+                              borderRadius: "3px",
+                              position: "absolute",
+                              top: "0",
+                              left: "0",
+                            }}
+                          ></div>
                         </div>
                         <span>Bit Code</span>
                       </button>
@@ -2484,7 +2549,7 @@ const getSeverityColor = (severity) => {
                           padding: "0.5rem 1rem",
                           fontSize: "0.85rem",
                           backgroundColor: "#D5451B", // Different color
-                          fontWeight: '500',
+                          fontWeight: "500",
                           color: "white",
                           border: "none",
                           borderRadius: "0.25rem",
@@ -2515,7 +2580,7 @@ const getSeverityColor = (severity) => {
                           fontSize: "0.85rem",
                           backgroundColor: "#fff",
                           backgroundColor: "#dbdbdb", // Different color
-                          fontWeight: '500',
+                          fontWeight: "500",
                           fontFamily: 'Consolas, "Courier New", monospace',
                           color: "#333",
                           border: "1px solid #e1e1e1",
@@ -2532,15 +2597,31 @@ const getSeverityColor = (severity) => {
               </div>
             ))}
             {/* Diff View Information Banner (only when showing diffs) */}
-{showDiff && lastChanges.added.length > 0 && (
-  <div style={{ margin: "1rem", padding: "1rem", backgroundColor: "#f9fafb", borderRadius: "0.5rem", border: "1px solid #f9fafb", fontSize: "0.9rem", color: "black"}}>
-    <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>Code Changes Applied</div>
-    <div>
-      <p style={{ margin: "0 0 0.5rem 0" }}>Added {lastChanges.added.length} new lines to the code</p>
-      <p style={{ margin: "0" }}>Lines highlighted in green show the newly added code</p>
-    </div>
-  </div>
-)}
+            {showDiff && lastChanges.added.length > 0 && (
+              <div
+                style={{
+                  margin: "1rem",
+                  padding: "1rem",
+                  backgroundColor: "#f9fafb",
+                  borderRadius: "0.5rem",
+                  border: "1px solid #f9fafb",
+                  fontSize: "0.9rem",
+                  color: "black",
+                }}
+              >
+                <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>
+                  Code Changes Applied
+                </div>
+                <div>
+                  <p style={{ margin: "0 0 0.5rem 0" }}>
+                    Added {lastChanges.added.length} new lines to the code
+                  </p>
+                  <p style={{ margin: "0" }}>
+                    Lines highlighted in green show the newly added code
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Custom scrollbar and animation styles */}
