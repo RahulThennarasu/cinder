@@ -23,7 +23,7 @@ for pkg in backend_packages:
 
 setup(
     name="cinder-ml",
-    version="1.1.0",  # Increment version number
+    version="1.3.0",  # Start with version 1.0.0
     description="ML model debugging and analysis dashboard",
     author="Rahul Thennarasu",
     author_email="rahulthennarasu07@gmail.com",
@@ -45,10 +45,12 @@ setup(
     extras_require={
         "pytorch": ["torch>=1.12.0"],
         "tensorflow": ["tensorflow>=2.8.0"],
+        "firebase": ["firebase-admin>=5.0.0"],
         "all": [
             "torch>=1.12.0",
             "tensorflow>=2.8.0",
             "google-generativeai>=0.3.0",
+            "firebase-admin>=5.0.0",
         ],
     },
     entry_points={
@@ -57,4 +59,17 @@ setup(
         ],
     },
     python_requires=">=3.8",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    ],
 )

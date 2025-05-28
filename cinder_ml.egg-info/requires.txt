@@ -9,6 +9,10 @@ python-dotenv>=1.0.0
 torch>=1.12.0
 tensorflow>=2.8.0
 google-generativeai>=0.3.0
+firebase-admin>=5.0.0
+
+[firebase]
+firebase-admin>=5.0.0
 
 [pytorch]
 torch>=1.12.0

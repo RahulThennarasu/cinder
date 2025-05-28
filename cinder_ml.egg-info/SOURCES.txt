@@ -3,6 +3,8 @@ MANIFEST.in
 README.md
 setup.py
 backend/.env
+backend/firebase-credentials.json
+backend/__pycache__/validation.cpython-312.pyc
 backend/app/__init__.py
 backend/app/server.py
 backend/app/__pycache__/__init__.cpython-312.pyc
