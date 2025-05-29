@@ -11,7 +11,7 @@ import numpy as np
 
 from backend.model_interface.connector import ModelDebugger
 
-CINDER_API_KEY = "cinder_1748409159_3c21720eece3d41a9dbf3e81888bdb4e"
+CINDER_API_KEY = "cinder_1748479894241_i9fsbitv79"
 
 # Define a more complex model than the original simple example
 class NeuralNetwork(nn.Module):

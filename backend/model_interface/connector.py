@@ -95,12 +95,19 @@ class ModelDebugger:
         if not HAS_AUTH:
             # If auth module is not available, skip validation
             return True
-            
+                
         if self.api_key is None:
             return False
-            
-        # This checks if the API key is in the list of valid keys
-        return validate_api_key(self.api_key)
+        
+        # Import here to avoid circular imports
+        from backend.auth.auth import validate_api_key, check_rate_limit
+        
+        # First, validate the API key
+        if not validate_api_key(self.api_key):
+            return False
+        
+        # Then, check rate limits for each operation
+        return check_rate_limit(self.api_key)
 
     def get_bit_assistant(self):
         """
@@ -173,6 +180,13 @@ class ModelDebugger:
         Returns:
             Dict containing analysis results
         """
+        # Check API key and rate limits before each operation
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
+        
+        # Rest of your analyze method...
         # Get predictions if they don't exist yet
         if self.predictions is None or self.ground_truth is None:
             self.predictions, self.ground_truth = self._get_predictions()
@@ -249,6 +263,10 @@ class ModelDebugger:
         Returns:
             Dict with improvement suggestions
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if not HAS_IMPROVEMENT_ADVISOR:
             # Create a simple fallback if the advisor module isn't available
             return (
@@ -390,6 +408,10 @@ class ModelDebugger:
         Returns:
             Dict with categorized improvement suggestions
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         # Make sure we have analysis results
         if self.predictions is None or self.ground_truth is None:
             self.analyze()
@@ -600,6 +622,10 @@ class ModelDebugger:
 
     def _calculate_accuracy(self) -> float:
         """Calculate basic accuracy metric."""
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if self.predictions is None or self.ground_truth is None:
             self.predictions, self.ground_truth = self._get_predictions()
 
@@ -610,6 +636,10 @@ class ModelDebugger:
 
     def _analyze_errors(self) -> Dict[str, Any]:
         """Analyze prediction errors in detail."""
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if self.predictions is None or self.ground_truth is None:
             self.predictions, self.ground_truth = self._get_predictions()
 
@@ -652,6 +682,10 @@ class ModelDebugger:
 
     def _calculate_confusion_matrix(self) -> Dict[str, Any]:
         """Calculate confusion matrix for multi-class classification."""
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if self.predictions is None or self.ground_truth is None:
             self.predictions, self.ground_truth = self._get_predictions()
 
@@ -678,6 +712,10 @@ class ModelDebugger:
         Returns:
             Dict with confidence metrics and distributions
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if not hasattr(self, "prediction_probas") or self.prediction_probas is None:
             # Re-run predictions to get probabilities if not available
             self._get_predictions()
@@ -773,6 +811,10 @@ class ModelDebugger:
         Returns:
             Dict with feature importance information
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         # For PyTorch models, we need a workaround since they don't have direct feature importance
         if self.framework == "pytorch":
             try:
@@ -869,6 +911,10 @@ class ModelDebugger:
         Returns:
             Dict with cross-validation results
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if self.dataset is None:
             return {"error": "No dataset available for cross-validation"}
 
@@ -974,6 +1020,10 @@ class ModelDebugger:
         Returns:
             Dict with drift analysis results
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if self.predictions is None or self.ground_truth is None:
             self.predictions, self.ground_truth = self._get_predictions()
 
@@ -1022,6 +1072,10 @@ class ModelDebugger:
         In a real app, this would be populated during model training.
         Here we generate mock data for demonstration if not already available.
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if not self.training_history:
             # Generate a simulated training history
             base_accuracy = 0.65
@@ -1064,6 +1118,10 @@ class ModelDebugger:
         In a real app, this would analyze the actual predictions.
         Here we generate sensible mock data based on our predictions.
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if self.predictions is None or self.ground_truth is None:
             self.predictions, self.ground_truth = self._get_predictions()
 
@@ -1143,6 +1201,10 @@ class ModelDebugger:
         Returns:
             Dict with sample predictions
         """
+        if HAS_AUTH:
+            from backend.auth.auth import check_rate_limit
+            if not check_rate_limit(self.api_key):
+                raise ValueError("Rate limit exceeded. Please upgrade your plan or try again later.")
         if self.predictions is None or self.ground_truth is None:
             self.predictions, self.ground_truth = self._get_predictions()
 

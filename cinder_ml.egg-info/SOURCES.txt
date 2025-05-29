@@ -3,7 +3,6 @@ MANIFEST.in
 README.md
 setup.py
 backend/.env
-backend/firebase-credentials.json
 backend/__pycache__/validation.cpython-312.pyc
 backend/app/__init__.py
 backend/app/server.py
@@ -39,6 +38,7 @@ backend/app/static/static/js/main.ba801f60.js.LICENSE.txt
 backend/app/static/static/js/main.ba801f60.js.map
 backend/auth/__init__.py
 backend/auth/auth.py
+backend/auth/firebase-credentials.json
 backend/auth/valid_keys.json
 backend/auth/__pycache__/__init__.cpython-312.pyc
 backend/auth/__pycache__/auth.cpython-312.pyc

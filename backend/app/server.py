@@ -1031,6 +1031,200 @@ async def get_sample_predictions(api_key: str = Depends(get_api_key),
         limit=limit, offset=offset, include_errors_only=errors_only
     )
 
+# Add these models
+class UserApiKey(BaseModel):
+    id: str = Field(..., description="Unique identifier for the API key")
+    key: str = Field(..., description="The API key")
+    tier: str = Field(..., description="The subscription tier of the key")
+    createdAt: int = Field(..., description="When the key was created (unix timestamp)")
+    expiresAt: int = Field(..., description="When the key expires (unix timestamp)")
+    lastUsed: Optional[int] = Field(None, description="When the key was last used (unix timestamp)")
+    usageCount: int = Field(0, description="Number of times the key has been used")
+    
+class UserApiKeyList(BaseModel):
+    keys: List[UserApiKey] = Field(..., description="List of API keys")
+    
+class CreateApiKeyResponse(BaseModel):
+    key: UserApiKey = Field(..., description="The created API key")
+    message: str = Field(..., description="Success message")
+
+# Initialize Firebase Admin SDK for auth
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore, auth as firebase_auth
+    
+    cred_path = os.path.join(os.path.dirname(__file__), '..', 'firebase-credentials.json')
+    if not firebase_admin._apps:  # Only initialize if not already initialized
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred)
+    
+    db = firestore.client()
+    HAS_FIREBASE = True
+except Exception as e:
+    logging.warning(f"Could not initialize Firebase: {e}")
+    HAS_FIREBASE = False
+
+# Add Firebase token validation
+async def get_firebase_token(authorization: Optional[str] = Header(None)):
+    """Validate Firebase auth token and return user ID."""
+    if not HAS_FIREBASE:
+        raise HTTPException(status_code=501, detail="Firebase authentication not available")
+        
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+        
+    token = authorization.split("Bearer ")[1]
+    
+    try:
+        decoded_token = firebase_auth.verify_id_token(token)
+        return decoded_token['uid']
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+# API key management endpoints
+@app.get("/api/user/keys", response_model=UserApiKeyList)
+async def get_user_api_keys(user_id: str = Depends(get_firebase_token)):
+    """Get all API keys for a user."""
+    try:
+        # Import the function
+        from backend.auth.auth import _load_valid_keys
+        
+        # Load all valid keys
+        valid_keys = _load_valid_keys()
+        
+        # Filter keys by user_id
+        user_keys = []
+        for key_id, key_info in valid_keys.items():
+            if key_info.get("userId", key_info.get("user_id")) == user_id:
+                # Format the key for the response
+                created_at = key_info.get("created_at", 0)
+                expires_at = key_info.get("expires_at", 0)
+                
+                # Handle Firebase timestamp objects
+                if hasattr(created_at, "timestamp"):
+                    created_at = int(created_at.timestamp())
+                if hasattr(expires_at, "timestamp"):
+                    expires_at = int(expires_at.timestamp())
+                
+                last_used = key_info.get("lastUsed")
+                if hasattr(last_used, "timestamp"):
+                    last_used = int(last_used.timestamp())
+                
+                user_keys.append({
+                    "id": key_id,
+                    "key": key_id,  # Use the key ID as the key value
+                    "tier": key_info.get("tier", "free"),
+                    "createdAt": created_at,
+                    "expiresAt": expires_at,
+                    "lastUsed": last_used,
+                    "usageCount": key_info.get("usageCount", 0)
+                })
+        
+        return {"keys": user_keys}
+    except Exception as e:
+        logging.error(f"Error getting user API keys: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching API keys: {str(e)}")
+
+@app.post("/api/user/keys", response_model=CreateApiKeyResponse)
+async def create_api_key(user_id: str = Depends(get_firebase_token)):
+    """Create a new API key for a user."""
+    try:
+        # Get user subscription tier from Firestore
+        if HAS_FIREBASE:
+            user_doc = db.collection("users").document(user_id).get()
+            
+            if not user_doc.exists:
+                # Create user document if it doesn't exist
+                db.collection("users").document(user_id).set({
+                    "subscription": "free",
+                    "createdAt": firestore.SERVER_TIMESTAMP
+                })
+                tier = "free"
+            else:
+                tier = user_doc.to_dict().get("subscription", "free")
+            
+            # For free tier, check how many keys the user has created today
+            if tier == "free":
+                # Get current time and start of day
+                current_time = int(time.time())
+                day_start = current_time - (current_time % 86400)  # Start of current day
+                
+                # Query for keys created today by this user
+                query = db.collection("api_keys").where("userId", "==", user_id).where("createdAt", ">=", firestore.Timestamp.fromtimestamp(day_start))
+                keys_today = list(query.stream())
+                
+                # Enforce limit of 2 keys per day for free tier
+                if len(keys_today) >= 2:
+                    raise HTTPException(
+                        status_code=429, 
+                        detail="Free tier users can only create 2 API keys per day. Please upgrade your plan for unlimited API keys."
+                    )
+        else:
+            # Default to free tier if Firebase isn't available
+            tier = "free"
+        
+        # Generate new API key
+        from backend.auth.auth import generate_api_key
+        api_key = generate_api_key(user_id, tier)
+        
+        # Get the key info
+        from backend.auth.auth import _load_valid_keys
+        valid_keys = _load_valid_keys()
+        key_info = valid_keys.get(api_key, {})
+        
+        # Format the response
+        created_at = key_info.get("created_at", int(time.time()))
+        expires_at = key_info.get("expires_at", int(time.time()) + 31536000)  # 1 year
+        
+        key_data = {
+            "id": api_key,
+            "key": api_key,
+            "tier": tier,
+            "createdAt": created_at,
+            "expiresAt": expires_at,
+            "lastUsed": None,
+            "usageCount": 0
+        }
+        
+        return {
+            "key": key_data,
+            "message": "API key created successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating API key: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating API key: {str(e)}")
+
+@app.delete("/api/user/keys/{key_id}")
+async def delete_api_key(key_id: str, user_id: str = Depends(get_firebase_token)):
+    """Revoke an API key."""
+    try:
+        # Import auth functions
+        from backend.auth.auth import _load_valid_keys, revoke_api_key
+        
+        # Load all valid keys
+        valid_keys = _load_valid_keys()
+        
+        # Check if key exists
+        if key_id not in valid_keys:
+            raise HTTPException(status_code=404, detail="API key not found")
+        
+        # Check if key belongs to user
+        key_user_id = valid_keys[key_id].get("userId", valid_keys[key_id].get("user_id"))
+        if key_user_id != user_id:
+            raise HTTPException(status_code=403, detail="You don't have permission to revoke this key")
+        
+        # Revoke the key
+        if revoke_api_key(key_id):
+            return {"message": "API key revoked successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to revoke API key")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error revoking API key: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error revoking API key: {str(e)}")
 
 def start_server(model_debugger, port: int = 8000):
     """Start the FastAPI server with the given ModelDebugger instance."""
