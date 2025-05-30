@@ -2,5 +2,3 @@ recursive-include backend *
 include backend/.env
 recursive-include cinder *
 
-exclude backend/auth/firebase-credentials.json
-exclude *firebase-credentials.json

@@ -1,0 +1,18 @@
+{
+  "cinder_1748314186_095d56139ce307e2af66ad200360c4e7": {
+    "user_id": "test_user",
+    "created_at": 1748314186.8006139,
+    "expires_at": 1779850186.8006139,
+    "permissions": [
+      "basic"
+    ]
+  },
+  "cinder_1748409159_3c21720eece3d41a9dbf3e81888bdb4e": {
+    "user_id": "user_1748409159",
+    "created_at": 1748409159.226488,
+    "expires_at": 1779945159.226488,
+    "permissions": [
+      "basic"
+    ]
+  }
+}

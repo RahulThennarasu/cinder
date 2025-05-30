@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vs } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import BitChatInterface from './BitChatInterface';
 
 const CodeEditor = ({ modelInfo }) => {
   const [code, setCode] = useState("");
@@ -35,6 +36,44 @@ const CodeEditor = ({ modelInfo }) => {
   const containerRef = useRef(null);
   const codeEditorRef = useRef(null);
 
+  const [activeView, setActiveView] = useState('code'); // 'code' or 'chat'
+
+  const cleanCodeForDisplay = (code) => {
+    if (!code) return '';
+    
+    // Remove markdown code blocks and language indicators
+    let cleanedCode = code.replace(/```python\n?/g, '').replace(/```\n?/g, '');
+    
+    // Check if code still contains escaped newlines
+    if (cleanedCode.includes('\\n')) {
+      // Replace escaped newlines with actual newlines
+      cleanedCode = cleanedCode.replace(/\\n/g, '\n');
+    }
+    
+    return cleanedCode.trim();
+  };
+
+  const [chatMessages, setChatMessages] = useState([
+    {
+      role: "assistant",
+      content: "👋 Hi! I'm Bit, your ML code assistant. I can help you improve your model code. What would you like me to help with?",
+      timestamp: new Date()
+    }
+  ]);
+  const [chatInputValue, setChatInputValue] = useState('');
+  const [chatIsLoading, setChatIsLoading] = useState(false);
+  
+  // Remove this duplicated code block that's outside any function
+  // let cleanedCode = code.replace(/```python\n?/g, '').replace(/```\n?/g, '');
+  // 
+  // // Check if code still contains escaped newlines
+  // if (cleanedCode.includes('\\n')) {
+  //   // Replace escaped newlines with actual newlines
+  //   cleanedCode = cleanedCode.replace(/\\n/g, '\n');
+  // }
+  // 
+  // return cleanedCode.trim();
+  // }; 
   useEffect(() => {
     // Load model code when component mounts
     loadModelCode();
@@ -1679,8 +1718,27 @@ def improve_model():
               )}
             </p>
           </div>
-
+          
           <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={() => setActiveView(activeView === 'code' ? 'chat' : 'code')}
+              style={{
+                padding: "0.5rem 1rem",
+                fontSize: "0.8rem",
+                backgroundColor: activeView === 'chat' ? "#D5451B" : "#f8fafc",
+                color: activeView === 'chat' ? "white" : "#333333",
+                border: activeView === 'chat' ? "none" : "1px solid #e1e1e1",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontWeight: "500",
+                marginRight: "1rem",
+              }}
+            >
+              {activeView === 'code' ? 'Chat with Bit' : 'View Code'}
+            </button>
             <button
               onClick={analyzeCodeWithGemini}
               disabled={analyzing}
@@ -1814,94 +1872,145 @@ def improve_model():
           </div>
         </div>
 
-        {/* Code Viewer (Read-only) */}
-        <div
-          style={{
-            height: "calc(100vh - 137px)",
-            overflow: "auto",
-            position: "relative",
-            flex: 1,
-            backgroundColor: "#1e1e1e", // Dark background
-          }}
-        >
-          <SyntaxHighlighter
-            language="python"
-            style={cinderTheme}
-            showLineNumbers={true}
-            lineNumberStyle={{
-              minWidth: "3em",
-              paddingRight: "1em",
-              textAlign: "right",
-              color: "#858585", // Lighter grey for line numbers
-              borderRight: "1px solid #333333",
-              marginRight: "1em",
-              userSelect: "none",
-            }}
-            customStyle={{
-              margin: 0,
-              padding: "1rem",
-              backgroundColor: "#1E1E1E", // Dark background
-              fontSize: "14px",
-              lineHeight: "1.5",
-              fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
-              overflow: "visible",
-            }}
-            codeTagProps={{
-              style: {
-                fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
-              },
-            }}
-            wrapLines={true}
-            lineProps={(lineNumber) => {
-              // Highlight lines with suggestions
-              const hasSuggestion = suggestions.some(
-                (s) => s.line === lineNumber,
-              );
+        {activeView === 'code' ? (
+  // Code Viewer (Read-only)
+  <div
+    style={{
+      height: "calc(100vh - 137px)",
+      overflow: "auto",
+      position: "relative",
+      flex: 1,
+      backgroundColor: "#1e1e1e", // Dark background
+    }}
+  >
+    <SyntaxHighlighter
+      language="python"
+      style={cinderTheme}
+      showLineNumbers={true}
+      lineNumberStyle={{
+        minWidth: "3em",
+        paddingRight: "1em",
+        textAlign: "right",
+        color: "#858585", // Lighter grey for line numbers
+        borderRight: "1px solid #333333",
+        marginRight: "1em",
+        userSelect: "none",
+      }}
+      customStyle={{
+        margin: 0,
+        padding: "1rem",
+        backgroundColor: "#1E1E1E", // Dark background
+        fontSize: "14px",
+        lineHeight: "1.5",
+        fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+        overflow: "visible",
+      }}
+      codeTagProps={{
+        style: {
+          fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace",
+        },
+      }}
+      wrapLines={true}
+      lineProps={(lineNumber) => {
+        // Highlight lines with suggestions
+        const hasSuggestion = suggestions.some(
+          (s) => s.line === lineNumber,
+        );
 
-              const hasSearchResults = searchResults.some(
-                (result) => result.lineIndex === lineNumber - 1,
-              );
+        const hasSearchResults = searchResults.some(
+          (result) => result.lineIndex === lineNumber - 1,
+        );
 
-              // Highlight added lines
-              const isAdded = lastChanges.added.includes(lineNumber);
+        // Highlight added lines
+        const isAdded = lastChanges.added.includes(lineNumber);
 
-              // Highlight removed lines
-              const isRemoved = lastChanges.removed.includes(lineNumber);
+        // Highlight removed lines
+        const isRemoved = lastChanges.removed.includes(lineNumber);
 
-              // Decide on style based on highlights
-              let style = { display: "block" };
-              if (hasSearchResults && showSearch) {
-                style.backgroundColor =
-                  style.backgroundColor || "rgba(213, 69, 27, 0.1)";
-                // Add an indicator
-                style.position = "relative";
-              }
-              if (isAdded) {
-                style.backgroundColor = "rgba(16, 185, 129, 0.2)"; // Darker green for added
-                style.borderLeft = "3px solid #10b981";
-                style.paddingLeft = "1rem";
-              } else if (isRemoved && showDiff) {
-                style.backgroundColor = "rgba(239, 68, 68, 0.2)"; // Darker red for removed
-                style.borderLeft = "3px solid #ef4444";
-                style.paddingLeft = "1rem";
-                style.textDecoration = "line-through";
-                style.opacity = "0.6";
-              } else if (hasSuggestion) {
-                style.backgroundColor = "rgba(213, 69, 27, 0.2)"; // Darker Cinder primary for suggestions
-                style.borderLeft = "3px solid #D5451B";
-                style.paddingLeft = "1rem";
-              }
+        // Decide on style based on highlights
+        let style = { display: "block" };
+        if (hasSearchResults && showSearch) {
+          style.backgroundColor =
+            style.backgroundColor || "rgba(213, 69, 27, 0.1)";
+          // Add an indicator
+          style.position = "relative";
+        }
+        if (isAdded) {
+          style.backgroundColor = "rgba(16, 185, 129, 0.2)"; // Darker green for added
+          style.borderLeft = "3px solid #10b981";
+          style.paddingLeft = "1rem";
+        } else if (isRemoved && showDiff) {
+          style.backgroundColor = "rgba(239, 68, 68, 0.2)"; // Darker red for removed
+          style.borderLeft = "3px solid #ef4444";
+          style.paddingLeft = "1rem";
+          style.textDecoration = "line-through";
+          style.opacity = "0.6";
+        } else if (hasSuggestion) {
+          style.backgroundColor = "rgba(213, 69, 27, 0.2)"; // Darker Cinder primary for suggestions
+          style.borderLeft = "3px solid #D5451B";
+          style.paddingLeft = "1rem";
+        }
 
-              return { style };
-            }}
-          >
-            {code}
-          </SyntaxHighlighter>
-        </div>
+        return { style };
+      }}
+    >
+      {code}
+    </SyntaxHighlighter>
+  </div>
+) : (
+  // Chat Interface when activeView is 'chat'
+  <BitChatInterface 
+    code={code} 
+    modelInfo={modelInfo}
+    // Pass the lifted state
+    messages={chatMessages}
+    setMessages={setChatMessages}
+    inputValue={chatInputValue}
+    setInputValue={setChatInputValue}
+    isLoading={chatIsLoading}
+    setIsLoading={setChatIsLoading}
+    onApplyFix={(suggestion) => {
+      // Save current code to history
+      setChangeHistory((prev) => [...prev, code]);
+      
+      // Get cleaned code
+      const cleanedCode = cleanCodeForDisplay(suggestion.code);
+      
+      // Find the proper location to insert/replace code
+      const codeLines = code.split('\n');
+      const lineIndex = suggestion.lineNumber - 1;
+      
+      // Safety check for valid line number
+      if (lineIndex >= 0 && lineIndex < codeLines.length) {
+        // Simple replacement for now
+        const newCodeLines = [
+          ...codeLines.slice(0, lineIndex),
+          cleanedCode,
+          ...codeLines.slice(lineIndex + 1)
+        ];
+        
+        // Update code
+        setCode(newCodeLines.join('\n'));
+        
+        // Track changes for highlighting
+        setLastChanges({
+          added: [lineIndex],
+          removed: [lineIndex]
+        });
+        
+        // Show diff view
+        setShowDiff(true);
+        
+        // Switch back to code view after applying fix
+        setActiveView('code');
+      }
+    }}
+  />
+)}
       </div>
 
       {/* Suggestions Panel */}
-      {showSuggestions && (
+      {activeView === 'code' && showSuggestions && (
         <div
           className="suggestions-panel"
           style={{

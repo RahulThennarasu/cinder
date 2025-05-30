@@ -9,6 +9,9 @@ from datetime import datetime, timedelta
 import re
 from typing import List, Dict, Any
 
+from pydantic import BaseModel
+
+
 import json
 from starlette.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -281,6 +284,245 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
                 logging.error(f"Error adding API key to response: {e}")
                 
         return response
+class BitChatRequest(BaseModel):
+    query: str
+    code: str
+    modelInfo: Optional[Dict[str, Any]] = None
+    framework: str = "pytorch"
+
+class SuggestionModel(BaseModel):
+    title: str
+    description: str
+    code: str
+    lineNumber: int
+
+class BitChatResponse(BaseModel):
+    message: str
+    suggestions: Optional[List[SuggestionModel]] = []
+async def get_api_key(request: Request, x_api_key: str = Header(None)):
+    """
+    Dependency to extract and validate the API key.
+    
+    For dashboard requests, bypass authentication.
+    For programmatic API access, enforce authentication.
+    """
+    global debugger
+    
+    if not HAS_AUTH:
+        # Skip validation if auth module not available
+        return "no_auth"
+    
+    # If it's a dashboard request, bypass authentication
+    if is_dashboard_request(request):
+        # For dashboard requests, use the debugger's API key if available
+        if debugger and hasattr(debugger, "api_key") and debugger.api_key:
+            return debugger.api_key
+        return "dashboard_access"
+    
+    # For all other API requests, require valid authentication
+    api_key = x_api_key
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Please provide an API key in the X-API-Key header."
+        )
+    
+    if not validate_api_key(api_key):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key"
+        )
+    
+    return api_key
+
+@app.post("/api/bit-chat", response_model=BitChatResponse)
+async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key)):
+    """Process a chat request from Bit and return AI-generated responses"""
+    # Simple logging
+    if HAS_AUTH:
+        from backend.auth.auth import check_rate_limit
+        if not check_rate_limit(api_key):
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Please upgrade your plan or try again later."
+            )
+    print(f"Received bit-chat request for framework: {request.framework}")
+    
+    # Check if Gemini API key is available
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
+    
+    # If no API key, return the test response
+    if not gemini_api_key:
+        print("No GEMINI_API_KEY found, using test response")
+        return {
+            "message": f"I've analyzed your {request.framework} code. This is a test response.",
+            "suggestions": [
+                {
+                    "title": "Add Regularization",
+                    "description": "Test suggestion",
+                    "code": "self.dropout = nn.Dropout(0.3)",
+                    "lineNumber": 7
+                }
+            ]
+        }
+    
+    try:
+        # Initialize the Gemini client
+        from google import genai
+        genai_client = genai.Client(api_key=gemini_api_key)
+        
+        # Format prompt for Gemini with improved engineering
+        prompt = f"""
+        You are Bit, an AI assistant specialized in analyzing and improving machine learning code.
+
+        Current code to analyze:
+        ```python
+        {request.code}
+        ```
+
+        Model details:
+        - Framework: {request.framework}
+        - Accuracy: {request.modelInfo.get('accuracy', 'unknown') if request.modelInfo else 'unknown'}
+        - Precision: {request.modelInfo.get('precision', 'unknown') if request.modelInfo else 'unknown'}
+        - Recall: {request.modelInfo.get('recall', 'unknown') if request.modelInfo else 'unknown'}
+
+        User query: {request.query}
+
+        IMPORTANT FORMATTING INSTRUCTIONS:
+        1. Your response MUST be valid JSON with a "message" field and a "suggestions" array
+        2. For code examples in the "code" field:
+        - DO NOT use markdown code blocks (no triple backticks like ```)
+        - DO NOT use language indicators (like ```python)
+        - Provide the actual code as plain text with proper indentation
+        - Use real newlines for line breaks, not escaped newlines (\\n)
+        3. Make sure your "lineNumber" field contains the line number where the suggestion should be applied
+        4. Keep your "description" field concise but informative
+
+        Format your response exactly like this JSON example:
+        {{
+        "message": "Your main analysis of the code",
+        "suggestions": [
+            {{
+            "title": "Clear and descriptive title",
+            "description": "Explanation of what should be improved and why",
+            "code": "def better_function():\\n    print('This is improved code')\\n    return True",
+            "lineNumber": 42
+            }}
+        ]
+        }}
+
+        Remember: NO markdown syntax in the "code" field, just the raw code itself.
+        """
+        
+        print("Sending request to Gemini API")
+        # Call Gemini API
+        response = genai_client.models.generate_content(
+            model="gemini-1.5-flash",  # or try "gemini-pro" if this doesn't work
+            contents=prompt
+        )
+        
+        # Extract the text from the response
+        if hasattr(response, 'text'):
+            text = response.text
+        elif hasattr(response, 'parts') and response.parts:
+            text = response.parts[0].text
+        else:
+            print(f"Unexpected response format: {dir(response)}")
+            return {
+                "message": "I couldn't process your request properly. Here's a general suggestion instead.",
+                "suggestions": [
+                    {
+                        "title": "Add Regularization",
+                        "description": "Adding dropout can help prevent overfitting.",
+                        "code": "self.dropout = nn.Dropout(0.3)",
+                        "lineNumber": 7
+                    }
+                ]
+            }
+        
+        print(f"Received response from Gemini: {text[:100]}...")
+        
+        # Try to parse the JSON response
+        import re
+        import json
+        
+        # Look for JSON in the response
+        json_match = re.search(r'```json([\s\S]*?)```', text) or re.search(r'{[\s\S]*}', text)
+        
+        if json_match:
+            json_text = json_match.group(0).replace('```json', '').replace('```', '')
+            try:
+                parsed_response = json.loads(json_text)
+                
+                # Validate response structure
+                if "message" not in parsed_response:
+                    parsed_response["message"] = "I've analyzed your code."
+                
+                if "suggestions" not in parsed_response:
+                    parsed_response["suggestions"] = []
+                
+                # Ensure each suggestion has required fields and clean code
+                for suggestion in parsed_response.get("suggestions", []):
+                    if "lineNumber" not in suggestion:
+                        suggestion["lineNumber"] = 1
+                    if "title" not in suggestion:
+                        suggestion["title"] = "Code Improvement"
+                    if "description" not in suggestion:
+                        suggestion["description"] = "This improves your code."
+                    if "code" in suggestion:
+                        # First, check if the code is already in proper format
+                        code = suggestion["code"]
+                        
+                        # Remove markdown code blocks and language indicators
+                        code = re.sub(r'```python\n?', '', code)
+                        code = re.sub(r'```\n?', '', code)
+                        code = re.sub(r'```python\r\n?', '', code)
+                        code = re.sub(r'```\r\n?', '', code)
+                        
+                        # Also replace escaped newlines with actual newlines
+                        code = code.replace('\\n', '\n')
+                        
+                        # Replace any weird escaped backslash combinations
+                        code = code.replace('\\\\n', '\n')
+                        
+                        # Finally, trim any extra whitespace
+                        code = code.strip()
+                        
+                        # Update the suggestion with clean code
+                        suggestion["code"] = code
+                    else:
+                        suggestion["code"] = "# No specific code provided"
+                
+                return parsed_response
+            except json.JSONDecodeError as e:
+                print(f"Error parsing JSON: {e}")
+                # Fall back to extracting content from text
+                return {
+                    "message": text,
+                    "suggestions": []
+                }
+        else:
+            # If no JSON found, just return the text
+            return {
+                "message": text,
+                "suggestions": []
+            }
+            
+    except Exception as e:
+        print(f"Error using Gemini API: {str(e)}")
+        # Return fallback response on error
+        return {
+            "message": f"I encountered an error analyzing your code. Here's a general suggestion: {str(e)}",
+            "suggestions": [
+                {
+                    "title": "General Improvement",
+                    "description": "Consider adding regularization to prevent overfitting.",
+                    "code": "self.dropout = nn.Dropout(0.3)",
+                    "lineNumber": 7
+                }
+            ]
+        }
 
 # Add the middleware to your app
 app.add_middleware(ApiKeyMiddleware)

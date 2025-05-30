@@ -11,6 +11,8 @@ import numpy as np
 
 from cinder import ModelDebugger
 
+CINDER_API_KEY = "cinder_1748575961327_jnw55nq2re"
+
 # Define an overly complex model to cause overfitting
 class ComplexNeuralNetwork(nn.Module):
     def __init__(self, input_size=10, hidden_size=256, num_classes=2):  # Very large hidden layer
@@ -125,7 +127,7 @@ def main():
     
     print("Initializing ModelDebugger...")
     # Connect the model to CompileML
-    debugger = ModelDebugger(model, test_loader, name="Overfitting Neural Network")
+    debugger = ModelDebugger(model, test_loader, name="Overfitting Neural Network", api_key=CINDER_API_KEY)
     
     # Add training history to debugger
     # Make training accuracy artificially high to make overfitting more obvious
