@@ -11,6 +11,7 @@ from typing import List, Dict, Any
 
 from pydantic import BaseModel
 
+from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
 
 import json
 from starlette.responses import JSONResponse
@@ -21,8 +22,6 @@ from pathlib import Path
 
 from fastapi.staticfiles import StaticFiles
 import importlib.resources as pkg_resources
-
-from backend.bit.router import router as bit_router  # Import the router from the backend module
 
 from dotenv import load_dotenv
 
@@ -286,6 +285,27 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
                 logging.error(f"Error adding API key to response: {e}")
                 
         return response
+    
+# Add these new models
+class UsageStatsResponse(BaseModel):
+    api_key_id: str
+    daily_usage: int
+    daily_limit: int
+    monthly_usage: int
+    monthly_limit: int
+    last_used: Optional[str]
+    total_requests: int
+    tier: str
+    reset_times: Dict[str, str]
+
+class UsageHistoryItem(BaseModel):
+    date: str
+    requests: int
+
+class UsageHistoryResponse(BaseModel):
+    history: List[UsageHistoryItem]
+    total_days: int
+
 class BitChatRequest(BaseModel):
     query: str
     code: str
@@ -301,18 +321,225 @@ class SuggestionModel(BaseModel):
 class BitChatResponse(BaseModel):
     message: str
     suggestions: Optional[List[SuggestionModel]] = []
+async def get_api_key(request: Request, x_api_key: str = Header(None)):
+    """
+    Dependency to extract and validate the API key.
+    
+    For dashboard requests, bypass authentication.
+    For programmatic API access, enforce authentication.
+    """
+    global debugger
+    
+    if not HAS_AUTH:
+        # Skip validation if auth module not available
+        return "no_auth"
+    
+    # If it's a dashboard request, bypass authentication
+    if is_dashboard_request(request):
+        # For dashboard requests, use the debugger's API key if available
+        if debugger and hasattr(debugger, "api_key") and debugger.api_key:
+            return debugger.api_key
+        return "dashboard_access"
+    
+    # For all other API requests, require valid authentication
+    api_key = x_api_key
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Please provide an API key in the X-API-Key header."
+        )
+    
+    if not validate_api_key(api_key):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key"
+        )
+    
+    return api_key
 
+async def get_firebase_token(authorization: Optional[str] = Header(None)):
+    """Validate Firebase auth token and return user ID."""
+    # For now, we'll make this optional and return a demo user ID
+    # You can enhance this later when you integrate Firebase auth in the backend
+    
+    if not authorization or not authorization.startswith("Bearer "):
+        # For demo purposes, return a demo user ID
+        # In production, you'd raise an HTTPException here
+        return "demo_user_id"
+    
+    try:
+        # If you have Firebase Admin SDK set up, you can validate the token here
+        # For now, we'll just return a demo user ID
+        token = authorization.split("Bearer ")[1]
+        
+        # In a real implementation, you'd do:
+        # decoded_token = firebase_auth.verify_id_token(token)
+        # return decoded_token['uid']
+        
+        # For demo, just return a user ID
+        return "demo_user_id"
+        
+    except Exception as e:
+        # For demo purposes, just return demo user
+        # In production: raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+        return "demo_user_id"
+    
+@app.get("/api/usage-stats", response_model=UsageStatsResponse)
+async def get_usage_stats(api_key: str = Depends(get_api_key)):
+    """Get current usage statistics for an API key."""
+    if not HAS_AUTH:
+        # Return mock data if auth is disabled
+        return {
+            "api_key_id": "demo_key",
+            "daily_usage": 15,
+            "daily_limit": 100,
+            "monthly_usage": 450,
+            "monthly_limit": 3000,
+            "last_used": datetime.now().isoformat(),
+            "total_requests": 450,
+            "tier": "free",
+            "reset_times": {
+                "daily_reset": (datetime.now() + timedelta(days=1)).replace(hour=0, minute=0, second=0).isoformat(),
+                "monthly_reset": (datetime.now().replace(day=1) + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0).isoformat()
+            }
+        }
+    
+    try:
+        from backend.auth.auth import get_usage_stats_for_key
+        stats = get_usage_stats_for_key(api_key)
+        
+        if not stats:
+            raise HTTPException(status_code=404, detail="Usage stats not found")
+        
+        return stats
+        
+    except Exception as e:
+        logging.error(f"Error getting usage stats: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving usage statistics")
+
+@app.get("/api/usage-history", response_model=UsageHistoryResponse)
+async def get_usage_history(
+    api_key: str = Depends(get_api_key),
+    days: int = Query(30, ge=1, le=90)
+):
+    """Get usage history for the last N days."""
+    if not HAS_AUTH:
+        # Return mock data if auth is disabled
+        history = []
+        for i in range(days):
+            date = datetime.now() - timedelta(days=i)
+            requests = max(0, int(50 * (0.8 + 0.4 * (i % 7) / 6)))  # Mock varying usage
+            history.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "requests": requests
+            })
+        
+        return {
+            "history": history,
+            "total_days": days
+        }
+    
+    try:
+        from backend.auth.auth import get_usage_history_for_key
+        history = get_usage_history_for_key(api_key, days)
+        
+        return {
+            "history": history,
+            "total_days": days
+        }
+        
+    except Exception as e:
+        logging.error(f"Error getting usage history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving usage history")
+
+@app.get("/api/user/usage-overview")
+async def get_user_usage_overview(user_id: str = Depends(get_firebase_token)):
+    """Get usage overview for all of a user's API keys."""
+    if not HAS_FIREBASE:
+        return {
+            "total_keys": 2,
+            "active_keys": 2,
+            "total_requests_today": 25,
+            "total_requests_month": 750,
+            "keys_near_limit": 0
+        }
+    
+    try:
+        # Get all user's API keys
+        keys_query = db.collection("api_keys").where("userId", "==", user_id).where("active", "==", True)
+        keys = list(keys_query.stream())
+        
+        total_requests_today = 0
+        total_requests_month = 0
+        keys_near_limit = 0
+        
+        current_time = int(time.time())
+        day_start = current_time - (current_time % 86400)
+        month_start = current_time - (current_time % 2592000)
+        
+        for key_doc in keys:
+            # Get usage data for each key
+            usage_ref = db.collection("api_usage").document(key_doc.id)
+            usage_doc = usage_ref.get()
+            
+            if usage_doc.exists:
+                usage_data = usage_doc.to_dict()
+                
+                # Add up daily usage
+                daily = usage_data.get("daily", {})
+                if daily.get("reset_time", 0) >= day_start:
+                    total_requests_today += daily.get("count", 0)
+                
+                # Add up monthly usage
+                monthly = usage_data.get("monthly", {})
+                if monthly.get("reset_time", 0) >= month_start:
+                    total_requests_month += monthly.get("count", 0)
+                
+                # Check if near limit
+                key_data = key_doc.to_dict()
+                tier = key_data.get("tier", "free")
+                daily_limit = 100 if tier == "free" else 1000 if tier == "basic" else 10000
+                
+                if daily.get("count", 0) > daily_limit * 0.8:  # 80% of limit
+                    keys_near_limit += 1
+        
+        return {
+            "total_keys": len(keys),
+            "active_keys": len(keys),
+            "total_requests_today": total_requests_today,
+            "total_requests_month": total_requests_month,
+            "keys_near_limit": keys_near_limit
+        }
+        
+    except Exception as e:
+        logging.error(f"Error getting user usage overview: {str(e)}")
+        return {
+            "total_keys": 0,
+            "active_keys": 0,
+            "total_requests_today": 0,
+            "total_requests_month": 0,
+            "keys_near_limit": 0
+        }
+    
 @app.post("/api/bit-chat", response_model=BitChatResponse)
-async def bit_chat(request: BitChatRequest):
+async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key)):
     """Process a chat request from Bit and return AI-generated responses"""
     # Simple logging
+    if HAS_AUTH:
+        from backend.auth.auth import check_rate_limit
+        if not check_rate_limit(api_key):
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Please upgrade your plan or try again later."
+            )
     print(f"Received bit-chat request for framework: {request.framework}")
     
     # Check if Gemini API key is available
-    api_key = os.environ.get("GEMINI_API_KEY")
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
     
     # If no API key, return the test response
-    if not api_key:
+    if not gemini_api_key:
         print("No GEMINI_API_KEY found, using test response")
         return {
             "message": f"I've analyzed your {request.framework} code. This is a test response.",
@@ -329,7 +556,7 @@ async def bit_chat(request: BitChatRequest):
     try:
         # Initialize the Gemini client
         from google import genai
-        genai_client = genai.Client(api_key=api_key)
+        genai_client = genai.Client(api_key=gemini_api_key)
         
         # Format prompt for Gemini with improved engineering
         prompt = f"""
@@ -486,42 +713,6 @@ async def bit_chat(request: BitChatRequest):
 # Add the middleware to your app
 app.add_middleware(ApiKeyMiddleware)
 
-async def get_api_key(request: Request, x_api_key: str = Header(None)):
-    """
-    Dependency to extract and validate the API key.
-    
-    For dashboard requests, bypass authentication.
-    For programmatic API access, enforce authentication.
-    """
-    global debugger
-    
-    if not HAS_AUTH:
-        # Skip validation if auth module not available
-        return "no_auth"
-    
-    # If it's a dashboard request, bypass authentication
-    if is_dashboard_request(request):
-        # For dashboard requests, use the debugger's API key if available
-        if debugger and hasattr(debugger, "api_key") and debugger.api_key:
-            return debugger.api_key
-        return "dashboard_access"
-    
-    # For all other API requests, require valid authentication
-    api_key = x_api_key
-    
-    if not api_key:
-        raise HTTPException(
-            status_code=401,
-            detail="Missing API key. Please provide an API key in the X-API-Key header."
-        )
-    
-    if not validate_api_key(api_key):
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid API key"
-        )
-    
-    return api_key
 
 # Track server start time
 server_start_time = datetime.now()
