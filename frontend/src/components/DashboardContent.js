@@ -18,6 +18,7 @@ import ModelImprovementFlowchart from "./ModelImprovementFlowchart";
 import EnhancedPredictionDistribution from "./EnhancedPredictionDistribution";
 import ModelImprovementSuggestions from "./ModelImprovementSuggestions";
 import CodeEditor from "./CodeEditor";
+import CladoStyleAIAgent from "./CladoStyleAIAgent";
 
 // Constants
 const COLORS = [
@@ -543,20 +544,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
         );
 
       case "code":
-        return (
-          <div className="code-editor-wrapper">
-            <div className="development-banner">
-              <div className="bit-indicator">
-                <div className="bit-offset">
-                  <div className="offset-back"></div>
-                  <div className="offset-front"></div>
-                </div>
-                <span className="bit-text">Under Development</span>
-              </div>
-            </div>
-            <CodeEditor modelInfo={modelInfo} />
-          </div>
-        );
+          return <CladoStyleAIAgent modelInfo={modelInfo} />;
       default:
         return <div>Select a tab to view data</div>;
     }
