@@ -22,6 +22,10 @@ backend/app/static/manifest.webmanifest
 backend/app/static/robots.txt
 backend/app/static/static/css/main.1b3d4f25.css
 backend/app/static/static/css/main.1b3d4f25.css.map
+backend/app/static/static/css/main.22533b4e.css
+backend/app/static/static/css/main.22533b4e.css.map
+backend/app/static/static/css/main.586f8074.css
+backend/app/static/static/css/main.586f8074.css.map
 backend/app/static/static/css/main.ea1cb791.css
 backend/app/static/static/css/main.ea1cb791.css.map
 backend/app/static/static/js/main.36c0c139.js
@@ -39,6 +43,9 @@ backend/app/static/static/js/main.568bdf61.js.map
 backend/app/static/static/js/main.6a2e61b5.js
 backend/app/static/static/js/main.6a2e61b5.js.LICENSE.txt
 backend/app/static/static/js/main.6a2e61b5.js.map
+backend/app/static/static/js/main.7a265116.js
+backend/app/static/static/js/main.7a265116.js.LICENSE.txt
+backend/app/static/static/js/main.7a265116.js.map
 backend/app/static/static/js/main.862ea425.js
 backend/app/static/static/js/main.862ea425.js.LICENSE.txt
 backend/app/static/static/js/main.862ea425.js.map
