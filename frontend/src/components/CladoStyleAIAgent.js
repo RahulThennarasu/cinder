@@ -1,17 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Send,
-  Sparkles,
-  Code,
-  Zap,
-  CheckCircle,
-  ArrowUp,
-  FileText,
-  Brain
-} from 'lucide-react';
+import { MinimalIcons } from './MinimalIcons';
 import './CladoStyleAIAgent.css';
-
-// CSS styles inline to ensure they're applied
 
 const CladoStyleAIAgent = ({ modelInfo }) => {
   const [messages, setMessages] = useState([]);
@@ -24,16 +13,6 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingIntervalRef = useRef(null);
-
-  // Add style tag to head on component mount
-  useEffect(() => {
-    const styleElement = document.createElement('style');
-    document.head.appendChild(styleElement);
-    
-    return () => {
-      document.head.removeChild(styleElement);
-    };
-  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -114,7 +93,7 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
         const suggestions = data.suggestions || [];
         
         if (suggestions.length > 0) {
-          const suggestionMessage = `I found ${suggestions.length} optimization opportunities:\n\n1. **Use Cross-Validation**: Single train-test split may not be reliable`;
+          const suggestionMessage = `I found ${suggestions.length} optimization opportunities:\n\n1. Use Cross-Validation: Single train-test split may not be reliable`;
           
           typeMessage(suggestionMessage, () => {
             setMessages(prev => [...prev, {
@@ -129,7 +108,7 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
     } catch (error) {
       console.error('Error getting suggestions:', error);
       // Fallback suggestions if API fails
-      const fallbackSuggestions = "I found 3 optimization opportunities:\n\n1. **Use Cross-Validation**: Single train-test split may not be reliable";
+      const fallbackSuggestions = "I found 3 optimization opportunities:\n\n1. Use Cross-Validation: Single train-test split may not be reliable";
       
       typeMessage(fallbackSuggestions, () => {
         setMessages(prev => [...prev, {
@@ -208,23 +187,23 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
   };
 
   const QuickActions = () => (
-  <div className="quick-actions">
-    {[
-      "Optimize my model performance",
-      "Fix overfitting issues", 
-      "Improve training speed",
-      "Add regularization"
-    ].map((action, index) => (
-      <button
-        key={index}
-        onClick={() => setInputValue(action)}
-        className="quick-action-button"
-      >
-        {action}
-      </button>
-    ))}
-  </div>
-);
+    <div className="quick-actions">
+      {[
+        "Optimize my model performance",
+        "Fix overfitting issues", 
+        "Improve training speed",
+        "Add regularization"
+      ].map((action, index) => (
+        <button
+          key={index}
+          onClick={() => setInputValue(action)}
+          className="quick-action-button"
+        >
+          {action}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="clado-container">
@@ -234,21 +213,21 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
         <p className="clado-subtitle">AI-powered code analysis and continuous improvement suggestions</p>
         
         {modelInfo && (
-  <div className="model-info">
-    <div className="model-badge model-loaded">
-      <div className="model-loaded-indicator"></div>
-      <span className="model-loaded-text">Model Loaded</span>
-    </div>
-    <div className="model-badge framework-badge">
-      <Code className="w-3.5 h-3.5" style={{ marginRight: '6px', opacity: 0.8 }} />
-      <span>{modelInfo.framework || 'pytorch'}</span>
-    </div>
-    <div className="model-badge accuracy-badge">
-      <Zap className="w-3.5 h-3.5" style={{ marginRight: '6px', opacity: 0.8 }} />
-      <span>{((modelInfo?.accuracy || 0.85) * 100).toFixed(1)}% accuracy</span>
-    </div>
-  </div>
-)}
+          <div className="model-info">
+            <div className="model-badge model-loaded">
+              <div className="model-loaded-indicator"></div>
+              <span className="model-loaded-text">Model Loaded</span>
+            </div>
+            <div className="model-badge framework-badge">
+              <MinimalIcons.Code />
+              <span>{modelInfo.framework || 'pytorch'}</span>
+            </div>
+            <div className="model-badge accuracy-badge">
+              <MinimalIcons.Zap />
+              <span>{((modelInfo?.accuracy || 0.85) * 100).toFixed(1)}% accuracy</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chat Messages */}
@@ -264,7 +243,7 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
             {message.role === 'assistant' && (
               <div className="agent-info">
                 <div className="agent-avatar">
-                  <Brain className="w-4 h-4" style={{ color: 'white' }} />
+                  <MinimalIcons.Brain />
                 </div>
                 <span className="agent-name">Bit</span>
                 <span className="time-display">{formatTime(message.timestamp)}</span>
@@ -288,7 +267,7 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
           <div className="message assistant-message">
             <div className="agent-info">
               <div className="agent-avatar">
-                <Brain className="w-4 h-4" style={{ color: 'white' }} />
+                <MinimalIcons.Brain />
               </div>
               <span className="agent-name">Bit</span>
             </div>
@@ -304,7 +283,7 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
           <div className="message assistant-message">
             <div className="agent-info">
               <div className="agent-avatar">
-                <Brain className="w-4 h-4" style={{ color: 'white' }} />
+                <MinimalIcons.Brain />
               </div>
               <span className="agent-name">Bit</span>
             </div>
@@ -341,12 +320,12 @@ const CladoStyleAIAgent = ({ modelInfo }) => {
             disabled={isLoading || isTyping || inputValue.trim() === ''}
             className="send-button"
           >
-            <ArrowUp className="w-4 h-4" style={{ color: 'white' }} />
+            <MinimalIcons.ArrowUp />
           </button>
         </div>
         
         <div className="disclaimer">
-          <Sparkles className="w-3 h-3" />
+          <MinimalIcons.Sparkles />
           <span>Bit can make mistakes. Always verify important code changes.</span>
         </div>
       </div>
