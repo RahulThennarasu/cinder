@@ -1,4 +1,4 @@
-// Updated BitAutoOptimizer.js - removing mock data and using real API exclusively
+// Updated BitAutoOptimizer.js - Improved UI with better code display and progress tracking
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -13,10 +13,13 @@ const BitAutoOptimizer = ({ modelInfo }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationProgress, setOptimizationProgress] = useState(0);
-  const [totalSteps, setTotalSteps] = useState(0);
+  const [totalSteps, setTotalSteps] = useState(5); // Default to 5 steps
   const [currentStep, setCurrentStep] = useState(0);
+  const [currentOptimization, setCurrentOptimization] = useState('');
   const [viewMode, setViewMode] = useState('split'); // 'split', 'code', 'chat'
   const [typingMessage, setTypingMessage] = useState(null);
+  const [codeHighlights, setCodeHighlights] = useState({ added: [], removed: [] });
+  const [showDiff, setShowDiff] = useState(false);
   
   // References
   const websocketRef = useRef(null);
@@ -71,7 +74,7 @@ const BitAutoOptimizer = ({ modelInfo }) => {
       setTypingMessage(prev => {
         if (!prev) return null;
         
-        const newCharIndex = prev.charIndex + 1;
+        const newCharIndex = prev.charIndex + 2; // Increase speed by processing 2 chars at once
         if (newCharIndex > prev.fullContent.length) {
           clearInterval(typingInterval);
           
@@ -95,6 +98,43 @@ const BitAutoOptimizer = ({ modelInfo }) => {
     }, 10); // Typing speed - adjust as needed
   };
   
+  // Generate a simple diff between two code strings
+  const generateDiff = (oldCode, newCode) => {
+    const oldLines = oldCode.split('\n');
+    const newLines = newCode.split('\n');
+    let diff = '';
+    
+    // Generate diff by comparing lines
+    const maxLines = Math.max(oldLines.length, newLines.length);
+    const changedLines = {
+      added: [],
+      removed: []
+    };
+    
+    for (let i = 0; i < maxLines; i++) {
+      if (i >= oldLines.length) {
+        // Line was added
+        diff += `+ ${newLines[i]}\n`;
+        changedLines.added.push(i);
+      } else if (i >= newLines.length) {
+        // Line was removed
+        diff += `- ${oldLines[i]}\n`;
+        changedLines.removed.push(i);
+      } else if (oldLines[i] !== newLines[i]) {
+        // Line was changed
+        diff += `- ${oldLines[i]}\n+ ${newLines[i]}\n`;
+        changedLines.removed.push(i);
+        changedLines.added.push(i);
+      }
+    }
+    
+    // Update code highlights for visualization
+    setCodeHighlights(changedLines);
+    setShowDiff(true);
+    
+    return diff || "No visible changes detected.";
+  };
+  
   // Start the optimization process
   const startOptimization = () => {
     if (isOptimizing) return;
@@ -108,21 +148,34 @@ const BitAutoOptimizer = ({ modelInfo }) => {
     
     // Set up event handlers
     websocketRef.current.onopen = () => {
+      console.log('WebSocket connection opened');
       setIsConnected(true);
       setIsOptimizing(true);
       
+      // Initialize progress tracking
+      setTotalSteps(5); // Assuming 5 optimizations as default
+      setCurrentStep(0);
+      setOptimizationProgress(0);
+      
       // Send initial data
       websocketRef.current.send(JSON.stringify({
+        action: "optimize",
         code: currentCode,
-        modelInfo: modelInfo || { framework: 'pytorch' }
+        framework: (modelInfo && modelInfo.framework) || 'pytorch'
       }));
       
       simulateTyping("I'll analyze your model using the Gemini API and suggest optimizations. I'll explain each improvement as I implement it.", 'assistant');
     };
     
     websocketRef.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      handleWebSocketMessage(data);
+      console.log("Received message:", event.data);
+      
+      try {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+      } catch (error) {
+        console.error("Error parsing message:", error);
+      }
     };
     
     websocketRef.current.onerror = (error) => {
@@ -132,6 +185,7 @@ const BitAutoOptimizer = ({ modelInfo }) => {
     };
     
     websocketRef.current.onclose = () => {
+      console.log('WebSocket connection closed');
       setIsConnected(false);
       if (isOptimizing) {
         simulateTyping("The optimization process was interrupted. Would you like to resume?", 'assistant');
@@ -142,59 +196,65 @@ const BitAutoOptimizer = ({ modelInfo }) => {
   
   // Handle different types of WebSocket messages
   const handleWebSocketMessage = (data) => {
-    const messageType = data.type;
+    console.log("Processing message type:", data.type);
     
-    switch (messageType) {
+    // Extract optimization name for status messages
+    if (data.type === 'status' && data.message && data.message.includes('Generating code changes for')) {
+      const optimizationName = data.message.replace('Generating code changes for ', '').replace('...', '');
+      setCurrentOptimization(optimizationName);
+      
+      // Update progress counter for each new optimization
+      const newStep = currentStep + 1;
+      setCurrentStep(newStep);
+      setOptimizationProgress((newStep / totalSteps) * 100);
+    }
+    
+    // Process message based on type
+    switch (data.type) {
       case 'status':
         simulateTyping(data.message, 'assistant');
         break;
         
-      case 'plan':
-        setTotalSteps(data.steps);
-        simulateTyping(data.message, 'assistant');
-        break;
+      case 'optimization':
+        console.log("Received optimization data:", data);
         
-      case 'progress':
-        setOptimizationProgress(data.percentage);
-        setCurrentStep(data.current);
-        break;
-        
-      case 'analyzing':
-        simulateTyping(data.message, 'assistant');
-        break;
-        
-      case 'explanation':
-        let explanationText = `**${data.title}**\n\n${data.description}`;
-        if (data.benefit) {
-          explanationText += `\n\n**Expected benefit:** ${data.benefit}`;
-        }
-        simulateTyping(explanationText, 'assistant');
-        break;
-        
-      case 'code_change':
-        setCurrentCode(data.newCode);
-        
-        let changeMessage = "I've applied this optimization. Here's what changed:";
-        if (data.changesSummary) {
-          changeMessage += `\n\n**Changes made:** ${data.changesSummary}`;
+        // Display optimization title and description
+        if (data.optimization) {
+          simulateTyping(`**${data.optimization.title}**\n\n${data.optimization.description}`, 'assistant');
         }
         
-        simulateTyping(changeMessage, 'assistant', {
-          codeChange: {
-            oldCode: data.oldCode,
-            newCode: data.newCode,
-            diff: data.diff
+        // Apply code changes if available
+        if (data.changes && data.changes.updated_code) {
+          const oldCode = currentCode;
+          setCurrentCode(data.changes.updated_code);
+          
+          // Generate diff for visualization
+          const diff = generateDiff(oldCode, data.changes.updated_code);
+          
+          // Create message about changes
+          let changeMessage = `I've applied this optimization to your code.`;
+          if (data.changes.changes_summary) {
+            changeMessage += `\n\n**Changes made:** ${data.changes.changes_summary}`;
           }
-        });
+          
+          simulateTyping(changeMessage, 'assistant', {
+            codeChange: {
+              oldCode: oldCode,
+              newCode: data.changes.updated_code,
+              diff: diff
+            }
+          });
+        }
+        
+        // Add explanation if available
+        if (data.explanation) {
+          simulateTyping(`**Explanation:**\n${data.explanation}`, 'assistant');
+        }
         break;
         
-      case 'insights':
-        simulateTyping(data.message, 'assistant');
-        break;
-        
-      case 'completed':
+      case 'complete':
         setIsOptimizing(false);
-        simulateTyping(data.message, 'assistant');
+        simulateTyping(data.message || "Optimization process completed successfully!", 'assistant');
         break;
         
       case 'error':
@@ -203,7 +263,7 @@ const BitAutoOptimizer = ({ modelInfo }) => {
         break;
         
       default:
-        console.log('Unknown message type:', messageType);
+        console.log('Unknown message type:', data.type);
     }
   };
   
@@ -220,12 +280,18 @@ const BitAutoOptimizer = ({ modelInfo }) => {
     ]);
   };
   
-  // Render the code panel
+  // Render the code panel with line highlighting
   const renderCodePanel = () => {
     return (
       <div className="code-panel">
         <div className="code-header">
           <h3>Model Code</h3>
+          {showDiff && (
+            <div className="diff-indicator">
+              <span className="added-indicator">+{codeHighlights.added.length} lines added</span>
+              <span className="removed-indicator">-{codeHighlights.removed.length} lines removed</span>
+            </div>
+          )}
           <div className="code-actions">
             <button 
               className={`view-button ${viewMode === 'split' ? 'active' : ''}`}
@@ -253,6 +319,22 @@ const BitAutoOptimizer = ({ modelInfo }) => {
             style={vscDarkPlus}
             showLineNumbers={true}
             wrapLines={true}
+            lineProps={lineNumber => {
+              // Highlight added/removed lines
+              const style = {};
+              
+              if (showDiff) {
+                if (codeHighlights.added.includes(lineNumber - 1)) {
+                  style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
+                  style.borderLeft = '3px solid #00cc00';
+                } else if (codeHighlights.removed.includes(lineNumber - 1)) {
+                  style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                  style.borderLeft = '3px solid #cc0000';
+                }
+              }
+              
+              return { style };
+            }}
           >
             {currentCode}
           </SyntaxHighlighter>
@@ -269,14 +351,19 @@ const BitAutoOptimizer = ({ modelInfo }) => {
           <h3>Bit AI Optimizer</h3>
           {isOptimizing && (
             <div className="optimization-progress">
+              <div className="progress-info">
+                <span className="progress-step">
+                  Step {currentStep} of {totalSteps}: {currentOptimization || 'Analyzing'}
+                </span>
+                <span className="progress-percentage">
+                  {Math.round(optimizationProgress)}%
+                </span>
+              </div>
               <div className="progress-bar">
                 <div 
                   className="progress-fill"
                   style={{ width: `${optimizationProgress}%` }}
                 ></div>
-              </div>
-              <div className="progress-text">
-                Step {currentStep} of {totalSteps}
               </div>
             </div>
           )}
@@ -289,9 +376,36 @@ const BitAutoOptimizer = ({ modelInfo }) => {
               className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
             >
               <div className="message-content">
-                {message.content.split('\n').map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
+                {/* Parse message content for markdown-like formatting */}
+                {message.content.split('\n').map((line, i) => {
+                  // Handle bold text
+                  if (line.startsWith('**') && line.endsWith('**')) {
+                    return <h4 key={i} className="message-heading">{line.slice(2, -2)}</h4>;
+                  }
+                  
+                  // Handle bold within text
+                  const boldPattern = /\*\*(.*?)\*\*/g;
+                  if (boldPattern.test(line)) {
+                    const parts = line.split(boldPattern);
+                    const elements = [];
+                    
+                    let i = 0;
+                    for (let j = 0; j < parts.length; j++) {
+                      if (j % 2 === 0) {
+                        // Regular text
+                        if (parts[j]) elements.push(<span key={`${i}-${j}`}>{parts[j]}</span>);
+                      } else {
+                        // Bold text
+                        elements.push(<strong key={`${i}-${j}`}>{parts[j]}</strong>);
+                      }
+                    }
+                    
+                    return <p key={i}>{elements}</p>;
+                  }
+                  
+                  // Regular paragraph
+                  return <p key={i}>{line}</p>;
+                })}
                 
                 {message.codeChange && (
                   <div className="code-change">
@@ -317,9 +431,35 @@ const BitAutoOptimizer = ({ modelInfo }) => {
           {typingMessage && (
             <div className={`message ${typingMessage.role === 'user' ? 'user-message' : 'assistant-message'}`}>
               <div className="message-content">
-                {typingMessage.content.split('\n').map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
+                {typingMessage.content.split('\n').map((line, i) => {
+                  // Handle bold text
+                  if (line.startsWith('**') && line.endsWith('**')) {
+                    return <h4 key={i} className="message-heading">{line.slice(2, -2)}</h4>;
+                  }
+                  
+                  // Handle bold within text
+                  const boldPattern = /\*\*(.*?)\*\*/g;
+                  if (boldPattern.test(line)) {
+                    const parts = line.split(boldPattern);
+                    const elements = [];
+                    
+                    let i = 0;
+                    for (let j = 0; j < parts.length; j++) {
+                      if (j % 2 === 0) {
+                        // Regular text
+                        if (parts[j]) elements.push(<span key={`${i}-${j}`}>{parts[j]}</span>);
+                      } else {
+                        // Bold text
+                        elements.push(<strong key={`${i}-${j}`}>{parts[j]}</strong>);
+                      }
+                    }
+                    
+                    return <p key={i}>{elements}</p>;
+                  }
+                  
+                  // Regular paragraph
+                  return <p key={i}>{line}</p>;
+                })}
                 <span className="typing-cursor"></span>
               </div>
             </div>

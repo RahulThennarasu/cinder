@@ -455,7 +455,7 @@ async def bit_optimizer_websocket(websocket: WebSocket):
             logger.info(f"Received optimization request for {framework} code of length {len(model_code)}")
             
             # Check if BitAssistant is initialized
-            if not bit_assistant.client:
+            if not bit_optimizer.client:
                 error_msg = "Gemini API client not configured or initialized"
                 logger.error(f"BitAssistant error: {error_msg}")
                 await websocket.send_json({
@@ -477,7 +477,7 @@ async def bit_optimizer_websocket(websocket: WebSocket):
                     "message": "Identifying potential optimizations using Gemini API..."
                 })
                 
-                optimizations = await bit_assistant.analyze_model(model_code, framework)
+                optimizations = await bit_optimizer.analyze_model(model_code, framework)
                 
                 # Process optimizations one by one
                 for i, optimization in enumerate(optimizations):
@@ -495,10 +495,10 @@ async def bit_optimizer_websocket(websocket: WebSocket):
                         })
                         
                         # Apply optimization
-                        result = await bit_assistant.generate_optimization_step(model_code, optimization, framework)
+                        result = await bit_optimizer.generate_optimization_step(model_code, optimization, framework)
                         
                         # Get explanation
-                        explanation = await bit_assistant.explain_optimization_benefits(
+                        explanation = await bit_optimizer.explain_optimization_benefits(
                             model_code, 
                             result.get("updated_code", ""), 
                             optimization, 
