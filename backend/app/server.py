@@ -5,13 +5,20 @@ import numpy as np
 import time
 import os
 from typing import Dict, Any, List, Optional
+import difflib
 from datetime import datetime, timedelta
 import re
 from typing import List, Dict, Any
 
-from pydantic import BaseModel
+logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
+from pydantic import BaseModel
+from backend.ml_analysis.bit_assistant import BitOptimizer
+bit_optimizer = BitOptimizer()
+
+from backend.ml_analysis.environment import check_api_configuration, GEMINI_API_KEY
+
+from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request, WebSocket, WebSocketDisconnect
 
 import json
 from starlette.responses import JSONResponse
@@ -32,9 +39,19 @@ from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-
 api_key = None
 
+def generate_diff(old_code: str, new_code: str) -> str:
+    """Generate a unified diff between two code strings."""
+    diff = difflib.unified_diff(
+        old_code.splitlines(keepends=True),
+        new_code.splitlines(keepends=True),
+        fromfile='before',
+        tofile='after'
+    )
+    return ''.join(diff)
+
+# Set matplotlib to use a non-interactive backend
 # Set matplotlib to use a non-interactive backend
 import matplotlib
 
@@ -357,7 +374,31 @@ async def get_api_key(request: Request, x_api_key: str = Header(None)):
         )
     
     return api_key
-
+@app.on_event("startup")
+async def startup_event():
+    """Initialize necessary services on startup."""
+    logger.info("Starting ML Platform API server...")
+    
+    # Check API configuration
+    if check_api_configuration():
+        logger.info("API configuration validated.")
+    else:
+        logger.warning("API configuration incomplete. Some features may be limited.")
+    
+    # Initialize Google Generative AI client if key is available
+    if GEMINI_API_KEY:
+        try:
+            # Using the proper import style as in your SimpleCodeGenerator
+            from google import genai
+            # This is the correct initialization based on your code
+            logger.info("Attempting to initialize Gemini client")
+            _ = genai.Client(api_key=GEMINI_API_KEY)
+            logger.info("Google Generative AI client initialized.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Generative AI client: {str(e)}")
+    else:
+        logger.warning("Gemini API key not found. AI features will be limited.")
+        
 async def get_firebase_token(authorization: Optional[str] = Header(None)):
     """Validate Firebase auth token and return user ID."""
     # For now, we'll make this optional and return a demo user ID
@@ -384,7 +425,374 @@ async def get_firebase_token(authorization: Optional[str] = Header(None)):
         # For demo purposes, just return demo user
         # In production: raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
         return "demo_user_id"
+# Add imports at the top of server.py
+from fastapi import WebSocket
+from fastapi.websockets import WebSocketDisconnect
+import asyncio
+import json
+import difflib
+
+# Add the WebSocket endpoint
+@app.websocket("/ws/bit-optimizer")
+async def bit_optimizer_websocket(websocket: WebSocket):
+    await websocket.accept()
     
+    try:
+        # Send welcome message
+        await websocket.send_json({
+            "type": "greeting",
+            "message": "Hello! I'm Bit, your ML optimization assistant powered by Gemini. I've loaded your model code and I'm ready to help you improve it with AI-driven optimizations. Would you like me to start analyzing your model?"
+        })
+        
+        # Wait for user request
+        data = await websocket.receive_json()
+        
+        if data.get("action") == "optimize":
+            model_code = data.get("code", "")
+            framework = data.get("framework", "pytorch")
+            
+            # Log the received data
+            logger.info(f"Received optimization request for {framework} code of length {len(model_code)}")
+            
+            # Check if BitAssistant is initialized
+            if not bit_assistant.client:
+                error_msg = "Gemini API client not configured or initialized"
+                logger.error(f"BitAssistant error: {error_msg}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Error during optimization: 500: {error_msg}"
+                })
+                return
+            
+            # Begin optimization process
+            await websocket.send_json({
+                "type": "status",
+                "message": "Starting Bit's analysis of your model code..."
+            })
+            
+            try:
+                # Analyze model
+                await websocket.send_json({
+                    "type": "status",
+                    "message": "Identifying potential optimizations using Gemini API..."
+                })
+                
+                optimizations = await bit_assistant.analyze_model(model_code, framework)
+                
+                # Process optimizations one by one
+                for i, optimization in enumerate(optimizations):
+                    try:
+                        # Send optimization info
+                        await websocket.send_json({
+                            "type": "status",
+                            "message": f"Analyzing optimization #{i+1}: {optimization['title']}"
+                        })
+                        
+                        # Generate optimization changes
+                        await websocket.send_json({
+                            "type": "status",
+                            "message": f"Generating code changes for {optimization['title']}..."
+                        })
+                        
+                        # Apply optimization
+                        result = await bit_assistant.generate_optimization_step(model_code, optimization, framework)
+                        
+                        # Get explanation
+                        explanation = await bit_assistant.explain_optimization_benefits(
+                            model_code, 
+                            result.get("updated_code", ""), 
+                            optimization, 
+                            framework
+                        )
+                        
+                        # Send complete optimization result
+                        await websocket.send_json({
+                            "type": "optimization",
+                            "optimization": optimization,
+                            "changes": result,
+                            "explanation": explanation
+                        })
+                        
+                        # Update model code for next optimization
+                        model_code = result.get("updated_code", model_code)
+                        
+                    except Exception as e:
+                        logger.error(f"Error on optimization #{i+1}: {str(e)}")
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"Error during optimization: {str(e)}"
+                        })
+                
+                # Send completion message
+                await websocket.send_json({
+                    "type": "complete",
+                    "message": "Optimization process completed. The model has been improved with all recommended changes."
+                })
+                
+            except Exception as e:
+                logger.error(f"Error in bit optimizer: {str(e)}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Error during optimization: {str(e)}"
+                })
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket connection closed")
+    except Exception as e:
+        logger.error(f"Unexpected error in websocket: {str(e)}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": f"Unexpected error: {str(e)}"
+            })
+        except:
+            pass  # Connection may already be closed
+
+# Helper functions for the WebSocket endpoint
+async def generate_optimization_steps(model_code, framework):
+    """Generate optimization steps for the model code."""
+    try:
+        # Use Gemini API to generate suggestions
+        from backend.ml_analysis.code_generator import SimpleCodeGenerator
+        
+        # Create a code generator instance
+        code_generator = SimpleCodeGenerator()
+        
+        # Initial prompt for analysis
+        prompt = f"""
+        Analyze this {framework} machine learning model code and suggest 3-5 improvements:
+        
+        ```python
+        {model_code}
+        ```
+        
+        For each improvement, provide:
+        1. A short title (e.g., "Add Dropout Regularization")
+        2. A detailed explanation of why this improvement is needed
+        3. The code section to modify
+        4. How the change will improve the model
+        
+        Focus on common ML model improvements like:
+        - Regularization techniques (dropout, batch norm)
+        - Architecture improvements (depth, width)
+        - Optimization enhancements (learning rate scheduling)
+        - Training process improvements (early stopping)
+        - Performance optimizations
+        
+        Format your response as JSON with this structure:
+        {{
+          "steps": [
+            {{
+              "title": "Title of improvement",
+              "description": "Detailed explanation",
+              "code_section": "Which part to modify",
+              "expected_benefit": "How it improves the model"
+            }},
+            ...
+          ]
+        }}
+        """
+        
+        # Call Gemini to generate suggestions
+        generated_content = await code_generator.generate_code_example_async(
+            framework=framework,
+            category="model_improvements",
+            model_context={"prompt": prompt}
+        )
+        
+        # Parse the response
+        import re
+        import json
+        
+        # Look for JSON in the response
+        json_match = re.search(r'```json([\s\S]*?)```', generated_content) or re.search(r'{[\s\S]*}', generated_content)
+        
+        if json_match:
+            json_text = json_match.group(0).replace('```json', '').replace('```', '')
+            try:
+                parsed_response = json.loads(json_text)
+                return parsed_response.get("steps", [])
+            except json.JSONDecodeError:
+                pass
+                
+        # If parsing fails, return fallback steps
+        return get_fallback_optimization_steps(framework)
+        
+    except Exception as e:
+        print(f"Error generating optimization steps: {str(e)}")
+        return get_fallback_optimization_steps(framework)
+
+def get_fallback_optimization_steps(framework):
+    """Return fallback optimization steps if generation fails."""
+    if framework == "pytorch":
+        return [
+            {
+                "title": "Add Dropout Regularization",
+                "description": "The model lacks regularization, which may lead to overfitting. Adding dropout layers will help the model generalize better to unseen data.",
+                "code_section": "__init__ and forward methods",
+                "expected_benefit": "Improved generalization and reduced overfitting"
+            },
+            {
+                "title": "Increase Model Capacity",
+                "description": "The current architecture may be too simple to capture complex patterns. Adding another hidden layer will increase the model's capacity.",
+                "code_section": "model architecture",
+                "expected_benefit": "Better performance on complex datasets"
+            },
+            {
+                "title": "Implement Batch Normalization",
+                "description": "Batch normalization helps with faster convergence and can improve overall performance.",
+                "code_section": "model initialization and forward method",
+                "expected_benefit": "Faster training and potentially better performance"
+            }
+        ]
+    # Add similar fallbacks for tensorflow and sklearn
+    else:
+        return [
+            {
+                "title": "Add Regularization",
+                "description": f"Add regularization to your {framework} model to prevent overfitting.",
+                "code_section": "model definition",
+                "expected_benefit": "Improved generalization"
+            }
+        ]
+
+async def apply_optimization(current_code, optimization_step, framework):
+    """Apply a specific optimization to the code."""
+    try:
+        # Use Gemini API to modify the code
+        from backend.ml_analysis.code_generator import SimpleCodeGenerator
+        
+        # Create a code generator instance
+        code_generator = SimpleCodeGenerator()
+        
+        # Create prompt for code modification
+        prompt = f"""
+        I have a {framework} machine learning model code that needs the following optimization:
+        
+        Optimization: {optimization_step['title']}
+        Description: {optimization_step['description']}
+        Code section to modify: {optimization_step['code_section']}
+        
+        Here's the current code:
+        ```python
+        {current_code}
+        ```
+        
+        Please modify the code to implement this optimization. Return the complete modified code.
+        Ensure the modified code is fully functional and maintains the original structure.
+        Only make changes necessary for this specific optimization.
+        """
+        
+        # Call Gemini to generate modified code
+        new_code = await code_generator.generate_code_example_async(
+            framework=framework,
+            category="code_modification",
+            model_context={"prompt": prompt}
+        )
+        
+        # Clean up the generated code
+        import re
+        
+        # Remove markdown code blocks
+        new_code = re.sub(r'```python\s*', '', new_code)
+        new_code = re.sub(r'```\s*', '', new_code)
+        
+        # If we still don't have valid code, fall back to simple modifications
+        if not is_valid_python_code(new_code):
+            return apply_fallback_optimization(current_code, optimization_step, framework)
+            
+        return new_code.strip()
+        
+    except Exception as e:
+        print(f"Error applying optimization: {str(e)}")
+        return apply_fallback_optimization(current_code, optimization_step, framework)
+
+def is_valid_python_code(code):
+    """Check if the string is valid Python code."""
+    try:
+        compile(code, '<string>', 'exec')
+        return True
+    except SyntaxError:
+        return False
+
+def apply_fallback_optimization(current_code, optimization_step, framework):
+    """Apply simple fallback optimizations if Gemini fails."""
+    title = optimization_step['title'].lower()
+    
+    if 'dropout' in title:
+        # Add dropout layers
+        new_code = current_code
+        
+        # Add to __init__
+        if 'def __init__' in new_code and 'dropout' not in new_code.lower():
+            new_code = new_code.replace(
+                'self.relu = nn.ReLU()',
+                'self.relu = nn.ReLU()\n        self.dropout = nn.Dropout(0.3)  # Added dropout for regularization'
+            )
+        
+        # Add to forward method
+        if 'def forward' in new_code and 'dropout(' not in new_code.lower():
+            new_code = new_code.replace(
+                'out = self.relu(out)',
+                'out = self.relu(out)\n        out = self.dropout(out)  # Apply dropout after activation'
+            )
+            
+        return new_code
+        
+    elif 'batch' in title or 'normalization' in title:
+        # Add batch normalization
+        new_code = current_code
+        
+        # Add to __init__
+        if 'def __init__' in new_code and 'batchnorm' not in new_code.lower():
+            new_code = new_code.replace(
+                'self.layer1 = nn.Linear(',
+                'self.bn1 = nn.BatchNorm1d(input_size)  # Added batch normalization\n        self.layer1 = nn.Linear('
+            )
+            
+        # Add to forward method
+        if 'def forward' in new_code and 'bn1(' not in new_code.lower():
+            new_code = new_code.replace(
+                'def forward(self, x):',
+                'def forward(self, x):\n        x = self.bn1(x)  # Apply batch normalization'
+            )
+            
+        return new_code
+        
+    elif 'capacity' in title or 'layer' in title:
+        # Add more layers
+        new_code = current_code
+        
+        # Add another layer
+        if 'self.layer2 = nn.Linear(' in new_code:
+            new_code = new_code.replace(
+                'self.layer2 = nn.Linear(hidden_size, num_classes)',
+                'self.layer2 = nn.Linear(hidden_size, hidden_size // 2)\n        self.relu2 = nn.ReLU()\n        self.layer3 = nn.Linear(hidden_size // 2, num_classes)'
+            )
+            
+        # Update forward method
+        if 'def forward' in new_code and 'layer3' in new_code and 'self.layer3(out)' not in new_code:
+            new_code = new_code.replace(
+                'out = self.layer2(out)',
+                'out = self.layer2(out)\n        out = self.relu2(out)\n        out = self.layer3(out)'
+            )
+            
+        return new_code
+    
+    # Default: return original code with a comment
+    return current_code + f"\n\n# TODO: Apply optimization: {optimization_step['title']}"
+
+def generate_diff(old_code, new_code):
+    """Generate a diff between old and new code."""
+    diff = difflib.unified_diff(
+        old_code.splitlines(),
+        new_code.splitlines(),
+        lineterm='',
+        n=3  # Context lines
+    )
+    
+    return '\n'.join(diff)   
+
 @app.get("/api/usage-stats", response_model=UsageStatsResponse)
 async def get_usage_stats(api_key: str = Depends(get_api_key)):
     """Get current usage statistics for an API key."""
@@ -521,7 +929,7 @@ async def get_user_usage_overview(user_id: str = Depends(get_firebase_token)):
             "total_requests_month": 0,
             "keys_near_limit": 0
         }
-    
+
 @app.post("/api/bit-chat", response_model=BitChatResponse)
 async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key)):
     """Process a chat request from Bit and return AI-generated responses"""

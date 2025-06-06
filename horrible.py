@@ -7,7 +7,9 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from cinder import ModelDebugger, BitOptimizer  # Import BitOptimizer
+from cinder import ModelDebugger    
+
+CINDER_API_KEY = "cinder_1748802459_6472b80451ebb96b6c1e1ae277f046bc"
 
 # Define a simple model (same as before)
 class SimpleNN(nn.Module):
@@ -55,50 +57,14 @@ def main():
     
     print("Initializing ModelDebugger...")
     # Connect the model to CompileML
-    debugger = ModelDebugger(model, dataloader, name="Synthetic Example")
+    debugger = ModelDebugger(model, dataloader, name="Synthetic Example", api_key=CINDER_API_KEY)
     
     print("Running analysis...")
     # Run analysis
     results = debugger.analyze()
     print(f"Analysis results: {results}")
     
-    # Initialize Bit assistant
-    print("Initializing Bit assistant...")
-    bit = BitOptimizer(results, model_debugger=debugger)
-    
-    # Get improvement suggestions
-    print("\n--- Bit's Improvement Suggestions ---")
-    suggestions = bit.get_improvement_suggestions()
-    for i, suggestion in enumerate(suggestions):
-        print(f"\n{i+1}. {suggestion['title']} ({suggestion['severity']} severity)")
-        print(f"   Issue: {suggestion['issue']}")
-        print(f"   Suggestion: {suggestion['suggestion']}")
-        print(f"   Expected impact: {suggestion['expected_impact']}")
-    
-    # Generate code example for a specific improvement
-    if suggestions:
-        first_category = suggestions[0]['category']
-        print(f"\n--- Generated Code for {first_category} ---")
-        implementation_code = bit.generate_code_example(
-            framework="pytorch",
-            category=first_category
-        )
-        print(implementation_code)
-    
-    # Ask Bit some questions
-    print("\n--- Asking Bit questions ---")
-    questions = [
-        "How can I improve my model's accuracy?",
-        "How do I prevent overfitting?",
-        "What should I do about class imbalance?"
-    ]
-    
-    for question in questions:
-        print(f"\nQ: {question}")
-        response = bit.query(question)
-        print(f"A: {response}")
-    
-    print("\nLaunching dashboard...")
+    print("Launching dashboard...")
     # Launch the debugging dashboard
     debugger.launch_dashboard()
     
@@ -112,3 +78,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    

@@ -19,6 +19,8 @@ import EnhancedPredictionDistribution from "./EnhancedPredictionDistribution";
 import ModelImprovementSuggestions from "./ModelImprovementSuggestions";
 import CodeEditor from "./CodeEditor";
 import CladoStyleAIAgent from "./CladoStyleAIAgent";
+import BitAutoOptimizer from './BitAutoOptimizer';
+
 
 // Constants
 const COLORS = [
@@ -544,7 +546,7 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
         );
 
       case "code":
-          return <CladoStyleAIAgent modelInfo={modelInfo} />;
+          return <BitAutoOptimizer modelInfo={modelInfo} />;
       default:
         return <div>Select a tab to view data</div>;
     }

@@ -4,7 +4,7 @@ import time
 import os
 from typing import Dict, Any, Optional, Union, Tuple, List
 from datetime import datetime
-from backend.ml_analysis.bit_assistant import BitAssistant
+from backend.ml_analysis.bit_assistant import BitOptimizer
 
 from sklearn.metrics import (
     precision_recall_fscore_support,
@@ -109,14 +109,14 @@ class ModelDebugger:
         # Then, check rate limits for each operation
         return check_rate_limit(self.api_key)
 
-    def get_bit_assistant(self):
+    def get_bit_optimizer(self):
         """
-        Get a BitAssistant instance initialized with this model's analysis.
+        Get a BitOptimizer instance initialized with this model's analysis.
         
         Returns:
-            BitAssistant instance
+            BitOptimizer instance
         """
-        return BitAssistant(model_debugger=self)
+        return BitOptimizer(model_debugger=self)
 
     def _capture_source_file_path(self):
         """Capture the file path of the script that created this ModelDebugger instance."""

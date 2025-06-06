@@ -1,0 +1,405 @@
+/* BitAutoOptimizer.css - Apple-inspired black and white UI */
+
+.bit-auto-optimizer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  color: #333333;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.bit-auto-optimizer.split-view {
+  height: 100vh;
+}
+
+.split-container {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.split-code {
+  flex: 1;
+  height: 100%;
+  overflow: auto;
+  border-right: 1px solid #e0e0e0;
+}
+
+.split-chat {
+  width: 400px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-header {
+  padding: 16px 20px;
+  background-color: #f9f9f9;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.code-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333333;
+}
+
+.code-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.view-button {
+  padding: 6px 12px;
+  background-color: #ffffff;
+  color: #333333;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-button:hover {
+  background-color: #f5f5f5;
+}
+
+.view-button.active {
+  background-color: #000000;
+  color: white;
+  border-color: #000000;
+}
+
+.code-container {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  background-color: #f9f9f9;
+}
+
+.chat-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+}
+
+.chat-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f9f9f9;
+}
+
+.chat-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333333;
+  margin-bottom: 8px;
+}
+
+.optimization-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-bar {
+  height: 6px;
+  background-color: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #000000;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #666666;
+  text-align: right;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background-color: #ffffff;
+}
+
+/* Continuing BitAutoOptimizer.css */
+
+.message {
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-message {
+  align-self: flex-end;
+}
+
+.assistant-message {
+  align-self: flex-start;
+}
+
+.message-content {
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  position: relative;
+}
+
+.message-content p {
+  margin: 0 0 8px 0;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.user-message .message-content {
+  background-color: #000000;
+  color: white;
+  border-bottom-right-radius: 6px;
+}
+
+.assistant-message .message-content {
+  background-color: #f0f0f0;
+  color: #333333;
+  border-bottom-left-radius: 6px;
+}
+
+/* Typing animation cursor */
+.typing-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 16px;
+  background-color: #333333;
+  margin-left: 2px;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.assistant-message .typing-cursor {
+  background-color: #333333;
+}
+
+.user-message .typing-cursor {
+  background-color: #ffffff;
+}
+
+.message-time {
+  font-size: 11px;
+  color: #999999;
+  align-self: flex-end;
+}
+
+.user-message .message-time {
+  margin-right: 4px;
+}
+
+.assistant-message .message-time {
+  margin-left: 4px;
+}
+
+.code-change {
+  margin-top: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+}
+
+.chat-input {
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  background-color: #f9f9f9;
+}
+
+.start-button, .stop-button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.start-button {
+  background-color: #000000;
+  color: white;
+}
+
+.start-button:hover {
+  background-color: #333333;
+}
+
+.start-button:active {
+  transform: scale(0.98);
+}
+
+.stop-button {
+  background-color: #e0e0e0;
+  color: #333333;
+}
+
+.stop-button:hover {
+  background-color: #d0d0d0;
+}
+
+/* Code highlighting styles */
+.highlighted-code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.code-line {
+  display: flex;
+  padding: 0 8px;
+}
+
+.code-line:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.line-number {
+  color: #999;
+  text-align: right;
+  padding-right: 12px;
+  user-select: none;
+  min-width: 40px;
+}
+
+.line-content {
+  white-space: pre;
+  flex: 1;
+}
+
+.highlight-addition {
+  background-color: rgba(0, 200, 0, 0.1);
+}
+
+.highlight-removal {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
+/* Apple-style spinner for loading states */
+.loader {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+}
+
+.loader:before {
+  content: '';
+  display: block;
+  padding-top: 100%;
+}
+
+.loader-circular {
+  animation: rotate 2s linear infinite;
+  height: 100%;
+  transform-origin: center center;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+}
+
+.loader-path {
+  stroke-dasharray: 150,200;
+  stroke-dashoffset: -10;
+  animation: dash 1.5s ease-in-out infinite;
+  stroke-linecap: round;
+  stroke: #000000;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1,200;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 89,200;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 89,200;
+    stroke-dashoffset: -124;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .split-container {
+    flex-direction: column;
+  }
+  
+  .split-code, .split-chat {
+    width: 100%;
+    height: 50%;
+  }
+  
+  .split-code {
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+  }
+}
+
+@media (max-width: 768px) {
+  .code-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .code-actions {
+    width: 100%;
+  }
+  
+  .view-button {
+    flex: 1;
+    text-align: center;
+  }
+}
