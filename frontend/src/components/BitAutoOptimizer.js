@@ -5,7 +5,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import './BitAutoOptimizer.css';
 
-const BitAutoOptimizer = ({ modelInfo }) => {
+const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
   // State for code and chat
   const [originalCode, setOriginalCode] = useState('');
   const [currentCode, setCurrentCode] = useState('');

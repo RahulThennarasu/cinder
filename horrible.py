@@ -9,7 +9,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from cinder import ModelDebugger    
 
-CINDER_API_KEY = "cinder_1748802459_6472b80451ebb96b6c1e1ae277f046bc"
+CINDER_API_KEY = "cinder_1749232715_e11c5f7f73949a0e029e6dc06dbdb6c0"
 
 # Define a simple model (same as before)
 class SimpleNN(nn.Module):

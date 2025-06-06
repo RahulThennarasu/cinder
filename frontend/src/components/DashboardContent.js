@@ -17,8 +17,6 @@ import {
 import ModelImprovementFlowchart from "./ModelImprovementFlowchart";
 import EnhancedPredictionDistribution from "./EnhancedPredictionDistribution";
 import ModelImprovementSuggestions from "./ModelImprovementSuggestions";
-import CodeEditor from "./CodeEditor";
-import CladoStyleAIAgent from "./CladoStyleAIAgent";
 import BitAutoOptimizer from './BitAutoOptimizer';
 
 
@@ -211,7 +209,6 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
   const renderTabs = () => {
     const tabs = [
       { id: "overview", label: "Overview" },
-      { id: "performance", label: "Performance" },
       { id: "improvement", label: "Model Improvement" },
       { id: "improve", label: "Model Suggestions" },
       { id: "code", label: "Bit Model Design" },
@@ -397,6 +394,148 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
                 trainingHistory={trainingHistory}
               />
             </div>
+            {/* Performace Metrics Table */}
+            <div className="grid">
+            {/* Performance Metrics Table */}
+            <div className="card">
+              <h3 className="card-title">Performance Metrics</h3>
+              {modelInfo ? (
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Metric</th>
+                        <th>Value</th>
+                        <th>Visualization</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <div className="table-label">Accuracy</div>
+                          <div className="table-sublabel">
+                            Overall model accuracy
+                          </div>
+                        </td>
+                        <td>
+                          <div className="table-value">
+                            {(modelInfo.accuracy * 100).toFixed(2)}%
+                          </div>
+                        </td>
+                        <td style={{ width: "33%" }}>
+                          <div className="progress-bar">
+                            <div
+                              className="progress-fill"
+                              style={{ width: `${modelInfo.accuracy * 100}%` }}
+                            ></div>
+                          </div>
+                        </td>
+                      </tr>
+                      {modelInfo.precision !== undefined && (
+                        <tr>
+                          <td>
+                            <div className="table-label">Precision</div>
+                            <div className="table-sublabel">
+                              Positive prediction accuracy
+                            </div>
+                          </td>
+                          <td>
+                            <div className="table-value">
+                              {(modelInfo.precision * 100).toFixed(2)}%
+                            </div>
+                          </td>
+                          <td>
+                            <div className="progress-bar">
+                              <div
+                                className="progress-fill"
+                                style={{
+                                  width: `${modelInfo.precision * 100}%`,
+                                }}
+                              ></div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {modelInfo.recall !== undefined && (
+                        <tr>
+                          <td>
+                            <div className="table-label">Recall</div>
+                            <div className="table-sublabel">
+                              Positive identification rate
+                            </div>
+                          </td>
+                          <td>
+                            <div className="table-value">
+                              {(modelInfo.recall * 100).toFixed(2)}%
+                            </div>
+                          </td>
+                          <td>
+                            <div className="progress-bar">
+                              <div
+                                className="progress-fill"
+                                style={{ width: `${modelInfo.recall * 100}%` }}
+                              ></div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {modelInfo.f1 !== undefined && (
+                        <tr>
+                          <td>
+                            <div className="table-label">F1 Score</div>
+                            <div className="table-sublabel">
+                              Balance of precision and recall
+                            </div>
+                          </td>
+                          <td>
+                            <div className="table-value">
+                              {(modelInfo.f1 * 100).toFixed(2)}%
+                            </div>
+                          </td>
+                          <td>
+                            <div className="progress-bar">
+                              <div
+                                className="progress-fill"
+                                style={{ width: `${modelInfo.f1 * 100}%` }}
+                              ></div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {modelInfo.roc_auc !== undefined && (
+                        <tr>
+                          <td>
+                            <div className="table-label">ROC AUC</div>
+                            <div className="table-sublabel">
+                              Area under ROC curve
+                            </div>
+                          </td>
+                          <td>
+                            <div className="table-value">
+                              {(modelInfo.roc_auc * 100).toFixed(2)}%
+                            </div>
+                          </td>
+                          <td>
+                            <div className="progress-bar">
+                              <div
+                                className="progress-fill"
+                                style={{ width: `${modelInfo.roc_auc * 100}%` }}
+                              ></div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="empty-state">No model metrics available</div>
+              )}
+            </div>
+
+            {/* Confusion Matrix */}
+            {renderConfusionMatrix()}
+          </div>
           </div>
         );
 
@@ -546,7 +685,46 @@ const DashboardContent = ({ serverStatus, modelInfo }) => {
         );
 
       case "code":
-          return <BitAutoOptimizer modelInfo={modelInfo} />;
+  return (
+    <div>
+      <div className="optimizer-intro" style={{ 
+        marginBottom: '1.5rem', 
+        padding: '1.5rem', 
+        backgroundColor: '#fff', 
+        borderRadius: '8px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h2 style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: 'bold', 
+          color: '#111827',
+          marginBottom: '0.75rem'
+        }}>
+          Bit Model Optimizer
+        </h2>
+        <p style={{ 
+          fontSize: '1rem', 
+          lineHeight: '1.5', 
+          color: '#4b5563', 
+          maxWidth: '800px'
+        }}>
+          Automatically optimize your ML model using Bit's AI-driven analysis. The optimizer will:
+        </p>
+        <ul style={{ 
+          marginTop: '0.75rem', 
+          marginLeft: '1.5rem', 
+          fontSize: '0.95rem',
+          color: '#4b5563'
+        }}>
+          <li>Analyze your model architecture and implementation</li>
+          <li>Identify performance bottlenecks and optimization opportunities</li>
+          <li>Generate optimized code with detailed explanations</li>
+          <li>Guide you through implementing improvements step-by-step</li>
+        </ul>
+      </div>
+      <BitAutoOptimizer modelInfo={modelInfo} />
+    </div>
+  );
       default:
         return <div>Select a tab to view data</div>;
     }
