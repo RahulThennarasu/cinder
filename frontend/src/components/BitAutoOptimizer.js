@@ -161,38 +161,67 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
   
   // Connect to WebSocket
   const connectWebSocket = () => {
-    // Create WebSocket URL (adjust if your server is on a different host/port)
-    const wsUrl = `ws://${window.location.host}/ws/bit-optimizer`;
-    websocketRef.current = new WebSocket(wsUrl);
+  const wsUrl = `ws://${window.location.host}/api/ws/bit-optimizer`;
+  websocketRef.current = new WebSocket(wsUrl);
+  
+  websocketRef.current.onopen = () => {
+    console.log('WebSocket connection opened');
+    setIsConnected(true);
     
-    websocketRef.current.onopen = () => {
-      console.log('WebSocket connection opened');
-      setIsConnected(true);
-    };
-    
-    websocketRef.current.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      } catch (error) {
-        console.error("Error parsing message:", error);
-      }
-    };
-    
-    websocketRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      simulateTyping("I encountered an error connecting to the optimization service. Please check your connection and try again.", 'assistant');
-    };
-    
-    websocketRef.current.onclose = () => {
-      console.log('WebSocket connection closed');
-      setIsConnected(false);
-      if (isOptimizing) {
-        simulateTyping("The optimization process was interrupted. Would you like to resume?", 'assistant');
-        setIsOptimizing(false);
-      }
-    };
+    // Send initial message with API key for authentication
+    websocketRef.current.send(JSON.stringify({
+      action: "connect",
+      api_key: getApiKey()
+    }));
   };
+  
+  websocketRef.current.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      handleWebSocketMessage(data);
+    } catch (error) {
+      console.error("Error parsing message:", error);
+    }
+  };
+  
+  websocketRef.current.onerror = (error) => {
+    console.error('WebSocket error:', error);
+    simulateTyping("I encountered an error connecting to the optimization service. Please check your connection and try again.", 'assistant');
+  };
+  
+  websocketRef.current.onclose = () => {
+    console.log('WebSocket connection closed');
+    setIsConnected(false);
+    if (isOptimizing) {
+      simulateTyping("The optimization process was interrupted. Would you like to resume?", 'assistant');
+      setIsOptimizing(false);
+    }
+  };
+};
+
+const getApiKey = () => {
+  // Try window object (injected by server)
+  if (window._api_key) {
+    return window._api_key;
+  }
+  
+  // Try meta tag
+  const metaApiKey = document.querySelector('meta[name="api-key"]');
+  if (metaApiKey && metaApiKey.content) {
+    return metaApiKey.content;
+  }
+  
+  // Try URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlApiKey = urlParams.get('api_key');
+  if (urlApiKey) {
+    return urlApiKey;
+  }
+  
+  // If none found, return empty string
+  return '';
+};
+
   
   // Simulate typing animation for messages
   const simulateTyping = (content, role, extras = {}) => {
@@ -265,76 +294,78 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
   
   // Handle user input submission
   const handleSendMessage = () => {
-    if (!userInput.trim()) return;
-    
-    // Add user message to chat
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: userInput,
-      timestamp: new Date()
-    }]);
-    
-    // Check if we're already connected
-    if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
-      connectWebSocket();
-    }
-    
-    // Send message to server
-    if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
-      setIsOptimizing(true);
-      
-      websocketRef.current.send(JSON.stringify({
-        action: "chat",
-        query: userInput,
-        code: currentCode,
-        framework: (modelInfo && modelInfo.framework) || 'pytorch'
-      }));
-    }
-    
-    // Clear input
-    setUserInput('');
-    
-    // Save state after sending message
-    setTimeout(saveCurrentState, 500);
-  };
+  if (!userInput.trim()) return;
   
-  // Start the optimization process
-  const startOptimization = () => {
-    if (isOptimizing) return;
-    
-    // Add message
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: 'Start auto optimization',
-      timestamp: new Date()
-    }]);
-    
-    // Initialize WebSocket if not already connected
-    if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
-      connectWebSocket();
-    }
-    
-    // Set optimization state
+  // Add user message to chat
+  setMessages(prev => [...prev, {
+    role: 'user',
+    content: userInput,
+    timestamp: new Date()
+  }]);
+  
+  // Check if we're already connected
+  if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
+    connectWebSocket();
+  }
+  
+  // Send message to server with API key
+  if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
     setIsOptimizing(true);
     
-    // Initialize progress tracking
-    setTotalSteps(5); // Assuming 5 optimizations as default
-    setCurrentStep(0);
-    setOptimizationProgress(0);
-    
-    // Send optimization request
-    if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
-      websocketRef.current.send(JSON.stringify({
-        action: "optimize",
-        code: currentCode,
-        framework: (modelInfo && modelInfo.framework) || 'pytorch'
-      }));
-    }
-    
-    // Save state after starting optimization
-    setTimeout(saveCurrentState, 500);
-  };
+    websocketRef.current.send(JSON.stringify({
+      action: "chat",
+      query: userInput,
+      code: currentCode,
+      framework: (modelInfo && modelInfo.framework) || 'pytorch',
+      api_key: getApiKey() // Add API key to request
+    }));
+  }
   
+  // Clear input
+  setUserInput('');
+  
+  // Save state after sending message
+  setTimeout(saveCurrentState, 500);
+};
+
+// Modified startOptimization function
+const startOptimization = () => {
+  if (isOptimizing) return;
+  
+  // Add message
+  setMessages(prev => [...prev, {
+    role: 'user',
+    content: 'Start auto optimization',
+    timestamp: new Date()
+  }]);
+  
+  // Initialize WebSocket if not already connected
+  if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
+    connectWebSocket();
+  }
+  
+  // Set optimization state
+  setIsOptimizing(true);
+  
+  // Initialize progress tracking
+  setTotalSteps(5);
+  setCurrentStep(0);
+  setOptimizationProgress(0);
+  
+  // Send optimization request with API key
+  if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
+    websocketRef.current.send(JSON.stringify({
+      action: "optimize",
+      code: currentCode,
+      framework: (modelInfo && modelInfo.framework) || 'pytorch',
+      api_key: getApiKey() // Add API key to request
+    }));
+  }
+  
+  // Save state after starting optimization
+  setTimeout(saveCurrentState, 500);
+};
+    
   // Handle different types of WebSocket messages
   const handleWebSocketMessage = (data) => {
     console.log("Processing message type:", data.type);

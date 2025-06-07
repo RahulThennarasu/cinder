@@ -438,19 +438,117 @@ import difflib
 async def bit_optimizer_websocket(websocket: WebSocket):
     await websocket.accept()
     
+    # Track connection for rate limiting
+    api_key = None
+    connection_authorized = False
+    
     try:
+        # Wait for initial connection message to get API key
+        initial_data = await websocket.receive_json()
+        print(f"Received initial data: {initial_data}")
+        
+        # Extract API key - support different ways the frontend might send it
+        api_key = initial_data.get("api_key") or initial_data.get("apiKey")
+        
+        # If no API key but has action "connect", wait for next message that might have API key
+        if not api_key and initial_data.get("action") == "connect":
+            try:
+                # Wait with timeout for next message with potential API key
+                next_data = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+                api_key = next_data.get("api_key") or next_data.get("apiKey")
+                # Continue processing with the action from this message
+                initial_data = next_data
+            except asyncio.TimeoutError:
+                print("Timeout waiting for API key in follow-up message")
+                
+        # Debug log API key for troubleshooting
+        if api_key:
+            print(f"WebSocket connection with API key: {api_key[:8]}...")
+        else:
+            print("WebSocket connection without API key")
+        
+        # Check API key and rate limit
+        if HAS_AUTH and api_key:
+            from backend.auth.auth import validate_api_key, check_rate_limit, log_api_usage
+            if validate_api_key(api_key) and check_rate_limit(api_key):
+                connection_authorized = True
+                # Log initial websocket connection
+                log_api_usage(api_key, "bit_optimizer_websocket_connect")
+                print(f"WebSocket connection authorized for API key: {api_key[:8]}...")
+            else:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Rate limit exceeded or invalid API key. Please upgrade your plan or try again later."
+                })
+                await websocket.close(code=1008)  # Policy violation
+                return
+        else:
+            # If no auth module or no API key provided, allow the connection in development
+            connection_authorized = True
+            print("Auth bypassed in development mode")
+        
         # Send welcome message
         await websocket.send_json({
             "type": "greeting",
             "message": "Hello! I'm Bit, your ML optimization assistant powered by Gemini. I've loaded your model code and I'm ready to help you improve it with AI-driven optimizations. What would you like me to help you with?"
         })
         
-        # Listen for messages
+        # Process initial action if present
+        if "action" in initial_data and initial_data["action"] not in ["connect"]:
+            if initial_data.get("action") == "optimize":
+                # Handle auto-optimization
+                if HAS_AUTH and api_key:
+                    from backend.auth.auth import check_rate_limit, log_api_usage
+                    if check_rate_limit(api_key):
+                        log_api_usage(api_key, "bit_optimizer_optimize")
+                        await handle_auto_optimization(websocket, {**initial_data, "api_key": api_key})
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Rate limit exceeded. Please upgrade your plan or try again later."
+                        })
+                else:
+                    await handle_auto_optimization(websocket, initial_data)
+            elif initial_data.get("action") == "chat":
+                # Handle chat improvements
+                if HAS_AUTH and api_key:
+                    from backend.auth.auth import check_rate_limit, log_api_usage
+                    if check_rate_limit(api_key):
+                        log_api_usage(api_key, "bit_optimizer_chat")
+                        await handle_chat_improvements(websocket, {**initial_data, "api_key": api_key})
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Rate limit exceeded. Please upgrade your plan or try again later."
+                        })
+                else:
+                    await handle_chat_improvements(websocket, initial_data)
+        
+        # Listen for messages in a loop
         while True:
             data = await websocket.receive_json()
             
+            # Ensure API key is passed to handlers
+            if api_key and "api_key" not in data:
+                data["api_key"] = api_key
+            
+            # Check rate limit on each substantial action
+            if HAS_AUTH and api_key and data.get("action") in ["optimize", "chat"]:
+                from backend.auth.auth import check_rate_limit, log_api_usage
+                if not check_rate_limit(api_key):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Rate limit exceeded. Please upgrade your plan or try again later."
+                    })
+                    continue
+                
+                # Log the specific action type
+                action_type = data.get("action", "unknown")
+                log_api_usage(api_key, f"bit_optimizer_{action_type}")
+                print(f"Logged usage for action: bit_optimizer_{action_type}")
+            
             if data.get("action") == "optimize":
-                # Handle full auto-optimization (existing code)
+                # Handle full auto-optimization
                 await handle_auto_optimization(websocket, data)
             elif data.get("action") == "chat":
                 # Handle conversational improvements
@@ -472,6 +570,7 @@ async def handle_chat_improvements(websocket: WebSocket, data):
     user_query = data.get("query", "")
     model_code = data.get("code", "")
     framework = data.get("framework", "pytorch")
+    api_key = data.get("api_key")
     
     # Check if Gemini API is configured
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
@@ -481,6 +580,20 @@ async def handle_chat_improvements(websocket: WebSocket, data):
             "message": "Gemini API not configured"
         })
         return
+    
+    # CRITICAL FIX: Log API usage for every chat interaction
+    # This is the key fix that ensures usage is tracked in Firebase
+    if HAS_AUTH and api_key:
+        from backend.auth.auth import check_rate_limit, log_api_usage
+        if not check_rate_limit(api_key):
+            await websocket.send_json({
+                "type": "error",
+                "message": "Rate limit exceeded. Please upgrade your plan or try again later."
+            })
+            return
+        
+        # Log the chat interaction - this is the critical line for tracking
+        log_api_usage(api_key, "bit_optimizer_chat")
     
     # Send status message
     await websocket.send_json({
@@ -522,6 +635,12 @@ async def handle_chat_improvements(websocket: WebSocket, data):
             model="gemini-2.0-flash",
             contents=improvement_prompt
         )
+        
+        # CRITICAL FIX: Log API usage for Gemini response
+        # Track every Gemini API call separately
+        if HAS_AUTH and api_key:
+            from backend.auth.auth import log_api_usage
+            log_api_usage(api_key, "bit_optimizer_gemini_call")
         
         # Extract improvements from response
         improvements = []
@@ -578,6 +697,11 @@ async def handle_chat_improvements(websocket: WebSocket, data):
                 framework
             )
             
+            # CRITICAL FIX: Log API usage for each optimization step
+            if HAS_AUTH and api_key:
+                from backend.auth.auth import log_api_usage
+                log_api_usage(api_key, f"bit_optimizer_optimization_step")
+            
             if optimization_result and "updated_code" in optimization_result:
                 # Update model code for next improvement
                 model_code = optimization_result["updated_code"]
@@ -597,10 +721,20 @@ async def handle_chat_improvements(websocket: WebSocket, data):
                     framework
                 )
                 
+                # CRITICAL FIX: Log API usage for explanation generation
+                if HAS_AUTH and api_key:
+                    from backend.auth.auth import log_api_usage
+                    log_api_usage(api_key, f"bit_optimizer_explanation")
+                
                 await websocket.send_json({
                     "type": "explanation",
                     "message": explanation
                 })
+        
+        # CRITICAL FIX: Log API usage for completion
+        if HAS_AUTH and api_key:
+            from backend.auth.auth import log_api_usage
+            log_api_usage(api_key, "bit_optimizer_chat_complete")
         
         # Send completion message
         await websocket.send_json({
@@ -613,6 +747,215 @@ async def handle_chat_improvements(websocket: WebSocket, data):
         await websocket.send_json({
             "type": "error",
             "message": f"Error implementing improvements: {str(e)}"
+        })
+def log_api_usage(api_key: str, endpoint: str = "unknown"):
+    """
+    Log API usage for analytics with improved reliability and debugging.
+    
+    Args:
+        api_key: The API key used for the request
+        endpoint: The endpoint or operation being accessed
+    """
+    try:
+        if not db or not HAS_FIREBASE:
+            print(f"Firebase not initialized, can't log usage for {endpoint}")
+            return
+        
+        # Get the API key document
+        query = db.collection("api_keys").where("key", "==", api_key).limit(1)
+        results = list(query.stream())
+        
+        if not results:
+            print(f"API key {api_key[:8]}... not found, can't log usage")
+            return
+        
+        key_doc = results[0]
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        print(f"Logging API usage for key {key_doc.id} endpoint {endpoint}")
+        
+        # Update daily history with retry logic
+        history_ref = db.collection("api_usage").document(key_doc.id).collection("daily_history").document(today)
+        
+        # Function to be executed in transaction
+        @firestore.transactional
+        def update_daily_history_with_retry(transaction, retry_count=0):
+            """Update history with transaction and retry logic"""
+            try:
+                doc = history_ref.get(transaction=transaction)
+                if doc.exists:
+                    # Increment existing document
+                    current_requests = doc.get("requests", 0)
+                    transaction.update(history_ref, {
+                        "requests": firestore.Increment(1),
+                        "endpoints": firestore.ArrayUnion([endpoint]) if "endpoints" not in doc.to_dict() else doc.get("endpoints", []),
+                        "endpoint_counts." + endpoint: firestore.Increment(1),
+                        "last_endpoint": endpoint,
+                        "last_used": firestore.SERVER_TIMESTAMP
+                    })
+                    print(f"Updated existing history for {key_doc.id}, now {current_requests + 1} requests")
+                else:
+                    # Create new document
+                    transaction.set(history_ref, {
+                        "date": today,
+                        "requests": 1,
+                        "endpoints": [endpoint],
+                        "endpoint_counts": {endpoint: 1},
+                        "last_endpoint": endpoint,
+                        "last_used": firestore.SERVER_TIMESTAMP
+                    })
+                    print(f"Created new history for {key_doc.id}")
+            except Exception as e:
+                # Retry on transaction errors a few times
+                if retry_count < 3:
+                    print(f"Transaction failed, retrying ({retry_count+1}/3): {e}")
+                    time.sleep(0.5)  # Brief delay before retry
+                    return update_daily_history_with_retry(transaction, retry_count + 1)
+                else:
+                    raise e
+        
+        # Execute the transaction
+        try:
+            transaction = db.transaction()
+            update_daily_history_with_retry(transaction)
+            
+            # Also update the API key's last used time and usage count
+            key_doc.reference.update({
+                "lastUsed": firestore.SERVER_TIMESTAMP,
+                "usageCount": firestore.Increment(1)
+            })
+            
+            # Print success message for debugging
+            print(f"Successfully logged API usage for {endpoint}")
+            return True
+        except Exception as e:
+            print(f"Transaction failed after retries: {e}")
+            return False
+        
+    except Exception as e:
+        print(f"Error logging API usage: {e}")
+        return False
+async def handle_auto_optimization(websocket: WebSocket, data):
+    """Handle full auto-optimization process"""
+    model_code = data.get("code", "")
+    framework = data.get("framework", "pytorch")
+    api_key = data.get("api_key")
+    
+    # Check rate limit for the API key at the beginning
+    if HAS_AUTH and api_key:
+        from backend.auth.auth import check_rate_limit, log_api_usage
+        if not check_rate_limit(api_key):
+            await websocket.send_json({
+                "type": "error",
+                "message": "Rate limit exceeded. Please upgrade your plan or try again later."
+            })
+            return
+        
+        # Log the beginning of an auto-optimization session
+        log_api_usage(api_key, "bit_optimizer_auto_optimization_start")
+    
+    # Send status message
+    await websocket.send_json({
+        "type": "status",
+        "message": "Analyzing your model to identify optimization opportunities..."
+    })
+    
+    try:
+        # Generate optimization steps
+        optimization_steps = await generate_optimization_steps(model_code, framework)
+        
+        # Send the optimization plan
+        await websocket.send_json({
+            "type": "status",
+            "message": f"Found {len(optimization_steps)} potential optimizations. I'll implement them one by one."
+        })
+        
+        # Apply each optimization step
+        for i, step in enumerate(optimization_steps):
+            # Check rate limit before each optimization step
+            if HAS_AUTH and api_key:
+                from backend.auth.auth import check_rate_limit, log_api_usage
+                if not check_rate_limit(api_key):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Rate limit exceeded after step {i+1}/{len(optimization_steps)}. Please upgrade your plan to continue."
+                    })
+                    return
+                
+                # Log each optimization step
+                log_api_usage(api_key, f"bit_optimizer_auto_optimization_step_{i+1}")
+            
+            # Send status message for this step
+            await websocket.send_json({
+                "type": "status",
+                "message": f"Generating code changes for {step['title']}..."
+            })
+            
+            # Create a delay to show progress (simulates work)
+            await asyncio.sleep(1)
+            
+            # Implement the optimization
+            try:
+                # Send the optimization details
+                await websocket.send_json({
+                    "type": "optimization",
+                    "optimization": step
+                })
+                
+                # Apply the optimization to the code
+                updated_code = await apply_optimization(model_code, step, framework)
+                
+                # Generate diff between old and new code
+                diff = generate_diff(model_code, updated_code)
+                
+                # Update the model code for the next step
+                old_code = model_code
+                model_code = updated_code
+                
+                # Send the changes
+                await websocket.send_json({
+                    "type": "optimization",
+                    "optimization": step,
+                    "changes": {
+                        "explanation": step['description'],
+                        "updated_code": updated_code,
+                        "changes_summary": f"Updated code to implement {step['title']}"
+                    }
+                })
+                
+                # Generate an explanation of the benefits
+                explanation = f"This optimization improves {step['expected_benefit'].lower()}. " + \
+                              f"The changes focus on {step['code_section'].lower()}, which enhances overall model performance."
+                
+                await websocket.send_json({
+                    "type": "explanation",
+                    "message": explanation
+                })
+                
+            except Exception as e:
+                print(f"Error applying optimization step {i+1}: {str(e)}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Error implementing {step['title']}: {str(e)}"
+                })
+                continue
+        
+        # Final log entry for completed optimization
+        if HAS_AUTH and api_key:
+            from backend.auth.auth import log_api_usage
+            log_api_usage(api_key, "bit_optimizer_auto_optimization_complete")
+        
+        # Send completion message
+        await websocket.send_json({
+            "type": "complete",
+            "message": "All optimizations have been applied successfully! Your model should now have improved performance. Let me know if you'd like me to explain any of the changes in more detail."
+        })
+        
+    except Exception as e:
+        print(f"Error in auto-optimization: {str(e)}")
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Error during optimization process: {str(e)}"
         })
 # Helper functions for the WebSocket endpoint
 async def generate_optimization_steps(model_code, framework):
@@ -999,14 +1342,17 @@ async def get_user_usage_overview(user_id: str = Depends(get_firebase_token)):
 @app.post("/api/bit-chat", response_model=BitChatResponse)
 async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key)):
     """Process a chat request from Bit and return AI-generated responses"""
-    # Simple logging
+    # Check rate limit and log API usage
     if HAS_AUTH:
-        from backend.auth.auth import check_rate_limit
+        from backend.auth.auth import check_rate_limit, log_api_usage
         if not check_rate_limit(api_key):
             raise HTTPException(
                 status_code=429,
                 detail="Rate limit exceeded. Please upgrade your plan or try again later."
             )
+        # Important: This line was missing - log the API usage
+        log_api_usage(api_key, "bit_chat")
+        
     print(f"Received bit-chat request for framework: {request.framework}")
     
     # Check if Gemini API key is available
@@ -1082,6 +1428,12 @@ async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key))
             contents=prompt
         )
         
+        # CRITICAL FIX: Log Gemini API call usage 
+        if HAS_AUTH:
+            from backend.auth.auth import log_api_usage
+            # Track each Gemini API call
+            log_api_usage(api_key, "bit_chat_gemini_call")
+        
         # Extract the text from the response
         if hasattr(response, 'text'):
             text = response.text
@@ -1154,16 +1506,30 @@ async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key))
                     else:
                         suggestion["code"] = "# No specific code provided"
                 
+                # CRITICAL FIX: Log successful response formatting
+                if HAS_AUTH:
+                    from backend.auth.auth import log_api_usage
+                    # Track each successful response
+                    log_api_usage(api_key, "bit_chat_success")
+                
                 return parsed_response
             except json.JSONDecodeError as e:
                 print(f"Error parsing JSON: {e}")
                 # Fall back to extracting content from text
+                if HAS_AUTH:
+                    from backend.auth.auth import log_api_usage
+                    # Track each parsing error
+                    log_api_usage(api_key, "bit_chat_parse_error")
                 return {
                     "message": text,
                     "suggestions": []
                 }
         else:
             # If no JSON found, just return the text
+            if HAS_AUTH:
+                from backend.auth.auth import log_api_usage
+                # Track each formatting error
+                log_api_usage(api_key, "bit_chat_format_error")
             return {
                 "message": text,
                 "suggestions": []
@@ -1172,6 +1538,10 @@ async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key))
     except Exception as e:
         print(f"Error using Gemini API: {str(e)}")
         # Return fallback response on error
+        if HAS_AUTH:
+            from backend.auth.auth import log_api_usage
+            # Track each error
+            log_api_usage(api_key, "bit_chat_error")
         return {
             "message": f"I encountered an error analyzing your code. Here's a general suggestion: {str(e)}",
             "suggestions": [
