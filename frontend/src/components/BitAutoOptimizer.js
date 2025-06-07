@@ -161,7 +161,8 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
   
   // Connect to WebSocket
   const connectWebSocket = () => {
-  const wsUrl = `ws://${window.location.host}/api/ws/bit-optimizer`;
+  // Important: Use the correct WebSocket URL without '/api' prefix
+  const wsUrl = `ws://${window.location.host}/ws/bit-optimizer`;
   websocketRef.current = new WebSocket(wsUrl);
   
   websocketRef.current.onopen = () => {
@@ -200,26 +201,29 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
 };
 
 const getApiKey = () => {
-  // Try window object (injected by server)
+  // Try multiple sources for the API key
+  
+  // 1. Try window object (injected by server)
   if (window._api_key) {
+    console.log("Found API key in window object");
     return window._api_key;
   }
   
-  // Try meta tag
+  // 2. Try meta tag
   const metaApiKey = document.querySelector('meta[name="api-key"]');
   if (metaApiKey && metaApiKey.content) {
+    console.log("Found API key in meta tag");
     return metaApiKey.content;
   }
   
-  // Try URL parameters
+  // 3. Try URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   const urlApiKey = urlParams.get('api_key');
   if (urlApiKey) {
+    console.log("Found API key in URL parameter");
     return urlApiKey;
   }
   
-  // If none found, return empty string
-  return '';
 };
 
   
@@ -306,12 +310,30 @@ const getApiKey = () => {
   // Check if we're already connected
   if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
     connectWebSocket();
+    
+    // Wait for connection to open before sending
+    setTimeout(() => {
+      if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
+        sendMessageToWebSocket();
+      } else {
+        console.log("WebSocket not connected yet, waiting longer...");
+        // Try again in 1 second
+        setTimeout(() => {
+          if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
+            sendMessageToWebSocket();
+          } else {
+            simulateTyping("Connection to the optimization service failed. Please try again later.", 'assistant');
+          }
+        }, 1000);
+      }
+    }, 500);
+  } else {
+    // WebSocket already connected, send immediately
+    sendMessageToWebSocket();
   }
   
-  // Send message to server with API key
-  if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
-    setIsOptimizing(true);
-    
+  // Helper function to send the message
+  function sendMessageToWebSocket() {
     websocketRef.current.send(JSON.stringify({
       action: "chat",
       query: userInput,
@@ -319,6 +341,7 @@ const getApiKey = () => {
       framework: (modelInfo && modelInfo.framework) || 'pytorch',
       api_key: getApiKey() // Add API key to request
     }));
+    setIsOptimizing(true);
   }
   
   // Clear input

@@ -94,6 +94,9 @@ backend/app/static/static/js/main.3b330f31.js.map
 backend/app/static/static/js/main.4592fb24.js
 backend/app/static/static/js/main.4592fb24.js.LICENSE.txt
 backend/app/static/static/js/main.4592fb24.js.map
+backend/app/static/static/js/main.45ed1b24.js
+backend/app/static/static/js/main.45ed1b24.js.LICENSE.txt
+backend/app/static/static/js/main.45ed1b24.js.map
 backend/app/static/static/js/main.4c79c613.js
 backend/app/static/static/js/main.4c79c613.js.LICENSE.txt
 backend/app/static/static/js/main.4c79c613.js.map
