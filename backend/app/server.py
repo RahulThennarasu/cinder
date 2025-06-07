@@ -433,6 +433,7 @@ import json
 import difflib
 
 # Add the WebSocket endpoint
+
 @app.websocket("/ws/bit-optimizer")
 async def bit_optimizer_websocket(websocket: WebSocket):
     await websocket.accept()
@@ -441,113 +442,178 @@ async def bit_optimizer_websocket(websocket: WebSocket):
         # Send welcome message
         await websocket.send_json({
             "type": "greeting",
-            "message": "Hello! I'm Bit, your ML optimization assistant powered by Gemini. I've loaded your model code and I'm ready to help you improve it with AI-driven optimizations. Would you like me to start analyzing your model?"
+            "message": "Hello! I'm Bit, your ML optimization assistant powered by Gemini. I've loaded your model code and I'm ready to help you improve it with AI-driven optimizations. What would you like me to help you with?"
         })
         
-        # Wait for user request
-        data = await websocket.receive_json()
-        
-        if data.get("action") == "optimize":
-            model_code = data.get("code", "")
-            framework = data.get("framework", "pytorch")
+        # Listen for messages
+        while True:
+            data = await websocket.receive_json()
             
-            # Log the received data
-            logger.info(f"Received optimization request for {framework} code of length {len(model_code)}")
-            
-            # Check if BitAssistant is initialized
-            if not bit_optimizer.client:
-                error_msg = "Gemini API client not configured or initialized"
-                logger.error(f"BitAssistant error: {error_msg}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": f"Error during optimization: 500: {error_msg}"
-                })
-                return
-            
-            # Begin optimization process
-            await websocket.send_json({
-                "type": "status",
-                "message": "Starting Bit's analysis of your model code..."
-            })
-            
-            try:
-                # Analyze model
-                await websocket.send_json({
-                    "type": "status",
-                    "message": "Identifying potential optimizations using Gemini API..."
-                })
-                
-                optimizations = await bit_optimizer.analyze_model(model_code, framework)
-                
-                # Process optimizations one by one
-                for i, optimization in enumerate(optimizations):
-                    try:
-                        # Send optimization info
-                        await websocket.send_json({
-                            "type": "status",
-                            "message": f"Analyzing optimization #{i+1}: {optimization['title']}"
-                        })
-                        
-                        # Generate optimization changes
-                        await websocket.send_json({
-                            "type": "status",
-                            "message": f"Generating code changes for {optimization['title']}..."
-                        })
-                        
-                        # Apply optimization
-                        result = await bit_optimizer.generate_optimization_step(model_code, optimization, framework)
-                        
-                        # Get explanation
-                        explanation = await bit_optimizer.explain_optimization_benefits(
-                            model_code, 
-                            result.get("updated_code", ""), 
-                            optimization, 
-                            framework
-                        )
-                        
-                        # Send complete optimization result
-                        await websocket.send_json({
-                            "type": "optimization",
-                            "optimization": optimization,
-                            "changes": result,
-                            "explanation": explanation
-                        })
-                        
-                        # Update model code for next optimization
-                        model_code = result.get("updated_code", model_code)
-                        
-                    except Exception as e:
-                        logger.error(f"Error on optimization #{i+1}: {str(e)}")
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"Error during optimization: {str(e)}"
-                        })
-                
-                # Send completion message
-                await websocket.send_json({
-                    "type": "complete",
-                    "message": "Optimization process completed. The model has been improved with all recommended changes."
-                })
-                
-            except Exception as e:
-                logger.error(f"Error in bit optimizer: {str(e)}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": f"Error during optimization: {str(e)}"
-                })
+            if data.get("action") == "optimize":
+                # Handle full auto-optimization (existing code)
+                await handle_auto_optimization(websocket, data)
+            elif data.get("action") == "chat":
+                # Handle conversational improvements
+                await handle_chat_improvements(websocket, data)
                 
     except WebSocketDisconnect:
-        logger.info("WebSocket connection closed")
+        print("WebSocket disconnected")
     except Exception as e:
-        logger.error(f"Unexpected error in websocket: {str(e)}")
+        print(f"WebSocket error: {str(e)}")
         try:
             await websocket.send_json({
                 "type": "error",
-                "message": f"Unexpected error: {str(e)}"
+                "message": f"Error: {str(e)}"
             })
         except:
-            pass  # Connection may already be closed
-
+            pass
+async def handle_chat_improvements(websocket: WebSocket, data):
+    """Handle improvement requests through chat"""
+    user_query = data.get("query", "")
+    model_code = data.get("code", "")
+    framework = data.get("framework", "pytorch")
+    
+    # Check if Gemini API is configured
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
+    if not gemini_api_key or not bit_optimizer.client:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Gemini API not configured"
+        })
+        return
+    
+    # Send status message
+    await websocket.send_json({
+        "type": "status",
+        "message": f"Analyzing your request: '{user_query}'"
+    })
+    
+    try:
+        # Use Gemini to analyze the query and decide what improvements to make
+        improvement_prompt = f"""
+        You are Bit, an AI assistant specialized in improving ML models.
+        
+        User query: "{user_query}"
+        Model code:
+        ```python
+        {model_code}
+        ```
+        Framework: {framework}
+        
+        Based on the user's query, identify 1-3 specific improvements to make to this code.
+        Format your response as a JSON array of improvements:
+        [
+          {{
+            "title": "Short title of the improvement",
+            "description": "Detailed explanation of why this change is beneficial",
+            "code_section": "Which part of the code to modify", 
+            "priority": "high/medium/low",
+            "expected_benefit": "Expected improvement from this change"
+          }},
+          // additional improvements...
+        ]
+        
+        IMPORTANT: Always include the "code_section" field to indicate which part of the code to modify.
+        Focus on the most important improvements first. Only include valid, helpful suggestions.
+        """
+        
+        # Call Gemini to identify improvements
+        response = bit_optimizer.client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=improvement_prompt
+        )
+        
+        # Extract improvements from response
+        improvements = []
+        try:
+            import re
+            import json
+            
+            text = response.text if hasattr(response, 'text') else response.parts[0].text
+            json_match = re.search(r'\[\s*{[\s\S]*}\s*\]', text)
+            
+            if json_match:
+                improvements = json.loads(json_match.group(0))
+            else:
+                # Fallback improvement if parsing fails
+                improvements = [{
+                    "title": "General Optimization",
+                    "description": "Improving model architecture and performance",
+                    "code_section": "Model architecture",
+                    "priority": "high",
+                    "expected_benefit": "Better model performance"
+                }]
+        except Exception as e:
+            print(f"Error parsing improvements: {e}")
+            improvements = [{
+                "title": "General Optimization",
+                "description": "Improving model architecture and performance",
+                "code_section": "Model architecture",
+                "priority": "high",
+                "expected_benefit": "Better model performance"
+            }]
+        
+        # Make sure each improvement has required fields
+        for improvement in improvements:
+            # Add code_section if missing
+            if "code_section" not in improvement:
+                improvement["code_section"] = "Model architecture"
+            
+            # Add expected_benefit if missing
+            if "expected_benefit" not in improvement:
+                improvement["expected_benefit"] = "Improved model performance"
+        
+        # Process each improvement
+        for i, improvement in enumerate(improvements):
+            # Send analysis message
+            await websocket.send_json({
+                "type": "status",
+                "message": f"Working on: {improvement['title']}"
+            })
+            
+            # Use the existing optimization functions to generate the code changes
+            optimization_result = await bit_optimizer.generate_optimization_step(
+                model_code, 
+                improvement,
+                framework
+            )
+            
+            if optimization_result and "updated_code" in optimization_result:
+                # Update model code for next improvement
+                model_code = optimization_result["updated_code"]
+                
+                # Send the optimization result
+                await websocket.send_json({
+                    "type": "optimization",
+                    "optimization": improvement,
+                    "changes": optimization_result
+                })
+                
+                # Generate explanation
+                explanation = await bit_optimizer.explain_optimization_benefits(
+                    model_code, 
+                    optimization_result["updated_code"],
+                    improvement,
+                    framework
+                )
+                
+                await websocket.send_json({
+                    "type": "explanation",
+                    "message": explanation
+                })
+        
+        # Send completion message
+        await websocket.send_json({
+            "type": "complete",
+            "message": "I've completed the requested improvements. Is there anything else you'd like me to help with?"
+        })
+        
+    except Exception as e:
+        print(f"Error processing chat improvement: {e}")
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Error implementing improvements: {str(e)}"
+        })
 # Helper functions for the WebSocket endpoint
 async def generate_optimization_steps(model_code, framework):
     """Generate optimization steps for the model code."""

@@ -1,34 +1,58 @@
-// Updated BitAutoOptimizer.js - Improved UI with better code display and progress tracking
-
+// BitAutoOptimizer.js
 import React, { useState, useEffect, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import './BitAutoOptimizer.css';
+import BitOptimizerStateManager from './BitOptimizerStateManager';
 
 const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
   // State for code and chat
   const [originalCode, setOriginalCode] = useState('');
   const [currentCode, setCurrentCode] = useState('');
   const [messages, setMessages] = useState([]);
+  const [userInput, setUserInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationProgress, setOptimizationProgress] = useState(0);
-  const [totalSteps, setTotalSteps] = useState(5); // Default to 5 steps
+  const [totalSteps, setTotalSteps] = useState(5);
   const [currentStep, setCurrentStep] = useState(0);
   const [currentOptimization, setCurrentOptimization] = useState('');
-  const [viewMode, setViewMode] = useState('split'); // 'split', 'code', 'chat'
-  const [typingMessage, setTypingMessage] = useState(null);
   const [codeHighlights, setCodeHighlights] = useState({ added: [], removed: [] });
   const [showDiff, setShowDiff] = useState(false);
+  const [typingMessage, setTypingMessage] = useState(null);
+  const [stateLoaded, setStateLoaded] = useState(false);
   
   // References
   const websocketRef = useRef(null);
   const chatEndRef = useRef(null);
   
-  // Load initial code
+  // Load saved state or initial code
   useEffect(() => {
-    fetchModelCode();
-  }, [modelInfo]);
+    if (!stateLoaded) {
+      loadSavedState();
+    } else if (!currentCode && modelInfo) {
+      fetchModelCode();
+    }
+  }, [modelInfo, stateLoaded]);
+
+  // Periodically save state while component is mounted
+  useEffect(() => {
+    // Only save state if we have content to save
+    if (stateLoaded && (currentCode || messages.length > 0)) {
+      saveCurrentState();
+      
+      // Set up auto-save interval
+      const saveInterval = setInterval(() => {
+        saveCurrentState();
+      }, 10000); // Save every 10 seconds
+      
+      return () => {
+        clearInterval(saveInterval);
+        // Save once more when unmounting
+        saveCurrentState();
+      };
+    }
+  }, [currentCode, messages, stateLoaded]);
   
   // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
@@ -45,10 +69,79 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
     };
   }, []);
   
+  // Load saved state from storage
+  const loadSavedState = () => {
+    const savedState = BitOptimizerStateManager.loadState();
+    
+    if (savedState) {
+      // Check if saved state matches current model
+      const isSameModel = 
+        savedState.modelInfo && 
+        modelInfo && 
+        savedState.modelInfo.id === modelInfo.id;
+      
+      if (isSameModel) {
+        // Restore state if it's for the same model
+        if (savedState.currentCode) {
+          setCurrentCode(savedState.currentCode);
+          setOriginalCode(savedState.currentCode);
+        }
+        
+        if (savedState.messages && savedState.messages.length > 0) {
+          setMessages(savedState.messages);
+        }
+        
+        // Add a system message about restored state
+        if (savedState.lastUpdated) {
+          const lastUpdated = new Date(savedState.lastUpdated);
+          const timeString = lastUpdated.toLocaleTimeString();
+          const dateString = lastUpdated.toLocaleDateString();
+          
+          setMessages(prevMessages => [
+            ...prevMessages,
+            {
+              role: 'system',
+              content: `Restored previous session from ${timeString} on ${dateString}.`,
+              timestamp: new Date()
+            }
+          ]);
+        }
+      } else {
+        // Different model, fetch fresh code
+        fetchModelCode();
+      }
+    } else {
+      // No saved state, fetch fresh code
+      fetchModelCode();
+    }
+    
+    setStateLoaded(true);
+  };
+  
+  // Save current state to storage
+  const saveCurrentState = () => {
+    BitOptimizerStateManager.saveState({
+      currentCode,
+      messages,
+      modelInfo
+    });
+  };
+  
+  // Reset state
+  const resetState = () => {
+    BitOptimizerStateManager.clearState();
+    fetchModelCode();
+    setMessages([]);
+    setTypingMessage(null);
+    setIsOptimizing(false);
+    setShowDiff(false);
+    setCodeHighlights({ added: [], removed: [] });
+  };
+  
   // Fetch initial model code
   const fetchModelCode = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/model-code');
+      const response = await fetch('/api/model-code');
       
       if (response.ok) {
         const data = await response.json();
@@ -56,14 +149,49 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
         setOriginalCode(code);
         setCurrentCode(code);
         
-        // Add initial message with typing animation
-        simulateTyping("Hello! I'm Bit, your ML optimization assistant powered by Gemini. I've loaded your model code and I'm ready to help you improve it with AI-driven optimizations. Would you like me to start analyzing your model?", 'assistant');
+        // Connect to WebSocket and wait for greeting
+        connectWebSocket();
       } else {
         console.error('Error fetching model code');
       }
     } catch (error) {
       console.error('Error:', error);
     }
+  };
+  
+  // Connect to WebSocket
+  const connectWebSocket = () => {
+    // Create WebSocket URL (adjust if your server is on a different host/port)
+    const wsUrl = `ws://${window.location.host}/ws/bit-optimizer`;
+    websocketRef.current = new WebSocket(wsUrl);
+    
+    websocketRef.current.onopen = () => {
+      console.log('WebSocket connection opened');
+      setIsConnected(true);
+    };
+    
+    websocketRef.current.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+      } catch (error) {
+        console.error("Error parsing message:", error);
+      }
+    };
+    
+    websocketRef.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      simulateTyping("I encountered an error connecting to the optimization service. Please check your connection and try again.", 'assistant');
+    };
+    
+    websocketRef.current.onclose = () => {
+      console.log('WebSocket connection closed');
+      setIsConnected(false);
+      if (isOptimizing) {
+        simulateTyping("The optimization process was interrupted. Would you like to resume?", 'assistant');
+        setIsOptimizing(false);
+      }
+    };
   };
   
   // Simulate typing animation for messages
@@ -135,63 +263,76 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
     return diff || "No visible changes detected.";
   };
   
+  // Handle user input submission
+  const handleSendMessage = () => {
+    if (!userInput.trim()) return;
+    
+    // Add user message to chat
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: userInput,
+      timestamp: new Date()
+    }]);
+    
+    // Check if we're already connected
+    if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
+      connectWebSocket();
+    }
+    
+    // Send message to server
+    if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
+      setIsOptimizing(true);
+      
+      websocketRef.current.send(JSON.stringify({
+        action: "chat",
+        query: userInput,
+        code: currentCode,
+        framework: (modelInfo && modelInfo.framework) || 'pytorch'
+      }));
+    }
+    
+    // Clear input
+    setUserInput('');
+    
+    // Save state after sending message
+    setTimeout(saveCurrentState, 500);
+  };
+  
   // Start the optimization process
   const startOptimization = () => {
     if (isOptimizing) return;
     
     // Add message
-    addMessage('user', 'Yes, please start optimizing my model automatically.');
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: 'Start auto optimization',
+      timestamp: new Date()
+    }]);
     
-    // Connect to WebSocket
-    const wsUrl = `ws://localhost:8000/ws/bit-optimizer`;
-    websocketRef.current = new WebSocket(wsUrl);
+    // Initialize WebSocket if not already connected
+    if (!websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
+      connectWebSocket();
+    }
     
-    // Set up event handlers
-    websocketRef.current.onopen = () => {
-      console.log('WebSocket connection opened');
-      setIsConnected(true);
-      setIsOptimizing(true);
-      
-      // Initialize progress tracking
-      setTotalSteps(5); // Assuming 5 optimizations as default
-      setCurrentStep(0);
-      setOptimizationProgress(0);
-      
-      // Send initial data
+    // Set optimization state
+    setIsOptimizing(true);
+    
+    // Initialize progress tracking
+    setTotalSteps(5); // Assuming 5 optimizations as default
+    setCurrentStep(0);
+    setOptimizationProgress(0);
+    
+    // Send optimization request
+    if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
       websocketRef.current.send(JSON.stringify({
         action: "optimize",
         code: currentCode,
         framework: (modelInfo && modelInfo.framework) || 'pytorch'
       }));
-      
-      simulateTyping("I'll analyze your model using the Gemini API and suggest optimizations. I'll explain each improvement as I implement it.", 'assistant');
-    };
+    }
     
-    websocketRef.current.onmessage = (event) => {
-      console.log("Received message:", event.data);
-      
-      try {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      } catch (error) {
-        console.error("Error parsing message:", error);
-      }
-    };
-    
-    websocketRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      simulateTyping("I encountered an error connecting to the optimization service. Please check your connection and try again.", 'assistant');
-      setIsOptimizing(false);
-    };
-    
-    websocketRef.current.onclose = () => {
-      console.log('WebSocket connection closed');
-      setIsConnected(false);
-      if (isOptimizing) {
-        simulateTyping("The optimization process was interrupted. Would you like to resume?", 'assistant');
-        setIsOptimizing(false);
-      }
-    };
+    // Save state after starting optimization
+    setTimeout(saveCurrentState, 500);
   };
   
   // Handle different types of WebSocket messages
@@ -211,6 +352,10 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
     
     // Process message based on type
     switch (data.type) {
+      case 'greeting':
+        simulateTyping(data.message, 'assistant');
+        break;
+        
       case 'status':
         simulateTyping(data.message, 'assistant');
         break;
@@ -244,17 +389,21 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
               diff: diff
             }
           });
+          
+          // Save state after code update
+          setTimeout(saveCurrentState, 500);
         }
+        break;
         
-        // Add explanation if available
-        if (data.explanation) {
-          simulateTyping(`**Explanation:**\n${data.explanation}`, 'assistant');
-        }
+      case 'explanation':
+        simulateTyping(`**Explanation:**\n${data.message}`, 'assistant');
         break;
         
       case 'complete':
         setIsOptimizing(false);
         simulateTyping(data.message || "Optimization process completed successfully!", 'assistant');
+        // Save state after completion
+        setTimeout(saveCurrentState, 500);
         break;
         
       case 'error':
@@ -266,26 +415,13 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
         console.log('Unknown message type:', data.type);
     }
   };
-  
-  // Add a message to the chat (without typing animation)
-  const addMessage = (role, content, extras = {}) => {
-    setMessages(prev => [
-      ...prev,
-      {
-        role,
-        content,
-        timestamp: new Date(),
-        ...extras
-      }
-    ]);
-  };
-  
+
   // Render the code panel with line highlighting
   const renderCodePanel = () => {
     return (
       <div className="code-panel">
         <div className="code-header">
-          <h3>Model Code</h3>
+          <h3>model_code</h3>
           {showDiff && (
             <div className="diff-indicator">
               <span className="added-indicator">+{codeHighlights.added.length} lines added</span>
@@ -294,22 +430,12 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
           )}
           <div className="code-actions">
             <button 
-              className={`view-button ${viewMode === 'split' ? 'active' : ''}`}
-              onClick={() => setViewMode('split')}
+              className="reset-button"
+              onClick={resetState}
+              disabled={isOptimizing}
+              title="Reset to original code"
             >
-              Split View
-            </button>
-            <button 
-              className={`view-button ${viewMode === 'code' ? 'active' : ''}`}
-              onClick={() => setViewMode('code')}
-            >
-              Code Only
-            </button>
-            <button 
-              className={`view-button ${viewMode === 'chat' ? 'active' : ''}`}
-              onClick={() => setViewMode('chat')}
-            >
-              Chat Only
+              Reset
             </button>
           </div>
         </div>
@@ -319,6 +445,19 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
             style={vscDarkPlus}
             showLineNumbers={true}
             wrapLines={true}
+            customStyle={{
+              margin: 0,
+              padding: 0,
+              backgroundColor: '#1e1e1e',
+              overflow: 'auto'
+            }}
+            codeTagProps={{
+              style: {
+                display: 'block',
+                paddingBottom: 0,
+                marginBottom: 0
+              }
+            }}
             lineProps={lineNumber => {
               // Highlight added/removed lines
               const style = {};
@@ -348,7 +487,7 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
     return (
       <div className="chat-panel">
         <div className="chat-header">
-          <h3>Bit AI Optimizer</h3>
+          <h3></h3>
           {isOptimizing && (
             <div className="optimization-progress">
               <div className="progress-info">
@@ -373,7 +512,7 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
           {messages.map((message, index) => (
             <div 
               key={index} 
-              className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
+              className={`message ${message.role === 'user' ? 'user-message' : message.role === 'system' ? 'system-message' : 'assistant-message'}`}
             >
               <div className="message-content">
                 {/* Parse message content for markdown-like formatting */}
@@ -422,14 +561,16 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
                 )}
               </div>
               <div className="message-time">
-                {message.timestamp.toLocaleTimeString()}
+                {message.timestamp && typeof message.timestamp.toLocaleTimeString === 'function' 
+                  ? message.timestamp.toLocaleTimeString() 
+                  : new Date().toLocaleTimeString()}
               </div>
             </div>
           ))}
           
           {/* Typing animation message */}
           {typingMessage && (
-            <div className={`message ${typingMessage.role === 'user' ? 'user-message' : 'assistant-message'}`}>
+            <div className={`message ${typingMessage.role === 'user' ? 'user-message' : typingMessage.role === 'system' ? 'system-message' : 'assistant-message'}`}>
               <div className="message-content">
                 {typingMessage.content.split('\n').map((line, i) => {
                   // Handle bold text
@@ -469,61 +610,46 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
         </div>
         
         <div className="chat-input">
-          {!isOptimizing ? (
-            <button 
-              className="start-button"
-              onClick={startOptimization}
-              disabled={isOptimizing}
-            >
-              Start Auto Optimization
-            </button>
-          ) : (
-            <button 
-              className="stop-button"
-              onClick={() => {
-                if (websocketRef.current) {
-                  websocketRef.current.close();
-                }
-                setIsOptimizing(false);
-                simulateTyping("Optimization process paused. Would you like to continue?", 'assistant');
-              }}
-            >
-              Pause Optimization
-            </button>
-          )}
+          <input
+            type="text"
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleSendMessage();
+              }
+            }}
+            placeholder="Ask about improving your model..."
+            className="chat-input-field"
+            disabled={isOptimizing}
+          />
+          <button 
+            className="send-button"
+            onClick={handleSendMessage}
+            disabled={isOptimizing || !userInput.trim()}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2"></path>
+            </svg>
+          </button>
         </div>
       </div>
     );
   };
   
   // Render based on view mode
-  if (viewMode === 'code') {
-    return (
-      <div className="bit-auto-optimizer code-only">
-        {renderCodePanel()}
-      </div>
-    );
-  } else if (viewMode === 'chat') {
-    return (
-      <div className="bit-auto-optimizer chat-only">
-        {renderChatPanel()}
-      </div>
-    );
-  } else {
-    // Split view
-    return (
-      <div className="bit-auto-optimizer split-view">
-        <div className="split-container">
-          <div className="split-code">
-            {renderCodePanel()}
-          </div>
-          <div className="split-chat">
-            {renderChatPanel()}
-          </div>
+  return (
+    <div className="bit-auto-optimizer split-view">
+      <div className="split-container">
+        <div className="split-code">
+          {renderCodePanel()}
+        </div>
+        <div className="split-chat">
+          {renderChatPanel()}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 };
 
 export default BitAutoOptimizer;
