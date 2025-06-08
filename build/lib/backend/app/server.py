@@ -495,7 +495,7 @@ async def bit_optimizer_websocket(websocket: WebSocket):
         # Send welcome message
         await websocket.send_json({
             "type": "greeting",
-            "message": "Hello! I'm Bit, your ML optimization assistant powered by Gemini. I've loaded your model code and I'm ready to help you improve it with AI-driven optimizations. What would you like me to help with?"
+            "message": "Hello! This is Bit, your intelligent ML optimization partner. I've analyzed your model architecture and am ready to suggest powerful improvements. What aspect of your model would you like to enhance?"
         })
         
         # Process initial action if present
