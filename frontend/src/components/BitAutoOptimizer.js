@@ -21,6 +21,8 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
   const [showDiff, setShowDiff] = useState(false);
   const [typingMessage, setTypingMessage] = useState(null);
   const [stateLoaded, setStateLoaded] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+
   
   // References
   const websocketRef = useRef(null);
@@ -68,6 +70,33 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
       }
     };
   }, []);
+
+  // Add a function to validate code
+const validateCode = async (codeToValidate) => {
+  try {
+    const response = await fetch('/api/validate-code', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': getApiKey()
+      },
+      body: JSON.stringify({
+        code: codeToValidate
+      })
+    });
+    
+    const result = await response.json();
+    setValidationResult(result);
+    return result;
+  } catch (error) {
+    console.error('Error validating code:', error);
+    setValidationResult({
+      valid: false,
+      message: 'Error connecting to validation service'
+    });
+    return { valid: false, message: 'Connection error' };
+  }
+};
   
   // Load saved state from storage
   const loadSavedState = () => {
@@ -406,6 +435,64 @@ const startOptimization = () => {
     
     // Process message based on type
     switch (data.type) {
+      case 'optimization':
+      console.log("Received optimization data:", data);
+      
+      // Display optimization title and description
+      if (data.optimization) {
+        simulateTyping(`**${data.optimization.title}**\n\n${data.optimization.description}`, 'assistant');
+      }
+      
+      // Apply code changes if available, but validate first
+      if (data.changes && data.changes.updated_code) {
+        const oldCode = currentCode;
+        
+        // Validate the code before applying changes
+        validateCode(data.changes.updated_code).then(validationResult => {
+          if (validationResult.valid) {
+            setCurrentCode(data.changes.updated_code);
+            
+            // Generate diff for visualization
+            const diff = generateDiff(oldCode, data.changes.updated_code);
+            
+            // Create message about changes
+            let changeMessage = `I've applied this optimization to your code.`;
+            if (data.changes.changes_summary) {
+              changeMessage += `\n\n**Changes made:** ${data.changes.changes_summary}`;
+            }
+            
+            simulateTyping(changeMessage, 'assistant', {
+              codeChange: {
+                oldCode: oldCode,
+                newCode: data.changes.updated_code,
+                diff: diff
+              }
+            });
+            
+            // Save state after code update
+            setTimeout(saveCurrentState, 500);
+          } else {
+            // If validation fails, show error but don't apply changes
+            const errorLine = validationResult.line_number ? ` at line ${validationResult.line_number}` : '';
+            const errorMessage = `The suggested code has a syntax error${errorLine}: ${validationResult.message}. I'll need to fix this before applying the changes.`;
+            
+            simulateTyping(errorMessage, 'assistant');
+            
+            // Request a fixed version if using the chat mode
+            if (data.optimization) {
+              websocketRef.current.send(JSON.stringify({
+                action: "chat",
+                query: `Fix the syntax error in your previous code suggestion: ${validationResult.message}`,
+                code: currentCode,
+                framework: (modelInfo && modelInfo.framework) || 'pytorch',
+                api_key: getApiKey()
+              }));
+            }
+          }
+        });
+      }
+      break;
+
       case 'greeting':
         simulateTyping(data.message, 'assistant');
         break;
@@ -482,6 +569,15 @@ const startOptimization = () => {
               <span className="removed-indicator">-{codeHighlights.removed.length} lines removed</span>
             </div>
           )}
+          {validationResult && (
+            <div className={`validation-indicator ${validationResult.valid ? 'valid' : 'invalid'}`}>
+              {validationResult.valid ? (
+                <span className="valid-indicator">✓ Valid Python</span>
+              ) : (
+                <span className="invalid-indicator">✗ Syntax Error{validationResult.line_number ? ` at line ${validationResult.line_number}` : ''}</span>
+              )}
+            </div>
+          )}
           <div className="code-actions">
             <button 
               className="reset-button"
@@ -490,6 +586,13 @@ const startOptimization = () => {
               title="Reset to original code"
             >
               Reset
+            </button>
+            <button 
+              className="validate-button"
+              onClick={() => validateCode(currentCode)}
+              title="Validate code syntax"
+            >
+              Validate
             </button>
           </div>
         </div>
@@ -524,6 +627,13 @@ const startOptimization = () => {
                   style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
                   style.borderLeft = '3px solid #cc0000';
                 }
+              }
+              
+              // Highlight syntax error line if validation failed
+              if (validationResult && !validationResult.valid && validationResult.line_number === lineNumber) {
+                style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                style.borderLeft = '3px solid #cc0000';
+                style.position = 'relative';
               }
               
               return { style };

@@ -3496,7 +3496,37 @@ def fix_common_syntax_errors(code: str) -> str:
         code = code.replace(typo, correction)
         
     return code
+# Add this to backend/app/server.py
 
+@app.post("/api/validate-code")
+async def validate_code(request: SaveCodeRequest, api_key: str = Depends(get_api_key)):
+    """Validate Python code for syntax errors."""
+    try:
+        # Try to compile the code to check for syntax errors
+        compile(request.code, '<string>', 'exec')
+        return {"valid": True, "message": "Code is valid Python syntax"}
+    except Exception as e:
+        # Return error details if compilation fails
+        error_message = str(e)
+        line_number = None
+        
+        # Extract line number from error message if available
+        if hasattr(e, 'lineno'):
+            line_number = e.lineno
+        elif 'line' in error_message:
+            try:
+                line_match = re.search(r'line (\d+)', error_message)
+                if line_match:
+                    line_number = int(line_match.group(1))
+            except:
+                pass
+                
+        return {
+            "valid": False, 
+            "message": error_message,
+            "line_number": line_number
+        }
+    
 def analyze_model_architecture(code: str, framework: str) -> Dict[str, Any]:
     """Analyze the structure of a machine learning model to provide better context."""
     analysis = {

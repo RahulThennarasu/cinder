@@ -710,3 +710,48 @@ body, #root, [data-reactroot] {
   font-size: 10px;
   opacity: 0.6;
 }
+
+/* Add to BitAutoOptimizer.css */
+
+.validation-indicator {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.valid-indicator {
+  color: #00aa00;
+  display: flex;
+  align-items: center;
+}
+
+.invalid-indicator {
+  color: #cc0000;
+  display: flex;
+  align-items: center;
+}
+
+/* Highlight the error line */
+.error-line {
+  background-color: rgba(255, 0, 0, 0.1) !important;
+  border-left: 3px solid #cc0000 !important;
+}
+
+/* Add to BitAutoOptimizer.css */
+
+.validate-button {
+  font-family: 'Courier New', Courier, monospace;
+  padding: 6px 12px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 10px;
+}
+
+.validate-button:hover {
+  background-color: #e0e0e0;
+}
