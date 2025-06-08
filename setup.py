@@ -23,7 +23,7 @@ for pkg in backend_packages:
 
 setup(
     name="cinder-ml",
-    version="1.8.3",  # Start with version 1.0.0
+    version="1.8.4",  # Start with version 1.0.0
     description="ML model debugging and analysis dashboard",
     author="Rahul Thennarasu",
     author_email="rahulthennarasu07@gmail.com",
