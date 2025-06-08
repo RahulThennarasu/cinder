@@ -637,7 +637,7 @@ async def handle_chat_improvements(websocket: WebSocket, data):
         
         # Call Gemini to identify improvements
         response = bit_optimizer.client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-preview-05-20",
             contents=improvement_prompt
         )
         
@@ -2542,7 +2542,7 @@ async def _call_gemini_with_enhanced_params(self,
             
             # Call the API using the client with optimized parameters
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash",  # Use the best available model
+                model="gemini-2.5-flash-preview-05-20",  # Use the best available model
                 contents=prompt,
                 generation_config={
                     "temperature": 0.2,       # Lower temperature for more precise code
@@ -3221,49 +3221,88 @@ async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key))
         
         # Enhanced prompt engineering with model analysis context
         prompt = f"""
-        You are Bit, an AI assistant specialized in analyzing and improving machine learning code.
+        You are Bit, an AI assistant specialized in optimizing and improving machine learning code. 
+        You have deep expertise in model architecture, training techniques, and performance optimization.
+        You're examining code written in the {request.framework} framework.
         
-        Current code to analyze:
+        # CONTEXT
+        ## User Query
+        User query: "{request.query}"
+        
+        ## Code to Analyze
         ```python
         {request.code}
         ```
         
+        ## Framework Details
         Framework: {request.framework}
         
-        Model Analysis:
+        ## Model Analysis
         {json.dumps(model_analysis, indent=2)}
         
-        Model Metrics:
+        ## Model Metrics (if available)
         - Accuracy: {request.modelInfo.get('accuracy', 'unknown') if request.modelInfo else 'unknown'}
         - Precision: {request.modelInfo.get('precision', 'unknown') if request.modelInfo else 'unknown'}
         - Recall: {request.modelInfo.get('recall', 'unknown') if request.modelInfo else 'unknown'}
 
-        User query: {request.query}
+        # APPROACH
+        1. Thoroughly analyze the code's architecture, training approach, and potential bottlenecks
+        2. Consider multiple approaches to optimize the model for both performance and accuracy
+        3. Consider the user's specific question and tailor your response accordingly
+        4. Be creative and suggest significant architectural improvements when appropriate
+        5. Ensure all code is correct, complete and compatible with the existing codebase
 
-        IMPORTANT FORMATTING INSTRUCTIONS:
-        1. Your response MUST be valid JSON with a "message" field and a "suggestions" array
-        2. For code examples in the "code" field:
-        - DO NOT use markdown code blocks (no triple backticks like ```)
-        - DO NOT use language indicators (like ```python)
+        # YOUR TASK
+        Based on your analysis, provide:
+        1. A direct answer to the user's query
+        2. 1-3 specific code improvement suggestions that are:
+           - Substantial (not trivial tweaks)
+           - Well-explained with rationale
+           - Correct and immediately implementable
+           - Tailored to the specific model architecture
+        3. For each suggestion, include a code example that shows exactly what to implement
+
+        # FRAMEWORK-SPECIFIC CONSIDERATIONS
+        ## PyTorch
+        - Suggest architectural improvements like residual connections, attention mechanisms
+        - Consider regularization techniques beyond basic dropout
+        - Look for opportunities to improve forward pass efficiency
+        - Suggest adaptive learning rate strategies
+        - Consider modern activation functions (GELU, Mish, SiLU)
+
+        ## TensorFlow/Keras
+        - Look for opportunities to use tf.data for input pipeline optimization
+        - Consider TF-specific features like mixed precision training
+        - Suggest appropriate callbacks for monitoring and early stopping
+        - Consider TensorBoard integration for visualization
+
+        ## scikit-learn
+        - Suggest appropriate preprocessing steps
+        - Consider ensemble methods and parameter tuning
+        - Look for opportunities to use pipelines
+
+        # RESPONSE FORMAT
+        Your response MUST be valid JSON with a "message" field and a "suggestions" array.
+        Each suggestion should include a clear title, description, code example, and line number.
+        
+        For code examples in the "code" field:
+        - DO NOT use markdown code blocks (no triple backticks)
+        - DO NOT use language indicators
         - Provide the actual code as plain text with proper indentation
-        - Use real newlines for line breaks, not escaped newlines (\\n)
-        3. Make sure your "lineNumber" field contains the line number where the suggestion should be applied
-        4. Keep your "description" field concise but informative
-
-        Format your response exactly like this JSON example:
+        - Use real newlines for line breaks, not escaped newlines
+        
+        Format your response exactly like this:
         {{
-        "message": "Your main analysis of the code",
-        "suggestions": [
+          "message": "Your main analysis of the code and direct answer to the user's query",
+          "suggestions": [
             {{
-            "title": "Clear and descriptive title",
-            "description": "Explanation of what should be improved and why",
-            "code": "def better_function():\\n    print('This is improved code')\\n    return True",
-            "lineNumber": 42
+              "title": "Clear and descriptive title",
+              "description": "Detailed explanation of what should be improved and why, with expected benefits",
+              "code": "def better_function():\\n    print('This is improved code')\\n    return True",
+              "lineNumber": 42
             }}
-        ]
+          ]
         }}
-
-        Remember: NO markdown syntax in the "code" field, just the raw code itself.
         """
         
         print("Sending request to Gemini API")
@@ -3272,10 +3311,10 @@ async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key))
             model="gemini-1.5-flash",
             contents=prompt,
             generation_config={
-                "temperature": 0.2,       # Lower temperature for more precise code
-                "top_p": 0.95,            # Higher precision in token selection
-                "top_k": 40,              # More candidate tokens considered
-                "max_output_tokens": 8192, # Allow larger responses for complete code
+                "temperature": 0.7,          # Higher temperature for more creative suggestions
+                "top_p": 0.95,               # Higher precision in token selection
+                "top_k": 40,                 # More candidate tokens considered
+                "max_output_tokens": 8192,   # Allow larger responses for complete code
             }
         )
         
@@ -3367,6 +3406,14 @@ async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key))
                     # Fix common indentation issues
                     code = fix_code_indentation(code)
                     
+                    # Verify code doesn't have syntax errors
+                    try:
+                        compile(code, '<string>', 'exec')
+                    except SyntaxError as e:
+                        print(f"Syntax error in suggested code: {e}")
+                        # Try to fix common syntax issues
+                        code = fix_common_syntax_errors(code)
+                    
                     # Update the suggestion with clean code
                     suggestion["code"] = code.strip()
                 else:
@@ -3408,6 +3455,47 @@ async def bit_chat(request: BitChatRequest, api_key: str = Depends(get_api_key))
                 }
             ]
         }
+
+def fix_common_syntax_errors(code: str) -> str:
+    """Fix common syntax errors in Python code."""
+    # Remove trailing commas in function calls or parameter lists
+    code = re.sub(r',\s*\)', ')', code)
+    
+    # Fix indentation after colons
+    code = re.sub(r':\s*(\S)', ':\n    \\1', code)
+    
+    # Fix missing closing parentheses
+    open_count = code.count('(')
+    close_count = code.count(')')
+    if open_count > close_count:
+        code += ')' * (open_count - close_count)
+    
+    # Fix missing closing brackets
+    open_count = code.count('[')
+    close_count = code.count(']')
+    if open_count > close_count:
+        code += ']' * (open_count - close_count)
+    
+    # Fix missing closing braces
+    open_count = code.count('{')
+    close_count = code.count('}')
+    if open_count > close_count:
+        code += '}' * (open_count - close_count)
+    
+    # Fix common typos in keywords
+    typos = {
+        'defn': 'def',
+        'clas': 'class',
+        'functoin': 'function',
+        'retrun': 'return',
+        'imoprt': 'import',
+        'fro ': 'for ',  # Space after to avoid replacing 'from'
+    }
+    
+    for typo, correction in typos.items():
+        code = code.replace(typo, correction)
+        
+    return code
 
 def analyze_model_architecture(code: str, framework: str) -> Dict[str, Any]:
     """Analyze the structure of a machine learning model to provide better context."""

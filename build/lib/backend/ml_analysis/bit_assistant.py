@@ -267,7 +267,7 @@ class BitOptimizer:
                 
                 # Call the API using the client
                 response = self.client.models.generate_content(
-                    model="gemini-2.0-flash",  # Using the same model as in SimpleCodeGenerator
+                    model="gemini-2.5-flash-preview-05-20",  # Using the same model as in SimpleCodeGenerator
                     contents=prompt,
                 )
                 

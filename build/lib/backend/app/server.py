@@ -637,7 +637,7 @@ async def handle_chat_improvements(websocket: WebSocket, data):
         
         # Call Gemini to identify improvements
         response = bit_optimizer.client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-preview-05-20",
             contents=improvement_prompt
         )
         
@@ -2542,7 +2542,7 @@ async def _call_gemini_with_enhanced_params(self,
             
             # Call the API using the client with optimized parameters
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash",  # Use the best available model
+                model="gemini-2.5-flash-preview-05-20",  # Use the best available model
                 contents=prompt,
                 generation_config={
                     "temperature": 0.2,       # Lower temperature for more precise code

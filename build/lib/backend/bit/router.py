@@ -97,7 +97,7 @@ async def bit_chat(request: BitChatRequest = Body(...)):
                 
                 # Generate content using the client
                 response = genai_client.models.generate_content(
-                    model="gemini-1.5-flash",  # or gemini-2.0-flash if available
+                    model="gemini-1.5-flash",  # or gemini-2.5-flash-preview-05-20 if available
                     contents=prompt
                 )
                 
