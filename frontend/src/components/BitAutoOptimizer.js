@@ -23,7 +23,68 @@ const BitAutoOptimizer = ({ modelInfo, inSidePanel = true }) => {
   const [stateLoaded, setStateLoaded] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
 
-  
+  const customCodeStyle = {
+    ...vscDarkPlus,
+    'pre[class*="language-"]': {
+      ...vscDarkPlus['pre[class*="language-"]'],
+      background: '#1E1E1E',
+      padding: '0',
+      margin: '0',
+      overflow: 'auto',
+      borderRadius: '0',
+    },
+    'code[class*="language-"]': {
+      ...vscDarkPlus['code[class*="language-"]'],
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: '14px',
+      lineHeight: '1.5',
+    },
+    // Customize colors for specific tokens
+    comment: {
+      ...vscDarkPlus.comment,
+      color: '#6A9955'
+    },
+    string: {
+      ...vscDarkPlus.string,
+      color: '#FF9B45' // Cinder primary-light
+    },
+    keyword: {
+      ...vscDarkPlus.keyword,
+      color: '#D5451B' // Cinder primary
+    },
+    function: {
+      ...vscDarkPlus.function,
+      color: '#DCDCAA'
+    },
+    boolean: {
+      ...vscDarkPlus.boolean,
+      color: '#D5451B' // Cinder primary
+    },
+    number: {
+      ...vscDarkPlus.number,
+      color: '#FF9B45' // Cinder primary-light
+    },
+    operator: {
+      ...vscDarkPlus.operator,
+      color: '#D4D4D4'
+    },
+    punctuation: {
+      ...vscDarkPlus.punctuation,
+      color: '#D4D4D4'
+    },
+    property: {
+      ...vscDarkPlus.property,
+      color: '#9CDCFE'
+    },
+    'class-name': {
+      ...vscDarkPlus['class-name'],
+      color: '#4EC9B0'
+    },
+    variable: {
+      ...vscDarkPlus.variable,
+      color: '#9CDCFE'
+    },
+  };
   // References
   const websocketRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -599,7 +660,7 @@ const startOptimization = () => {
         <div className="code-container">
           <SyntaxHighlighter
             language="python"
-            style={vscDarkPlus}
+            style={customCodeStyle}
             showLineNumbers={true}
             wrapLines={true}
             customStyle={{
@@ -697,7 +758,7 @@ const startOptimization = () => {
                     <div className="code-diff">
                       <SyntaxHighlighter
                         language="diff"
-                        style={vscDarkPlus}
+                        style={customCodeStyle}
                         showLineNumbers={false}
                       >
                         {message.codeChange.diff}
