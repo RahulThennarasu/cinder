@@ -652,24 +652,6 @@ const startOptimization = () => {
       <div className="chat-panel">
         <div className="chat-header">
           <h3></h3>
-          {isOptimizing && (
-            <div className="optimization-progress">
-              <div className="progress-info">
-                <span className="progress-step">
-                  Step {currentStep} of {totalSteps}: {currentOptimization || 'Analyzing'}
-                </span>
-                <span className="progress-percentage">
-                  {Math.round(optimizationProgress)}%
-                </span>
-              </div>
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill"
-                  style={{ width: `${optimizationProgress}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
         </div>
         
         <div className="chat-messages">
@@ -793,7 +775,7 @@ const startOptimization = () => {
             disabled={isOptimizing || !userInput.trim()}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2"></path>
+              <path d="M12 4l0 16M5 10l7-7 7 7"></path>
             </svg>
           </button>
         </div>
