@@ -1,0 +1,36 @@
+{
+  "cinder_1748314186_095d56139ce307e2af66ad200360c4e7": {
+    "user_id": "test_user",
+    "created_at": 1748314186.8006139,
+    "expires_at": 1779850186.8006139,
+    "permissions": [
+      "basic"
+    ]
+  },
+  "cinder_1748409159_3c21720eece3d41a9dbf3e81888bdb4e": {
+    "user_id": "user_1748409159",
+    "created_at": 1748409159.226488,
+    "expires_at": 1779945159.226488,
+    "permissions": [
+      "basic"
+    ]
+  },
+  "cinder_1748754816_495ce7c37cee08745e4ddd213c6a5b8f": {
+    "user_id": "test_user_123",
+    "tier": "free",
+    "created_at": 1748754816.8943958,
+    "expires_at": 1780290816.894397,
+    "permissions": [
+      "basic"
+    ]
+  },
+  "cinder_1748755053_8022bd86a6902663ded19952b6d6d055": {
+    "user_id": "test_user_123",
+    "tier": "free",
+    "created_at": 1748755053.265562,
+    "expires_at": 1780291053.265562,
+    "permissions": [
+      "basic"
+    ]
+  }
+}

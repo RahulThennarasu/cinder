@@ -1,0 +1,16 @@
+frontend/build/
+cinder_ml.egg-info/
+dist/
+backend/.env
+
+frontend/build/
+frontend/node_modules/
+
+temp_visualizations/
+
+horrible.py
+test_api_validation.py
+test.py
+try.py
+
+
