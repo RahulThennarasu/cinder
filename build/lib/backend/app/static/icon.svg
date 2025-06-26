@@ -1,0 +1,12 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" fill="none" /> <!-- Transparent background -->
+  <g transform="rotate(45 16 16)">
+    <rect x="4" y="4" width="24" height="24" fill="url(#gradient)" />
+  </g>
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9B45" />
+      <stop offset="100%" stop-color="#D5451B" />
+    </linearGradient>
+  </defs>
+</svg>
