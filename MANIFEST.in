@@ -1,4 +1,0 @@
-recursive-include backend *
-include backend/.env
-recursive-include cinder *
-
